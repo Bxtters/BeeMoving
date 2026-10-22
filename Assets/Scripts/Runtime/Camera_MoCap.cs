@@ -27,9 +27,7 @@ namespace Handline
     public sealed partial class Camera_MoCap : MonoBehaviour
     {
         /// <summary>
-        /// Play opens this stage instead of the lane while this is true.
-        /// Set it to false to boot the runner again. The two displays are not
-        /// meant to share one camera.
+        /// Creates the camera stage when Play starts and the open scene does not already contain it.
         /// </summary>
         public const bool OpenInsteadOfLane = true;
 
@@ -197,14 +195,12 @@ namespace Handline
 
         /// <summary>
         /// Creates the camera stage when the open scene does not already contain it.
-        /// The lane scene keeps its own display.
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
             if (!OpenInsteadOfLane) return;
             if (UnityEngine.Object.FindAnyObjectByType<Camera_MoCap>() != null) return;
-            if (UnityEngine.Object.FindAnyObjectByType<HandlineApp>() != null) return;
             GameObject stageObject = new GameObject("Camera_MoCap");
             stageObject.AddComponent<Camera_MoCap>();
         }
@@ -402,7 +398,7 @@ namespace Handline
         }
 
         /// <summary>
-        /// Loads the Handline Lightning file first, then the six-person file for groups.
+        /// Loads the single-person Lightning file first, then the six-person file for groups.
         /// One person uses Lightning. More than one person uses MultiPose.
         /// </summary>
         IEnumerator LoadModelFiles()
@@ -443,7 +439,7 @@ namespace Handline
         }
 
         /// <summary>
-        /// Lightning for one person, the same file Handline uses. MultiPose when the dropdown asks for more.
+        /// Lightning for one person. MultiPose when the dropdown asks for more.
         /// </summary>
         PoseEngine ActiveEngine()
         {
@@ -467,8 +463,8 @@ namespace Handline
         {
             PoseEngine active = ActiveEngine();
             if (active == null) return;
-            bool handline = active == engine;
-            modelLabel = handline ? "MoveNet Lightning" : "MoveNet MultiPose Lightning";
+            bool single = active == engine;
+            modelLabel = single ? "MoveNet Lightning" : "MoveNet MultiPose Lightning";
             if (!string.IsNullOrEmpty(active.Summary)) modelLabel += "  ·  " + active.Summary;
         }
 
@@ -971,7 +967,7 @@ namespace Handline
         }
 
         /// <summary>
-        /// Copies the Handline MoveNet read straight onto the stage. No extra smoothing or guesses.
+        /// Copies the MoveNet read straight onto the stage. No extra smoothing or guesses.
         /// </summary>
         void ApplyRawPoses()
         {

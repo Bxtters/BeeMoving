@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 namespace Handline
 {
     /// <summary>
-    /// Keyboard reads for the camera stage and the lane.
+    /// Keyboard reads for the camera stage.
     /// Added so both displays share one input path instead of calling the Input System in every file.
     /// A missing keyboard returns false, which adds a safe no-op on devices with no keys.
     /// </summary>
@@ -19,7 +19,7 @@ namespace Handline
         }
 
         /// <summary>
-        /// True while the key stays down. Adds held actions such as jump and slide.
+        /// True while the key stays down. Added for controls that stay active until the key is released.
         /// </summary>
         public static bool Held(Key key)
         {

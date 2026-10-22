@@ -6,7 +6,7 @@ namespace Handline
 {
     /// <summary>
     /// Talks to MoveNet if the TensorFlow Lite package imported.
-    /// The lane still runs when that package is missing.
+    /// The camera stage still opens when that package is missing and shows the reason on the status line.
     /// </summary>
     public sealed class PoseEngine : IDisposable
     {

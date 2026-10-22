@@ -1050,7 +1050,7 @@ namespace Handline
 
 
         /// <summary>
-        /// Sets how many people to track. One person uses the Handline Lightning model.
+        /// Sets how many people to track. One person uses the Lightning model.
         /// </summary>
         void PickPeople(int index)
         {

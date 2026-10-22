@@ -47,7 +47,7 @@ namespace Handline
     }
 
     /// <summary>
-    /// One person's 17 points. Added as the shared pose the camera stage, the overlay, and the lane all read.
+    /// One person's 17 points. Added as the pose the camera stage reads.
     /// </summary>
     public sealed class PoseFrame
     {
@@ -73,20 +73,5 @@ namespace Handline
 
             return Joints[index];
         }
-    }
-
-    /// <summary>
-    /// The lane's reading of a pose: jump, slide, one lane step, and a sprint amount.
-    /// Added so the gesture rules can be tested without a camera or a scene.
-    /// </summary>
-    public struct GestureSignal
-    {
-        public bool Tracking;
-        public bool JumpHeld;
-        public bool DuckHeld;
-        public int LaneStep;
-        public float Run;
-        public float Confidence;
-        public string Label;
     }
 }

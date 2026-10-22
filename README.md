@@ -10,11 +10,11 @@ This repository folder is that same Unity project if you already have it checked
 2. Leave the project alone until the first import finishes. It needs an internet connection once, so Package Manager can download TensorFlow Lite.
 3. `Assets/Scenes/Camera_MoCap.unity` opens by itself. Press Play.
 
-Press Play to see the start screen. **Start** (or Enter) opens the camera. A polygon character stands on a Unity plane and follows the pose. The camera picture stays in the bottom-left corner with the skeleton on it. The picture is not saved. Settings, phone pairing, and the USB steps are unchanged. **F** mirrors, **Q** rotates, and **C** switches camera. The lane runner does not start.
+Press Play to see the start screen. **Start** (or Enter) opens the camera. A polygon character stands on a Unity plane and follows the pose. The camera picture stays in the bottom-left corner with the skeleton on it. The picture is not saved. Settings, phone pairing, and the USB steps are unchanged. **F** mirrors, **Q** rotates, and **C** switches camera.
 
 ## Camera
 
-The pose read is the Handline one. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The character is a polygon body on the plane. Shoulders, elbows, wrists, knees, and ankles follow the camera. An arm over the chest or the face is placed in front of the body. A reach behind the back is left as it is. A raised arm is only an arm: a knee or ankle on that arm is ignored, so the leg does not climb to the head. The whole body eases through the pose. A straight arm keeps the elbow on the arm. A joint that leaves the frame eases back to the standing pose instead of freezing. Choose 2–6 people in Settings to use MultiPose. The lane does not run.
+The pose read is the camera stage. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The character is a polygon body on the plane. Shoulders, elbows, wrists, knees, and ankles follow the camera. An arm over the chest or the face is placed in front of the body. A reach behind the back is left as it is. A raised arm is only an arm: a knee or ankle on that arm is ignored, so the leg does not climb to the head. The whole body eases through the pose. A straight arm keeps the elbow on the arm. A joint that leaves the frame eases back to the standing pose instead of freezing. Choose 2–6 people in Settings to use MultiPose.
 
 The camera stays on this machine. The picture is shown in the corner and it is not saved. Nose, eye, and ear points are not part of the drawn body. Hands are the wrists, because that is what MoveNet measures.
 
@@ -122,7 +122,7 @@ Open http://localhost:8741/skeleton.html and allow the camera. On a Chromebook, 
 
 The TensorFlow Lite interpreter comes from [TensorFlow Lite for Unity](https://github.com/asus4/tf-lite-unity-sample) by Koki Ibukuro, Apache License 2.0. It is declared in `Packages/manifest.json` and is not copied into this repo.
 
-Play starts the camera stage. The lane is still `Assets/Scenes/Main.unity`. Open that scene and press Play to run it. The camera stage does not replace the lane while that scene is open.
+Play starts the camera stage.
 
 ## Troubleshooting
 
