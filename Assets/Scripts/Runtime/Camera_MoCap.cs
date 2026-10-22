@@ -31,7 +31,7 @@ namespace Handline
         /// Set it to false to boot the runner again. The two displays are not
         /// meant to share one camera.
         /// </summary>
-        public const bool OpenInsteadOfLane = true;
+        public const bool OpenInsteadOfLane = false;
 
         /// <summary>MoveNet MultiPose Lightning publishes at most six people.</summary>
         public const int MaxPeople = 6;
@@ -246,6 +246,12 @@ namespace Handline
         /// </summary>
         void Awake()
         {
+            if (!OpenInsteadOfLane)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
             try
             {
                 for (int i = 0; i < MaxPeople; i++)

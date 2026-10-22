@@ -10,13 +10,13 @@ This repository folder is that same Unity project if you already have it checked
 2. Leave the project alone until the first import finishes. It needs an internet connection once, so Package Manager can download TensorFlow Lite.
 3. `Assets/Scenes/Camera_MoCap.unity` opens by itself. Press Play.
 
-Press Play to see a start screen. **Start** (or Enter) puts a simple character on a small floor. The character follows the pose from the camera. The camera picture sits in the bottom-left corner and is not saved. Press the yellow **Settings** button or **Tab**. **Pair phone** shows the wireless steps. **USB cable** is the plugged-in iPhone setup. If the pose is sideways, press **Q**. If your left and right feel swapped, press **F**.
+Press Play. Motion capture is the Handline camera path: the picture and skeleton are in the corner. The lane runner does not start. **F** mirrors, **Q** rotates, **C** switches camera. The picture is not saved.
 
 ## Camera
 
-`Camera_MoCap` tracks one person with the same MoveNet Lightning file Handline uses, at the same 384-pixel crop, on every new camera frame. Choose 2–6 people in the People dropdown to switch to MultiPose. A joint that leaves the picture stays where it was last seen. It does not move, and it is not placed back on screen, until the camera picks it up again. Settings for the camera, resolution, frame rate, mirror, rotation, people, and tracking are dropdowns.
+Play uses the Handline motion-capture code. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The skeleton is drawn on that picture. Choose 2–6 people in the People dropdown to use MultiPose. The lane does not run.
 
-The camera stays on this machine. The picture is shown in the bottom-left corner and it is not saved. Nose, eye, and ear points are thrown away before anything is drawn. The character uses shoulders, elbows, wrists, hips, knees, and ankles. MoveNet measures a hand at the wrist, so the character's hands end there.
+The camera stays on this machine. The picture is shown in the corner and it is not saved. Nose, eye, and ear points are not part of the drawn body. Hands are the wrists, because that is what MoveNet measures.
 
 The settings card is a light yellow sheet, closer to a Google web app: a pale yellow surface, a thin gold edge, warm type, and yellow for the main actions. It stays inside the window and scrolls when the list is taller than the screen.
 
