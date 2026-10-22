@@ -14,6 +14,7 @@ namespace Handline
         Interpreter interpreter;
         byte[] input;
         float[] output;
+        readonly int[] rank = new int[] { 0, 1, 2, 3, 4, 5 };
         int inputSize;
         bool multi;
         bool broken;
@@ -141,16 +142,16 @@ namespace Handline
         int ReadPeople(PoseFrame[] poses, int maxPeople)
         {
             if (maxPeople > 6) maxPeople = 6;
-            int[] order = new int[] { 0, 1, 2, 3, 4, 5 };
+            for (int i = 0; i < rank.Length; i++) rank[i] = i;
             for (int a = 0; a < 6; a++)
             {
                 for (int b = a + 1; b < 6; b++)
                 {
-                    if (PersonScore(order[b]) > PersonScore(order[a]))
+                    if (PersonScore(rank[b]) > PersonScore(rank[a]))
                     {
-                        int swap = order[a];
-                        order[a] = order[b];
-                        order[b] = swap;
+                        int swap = rank[a];
+                        rank[a] = rank[b];
+                        rank[b] = swap;
                     }
                 }
             }
@@ -158,7 +159,7 @@ namespace Handline
             int written = 0;
             for (int n = 0; n < 6 && written < maxPeople; n++)
             {
-                int person = order[n];
+                int person = rank[n];
                 if (PersonScore(person) < 0.2f) continue;
                 if (poses[written] == null) poses[written] = new PoseFrame();
                 int origin = person * 56;

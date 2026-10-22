@@ -22,7 +22,7 @@ The settings card is a light rounded sheet, closer to a Google web app: white su
 
 | Row | What it changes |
 |---|---|
-| Resolution | 640×480, 1280×720, or 1920×1080 |
+| Resolution | Auto, 640×480, 1280×720, or 1920×1080 |
 | Frame rate | 15, 30, or 60 |
 | Mirror | Flip the skeleton left and right |
 | Rotate | Turn the crop 0°, 90°, 180°, or 270° |
@@ -130,7 +130,7 @@ Older lane scripts remain in the project and are not part of the build. Play sta
 
 **The skeleton is sideways or left and right are swapped.** Press Q to rotate, and F if the mirror is backwards. The skeleton is drawn on the same crop the model sees.
 
-**No camera in the list.** Plug one in, or finish the pairing steps and press Refresh. The list also refreshes on its own.
+**No camera in the list.** Allow Unity under Windows Settings → Privacy → Camera, then press Refresh. Resolution **Auto** uses the size the camera actually supports. If a chosen size sends no frames, the stage tries 640×480 and then the camera's own size. The camera list is not polled while a camera is already sending frames, because that read drops the connection on Windows.
 
 **The phone never appears on Windows.** Continuity Camera will not show up there. For a cable, open Settings, then USB cable, install Apple Devices, and use Iriun over that cable. For Wi-Fi, use Pair phone.
 

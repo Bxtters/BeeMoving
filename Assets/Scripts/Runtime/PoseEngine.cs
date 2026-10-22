@@ -15,6 +15,9 @@ namespace Handline
         readonly MethodInfo tryPeople;
         readonly PropertyInfo summary;
         readonly PropertyInfo failure;
+        readonly PropertyInfo inputSize;
+        readonly object[] peopleArgs = new object[4];
+        readonly object[] oneArgs = new object[3];
 
         public string Summary
         {
@@ -33,6 +36,20 @@ namespace Handline
             tryPeople = type.GetMethod("TryInferPeople");
             summary = type.GetProperty("Summary");
             failure = type.GetProperty("Failure");
+            inputSize = type.GetProperty("InputSize");
+        }
+
+        /// <summary>
+        /// Model edge length in pixels. The stage crops to this so it does not scale the frame twice.
+        /// </summary>
+        public int InputSize
+        {
+            get
+            {
+                if (inputSize == null || inner == null) return 0;
+                object value = inputSize.GetValue(inner, null);
+                return value is int ? (int)value : 0;
+            }
         }
 
         public static PoseEngine Create(byte[] model)
@@ -46,14 +63,21 @@ namespace Handline
         public bool TryInfer(Color32[] upright, int size, PoseFrame pose)
         {
             if (tryInfer == null || inner == null) return false;
-            return (bool)tryInfer.Invoke(inner, new object[] { upright, size, pose });
+            oneArgs[0] = upright;
+            oneArgs[1] = size;
+            oneArgs[2] = pose;
+            return (bool)tryInfer.Invoke(inner, oneArgs);
         }
 
         public int TryRead(Color32[] upright, int size, PoseFrame[] poses, int maxPeople)
         {
             if (tryPeople != null && inner != null)
             {
-                return (int)tryPeople.Invoke(inner, new object[] { upright, size, poses, maxPeople });
+                peopleArgs[0] = upright;
+                peopleArgs[1] = size;
+                peopleArgs[2] = poses;
+                peopleArgs[3] = maxPeople;
+                return (int)tryPeople.Invoke(inner, peopleArgs);
             }
 
             if (poses == null || poses.Length == 0 || maxPeople <= 0) return 0;

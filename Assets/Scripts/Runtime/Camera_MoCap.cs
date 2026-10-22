@@ -35,7 +35,8 @@ namespace Handline
         /// <summary>MoveNet MultiPose Lightning publishes at most six people.</summary>
         public const int MaxPeople = 6;
 
-        const int CropSize = 384;
+        const int CropSize = 192;
+        const float PoseInterval = 0.07f;
         const int MinBodyPoints = 3;
         const float SlotMatchDistance = 0.35f;
         const string MultiModelFile = "movenet_multipose.tflite";
@@ -135,6 +136,12 @@ namespace Handline
 
         PoseEngine engine;
         WebCamTexture webcam;
+        WebCamDevice[] cachedDevices = new WebCamDevice[0];
+        readonly int[] tryW = new int[3];
+        readonly int[] tryH = new int[3];
+        readonly int[] tryF = new int[3];
+        readonly bool[] slotTaken = new bool[MaxPeople];
+        readonly int[] slotAssigned = new int[MaxPeople];
         RectTransform canvasRect;
         RectTransform stage;
         Image[][] lines;
@@ -171,7 +178,14 @@ namespace Handline
         float nextDeviceScan;
         float poseUntil;
         float cameraOpenedAt;
+        float nextPose;
         bool mirror = true;
+        bool cameraReady;
+        bool poseDirty = true;
+        bool reportedGiveUp;
+        int tryIndex;
+        int tryCount;
+        int modelInputSize;
         bool ready;
         bool cameraHeldOff;
         bool resuming;
@@ -184,6 +198,9 @@ namespace Handline
         GameObject settingsCable;
         Text pairingStatus;
         Text cableStatus;
+        Transform deviceList;
+        string deviceSig = "";
+        Font settingsFont;
         Text settingsCameraText;
         Text settingsResolutionText;
         Text settingsFpsText;
@@ -237,6 +254,14 @@ namespace Handline
             if (!ready) yield break;
             yield return LoadModel();
             if (engine == null || cameraHeldOff) yield break;
+            if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
+            {
+                yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
+            }
+
+            float until = Time.unscaledTime + 3f;
+            while (Time.unscaledTime < until && ReadDevices(true).Length == 0)
+                yield return new WaitForSecondsRealtime(0.4f);
             OpenCamera(ChooseStartupCamera());
         }
 
@@ -246,25 +271,28 @@ namespace Handline
         void Update()
         {
             if (!ready) return;
-            LayoutStage();
+            if (LayoutStage()) poseDirty = true;
             LayoutSettingsCard();
             PollKeys();
+            WatchCamera();
             if (!cameraHeldOff && engine != null) ScanDevices();
 
-            if (webcam != null && webcam.isPlaying && webcam.didUpdateThisFrame && webcam.width > 16)
+            if (webcam != null && webcam.isPlaying && webcam.width > 16 && Time.unscaledTime >= nextPose)
             {
                 CaptureAndEstimate();
+                nextPose = Time.unscaledTime + PoseInterval;
+                poseDirty = true;
             }
-            else if (!cameraHeldOff && webcam != null && webcam.isPlaying && webcam.width <= 16 && Time.unscaledTime > cameraOpenedAt + 3f)
+            else if (webcam == null && poseUntil > 0f && Time.unscaledTime > poseUntil)
             {
-                SetStatus("The camera did not start. Allow the camera for Unity, then press C.");
-            }
-            else if (Time.unscaledTime > poseUntil)
-            {
+                poseUntil = 0f;
                 ClearCrowd();
                 ShowCount(0);
+                poseDirty = true;
             }
 
+            if (!poseDirty) return;
+            poseDirty = false;
             Redraw();
         }
 
@@ -339,7 +367,8 @@ namespace Handline
 
             if (Keys.Pressed(Key.C))
             {
-                int count = WebCamTexture.devices.Length;
+                if (cachedDevices == null || cachedDevices.Length == 0) ReadDevices(true);
+                int count = cachedDevices == null ? 0 : cachedDevices.Length;
                 if (count > 0) OpenCamera((cameraIndex + 1) % count);
             }
         }
@@ -533,6 +562,7 @@ namespace Handline
             if (engine == null) return;
             engine.Dispose();
             engine = null;
+            modelInputSize = 0;
         }
 
         /// <summary>
@@ -550,10 +580,11 @@ namespace Handline
                 Color32[] filled = webcam.GetPixels32(sensorPixels);
                 if (filled == null) return;
                 if (filled != sensorPixels) sensorPixels = filled;
-                FillCrop(sensorPixels, sw, sh);
+                int modelSize = ModelSize();
+                FillCrop(sensorPixels, sw, sh, modelSize);
                 if (engine != null)
                 {
-                    crowdCount = engine.TryRead(crop, CropSize, crowd, peopleLimit);
+                    crowdCount = engine.TryRead(crop, modelSize, crowd, peopleLimit);
                     if (crowdCount < 0) crowdCount = 0;
                     if (crowdCount > MaxPeople) crowdCount = MaxPeople;
                 }
@@ -584,8 +615,20 @@ namespace Handline
             }
             finally
             {
-                WipePixels();
+                if (crop != null) Array.Clear(crop, 0, crop.Length);
             }
+        }
+
+        /// <summary>
+        /// Uses the model edge when MoveNet has reported one. 192 is Lightning's usual input.
+        /// </summary>
+        int ModelSize()
+        {
+            if (modelInputSize >= 96) return modelInputSize;
+            int size = engine == null ? 0 : engine.InputSize;
+            if (size < 96 || size > 320) size = CropSize;
+            modelInputSize = size;
+            return size;
         }
 
         /// <summary>
@@ -602,23 +645,24 @@ namespace Handline
         /// Center-crops the sensor image into the upright square MoveNet reads.
         /// The square is the model input. It is not copied onto a texture.
         /// </summary>
-        void FillCrop(Color32[] source, int srcWidth, int srcHeight)
+        void FillCrop(Color32[] source, int srcWidth, int srcHeight, int size)
         {
-            if (crop == null || crop.Length != CropSize * CropSize)
+            if (size < 32) size = CropSize;
+            if (crop == null || crop.Length != size * size)
             {
-                crop = new Color32[CropSize * CropSize];
+                crop = new Color32[size * size];
             }
 
             int rotation = webcam.videoRotationAngle + extraRotation;
             bool vertical = webcam.videoVerticallyMirrored;
-            for (int y = 0; y < CropSize; y++)
+            for (int y = 0; y < size; y++)
             {
-                int row = y * CropSize;
-                for (int x = 0; x < CropSize; x++)
+                int row = y * size;
+                for (int x = 0; x < size; x++)
                 {
                     int bx;
                     int by;
-                    FrameOrient.Map(x, y, CropSize, srcWidth, srcHeight, rotation, vertical, mirror, out bx, out by);
+                    FrameOrient.Map(x, y, size, srcWidth, srcHeight, rotation, vertical, mirror, out bx, out by);
                     int index = by * srcWidth + bx;
                     crop[row + x] = index >= 0 && index < source.Length ? source[index] : default(Color32);
                 }
@@ -746,9 +790,11 @@ namespace Handline
         /// </summary>
         void Stabilize()
         {
-            bool[] taken = new bool[MaxPeople];
-            int[] assigned = new int[MaxPeople];
-            for (int i = 0; i < MaxPeople; i++) assigned[i] = -1;
+            for (int i = 0; i < MaxPeople; i++)
+            {
+                slotTaken[i] = false;
+                slotAssigned[i] = -1;
+            }
 
             for (int slot = 0; slot < MaxPeople; slot++)
             {
@@ -757,7 +803,7 @@ namespace Handline
                 float bestDist = SlotMatchDistance;
                 for (int n = 0; n < crowdCount && n < MaxPeople; n++)
                 {
-                    if (taken[n] || !HasBody(crowd[n])) continue;
+                    if (slotTaken[n] || !HasBody(crowd[n])) continue;
                     float x;
                     float y;
                     if (!Torso(crowd[n], out x, out y)) continue;
@@ -771,26 +817,26 @@ namespace Handline
 
                 if (best >= 0)
                 {
-                    taken[best] = true;
-                    assigned[slot] = best;
+                    slotTaken[best] = true;
+                    slotAssigned[slot] = best;
                 }
             }
 
             for (int n = 0; n < crowdCount && n < MaxPeople; n++)
             {
-                if (taken[n] || !HasBody(crowd[n])) continue;
+                if (slotTaken[n] || !HasBody(crowd[n])) continue;
                 for (int slot = 0; slot < MaxPeople; slot++)
                 {
-                    if (assigned[slot] >= 0) continue;
-                    assigned[slot] = n;
-                    taken[n] = true;
+                    if (slotAssigned[slot] >= 0) continue;
+                    slotAssigned[slot] = n;
+                    slotTaken[n] = true;
                     break;
                 }
             }
 
             for (int slot = 0; slot < MaxPeople; slot++)
             {
-                int source = assigned[slot];
+                int source = slotAssigned[slot];
                 if (source < 0)
                 {
                     Blank(stable[slot]);
@@ -858,42 +904,131 @@ namespace Handline
         }
 
         /// <summary>
-        /// Opens one camera at the size chosen in settings. The picture is read for MoveNet and is not assigned to a view.
+        /// Opens one camera. The picture is read for MoveNet and is not assigned to a view.
+        /// A size the device rejects is followed by 640×480, then by the device's own size.
         /// </summary>
         void OpenCamera(int index)
         {
-            WebCamDevice[] devices = WebCamTexture.devices;
-            if (devices == null || devices.Length == 0)
+            EnsureDeviceCache(cachedDevices == null || cachedDevices.Length == 0);
+            if (cachedDevices.Length == 0)
             {
-                knownDeviceCount = 0;
                 ReleaseCamera();
+                cameraReady = false;
                 RefreshSettingLabels();
-                SetStatus("No camera detected.");
+                SetStatus("No camera is listed. On Windows, allow Unity under Privacy and Camera, then press Refresh.");
                 return;
             }
 
-            if (index < 0 || index >= devices.Length) index = 0;
+            if (index < 0 || index >= cachedDevices.Length) index = 0;
             cameraIndex = index;
-            knownDeviceCount = devices.Length;
-            savedCameraName = devices[index].name;
-            SaveSettings();
+            cameraHeldOff = false;
+            BuildTries();
+            tryIndex = 0;
+            PlayTry();
+            RefreshSettingLabels();
+        }
+
+        /// <summary>
+        /// Starts the current fallback size. Asking WebCamTexture for an unsupported mode never throws. It just sends no frames.
+        /// </summary>
+        void PlayTry()
+        {
+            reportedGiveUp = false;
+            cameraReady = false;
             ReleaseCamera();
+            if (cachedDevices == null || cameraIndex < 0 || cameraIndex >= cachedDevices.Length) return;
+            string name = cachedDevices[cameraIndex].name;
+            int w = tryW[tryIndex];
+            int h = tryH[tryIndex];
+            int fps = tryF[tryIndex];
             try
             {
-                webcam = new WebCamTexture(devices[index].name, requestWidth, requestHeight, requestFps);
+                webcam = w <= 0 ? new WebCamTexture(name) : new WebCamTexture(name, w, h, fps);
                 webcam.Play();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 ReleaseCamera();
-                SetStatus("The camera did not start. Allow the camera for Unity, then choose another one in Settings.");
+                SetStatus("The camera did not start. " + ex.Message);
                 RefreshSettingLabels();
                 return;
             }
 
             cameraOpenedAt = Time.unscaledTime;
-            RefreshSettingLabels();
-            RefreshStatus();
+            SetStatus(w <= 0 ? "Starting camera at its own size…" : "Starting camera at " + w + "×" + h + "…");
+        }
+
+        /// <summary>
+        /// Records the sizes to try, skipping duplicates.
+        /// </summary>
+        void BuildTries()
+        {
+            tryCount = 0;
+            AddTry(requestWidth, requestHeight, requestWidth <= 0 ? 0 : requestFps);
+            if (requestWidth != 640 || requestHeight != 480) AddTry(640, 480, 30);
+            if (requestWidth != 0 || requestHeight != 0) AddTry(0, 0, 0);
+            if (tryCount == 0) AddTry(0, 0, 0);
+        }
+
+        /// <summary>
+        /// Appends one camera mode when it is not already in the list.
+        /// </summary>
+        void AddTry(int width, int height, int fps)
+        {
+            if (tryCount >= tryW.Length) return;
+            for (int i = 0; i < tryCount; i++)
+            {
+                if (tryW[i] == width && tryH[i] == height) return;
+            }
+
+            tryW[tryCount] = width;
+            tryH[tryCount] = height;
+            tryF[tryCount] = fps;
+            tryCount++;
+        }
+
+        /// <summary>
+        /// Advances to the next size when the current one stays blank. A live camera is left alone.
+        /// </summary>
+        void WatchCamera()
+        {
+            if (cameraHeldOff || webcam == null) return;
+            if (webcam.width > 16 && webcam.height > 16)
+            {
+                if (cameraReady) return;
+                cameraReady = true;
+                if (cachedDevices != null && cameraIndex >= 0 && cameraIndex < cachedDevices.Length)
+                    savedCameraName = cachedDevices[cameraIndex].name;
+                SaveSettings();
+                RefreshStatus();
+                RefreshSettingLabels();
+                return;
+            }
+
+            if (Time.unscaledTime < cameraOpenedAt + 2.2f) return;
+            if (tryIndex + 1 < tryCount)
+            {
+                tryIndex++;
+                PlayTry();
+                return;
+            }
+
+            if (reportedGiveUp) return;
+            reportedGiveUp = true;
+            SetStatus("The camera is listed, but no frames arrived. Set Resolution to Auto, allow Unity under Privacy and Camera, then press Refresh.");
+        }
+
+        /// <summary>
+        /// Reads the operating-system camera list. A playing camera is not queried again, because that read drops the stream on Windows.
+        /// </summary>
+        WebCamDevice[] ReadDevices(bool force)
+        {
+            if (!force && cachedDevices != null && cachedDevices.Length > 0) return cachedDevices;
+            WebCamDevice[] found = WebCamTexture.devices;
+            cachedDevices = found ?? new WebCamDevice[0];
+            knownDeviceCount = cachedDevices.Length;
+            deviceSig = "";
+            return cachedDevices;
         }
 
         /// <summary>
@@ -912,7 +1047,7 @@ namespace Handline
         /// </summary>
         int ChooseStartupCamera()
         {
-            WebCamDevice[] devices = WebCamTexture.devices;
+            WebCamDevice[] devices = ReadDevices(false);
             if (devices == null || devices.Length == 0) return 0;
             if (!string.IsNullOrEmpty(savedCameraName))
             {
@@ -940,22 +1075,19 @@ namespace Handline
         }
 
         /// <summary>
-        /// Notices a newly connected camera. A phone that appears while pairing is selected on its own.
+        /// Notices a camera that appears while none is open. A playing camera is not polled, because that drops the stream on Windows.
         /// </summary>
         void ScanDevices()
         {
+            if (webcam != null) return;
             if (Time.unscaledTime < nextDeviceScan) return;
-            nextDeviceScan = Time.unscaledTime + 1.2f;
-            WebCamDevice[] devices = WebCamTexture.devices;
-            int count = devices == null ? 0 : devices.Length;
-            if (count == knownDeviceCount) return;
-            knownDeviceCount = count;
+            nextDeviceScan = Time.unscaledTime + 2f;
+            int previous = knownDeviceCount;
+            WebCamDevice[] devices = ReadDevices(true);
+            int count = devices.Length;
+            if (count == previous) return;
             RefreshSettingLabels();
-            if (count == 0)
-            {
-                ReleaseCamera();
-                return;
-            }
+            if (count == 0) return;
 
             if (waitingForPhone || waitingForCable)
             {
@@ -987,7 +1119,7 @@ namespace Handline
             canvasObject.transform.SetParent(transform, false);
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.pixelPerfect = true;
+            canvas.pixelPerfect = false;
             canvas.sortingOrder = 100;
             canvas.targetDisplay = 0;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
@@ -1093,14 +1225,15 @@ namespace Handline
         /// <summary>
         /// Sizes the square stage inside the screen margins.
         /// </summary>
-        void LayoutStage()
+        bool LayoutStage()
         {
-            if (stage == null || canvasRect == null) return;
+            if (stage == null || canvasRect == null) return false;
             Rect area = canvasRect.rect;
             float side = Mathf.Min(area.width - 64f, area.height - 280f);
             if (side < 64f) side = 64f;
-            if (Mathf.Abs(stage.sizeDelta.x - side) < 0.5f) return;
+            if (Mathf.Abs(stage.sizeDelta.x - side) < 0.5f) return false;
             stage.sizeDelta = new Vector2(side, side);
+            return true;
         }
 
         /// <summary>
@@ -1325,8 +1458,8 @@ namespace Handline
             requestHeight = PlayerPrefs.GetInt(PrefHeight, 480);
             if (!KnownResolution(requestWidth, requestHeight))
             {
-                requestWidth = 640;
-                requestHeight = 480;
+                requestWidth = 0;
+                requestHeight = 0;
             }
 
             requestFps = PlayerPrefs.GetInt(PrefFps, 30);
@@ -1358,7 +1491,7 @@ namespace Handline
         /// </summary>
         static bool KnownResolution(int width, int height)
         {
-            return (width == 640 && height == 480) || (width == 1280 && height == 720) || (width == 1920 && height == 1080);
+            return (width == 0 && height == 0) || (width == 640 && height == 480) || (width == 1280 && height == 720) || (width == 1920 && height == 1080);
         }
 
         /// <summary>
@@ -1394,19 +1527,9 @@ namespace Handline
         /// </summary>
         void BuildSettings(Font font, Sprite sprite)
         {
-            int u = Screen.height >= 1600 ? 2 : 1;
-            GameObject canvasObject = new GameObject("Settings Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            canvasObject.transform.SetParent(transform, false);
-            Canvas canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.pixelPerfect = true;
-            canvas.sortingOrder = 500;
-            canvas.targetDisplay = 0;
-            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-            scaler.scaleFactor = 1f;
-            scaler.referencePixelsPerUnit = 100f;
-            RectTransform root = canvasObject.GetComponent<RectTransform>();
+            int u = 1;
+            settingsFont = font;
+            RectTransform root = canvasRect;
 
             Button open = MakeButton("Open Settings", root, roundSprite, font, "Settings", delegate { SetSettingsOpen(true); }, Btn.Filled);
             Text openLabel = open.GetComponentInChildren<Text>();
@@ -1444,6 +1567,12 @@ namespace Handline
             settingsCard.anchorMin = new Vector2(0.5f, 0.5f);
             settingsCard.anchorMax = new Vector2(0.5f, 0.5f);
             settingsCard.pivot = new Vector2(0.5f, 0.5f);
+            settingsCard.sizeDelta = new Vector2(520f, 640f);
+            if (settingsShadow != null)
+            {
+                settingsShadow.sizeDelta = settingsCard.sizeDelta;
+                settingsShadow.anchoredPosition = new Vector2(0f, -4f);
+            }
 
             Button close = MakeButton("Close", panel.transform, roundSprite, font, "Close", delegate { SetSettingsOpen(false); }, Btn.Text);
             Text closeLabel = close.GetComponentInChildren<Text>();
@@ -1474,6 +1603,7 @@ namespace Handline
             BuildPairingPage(panel.transform, font, sprite, u);
             BuildCablePage(panel.transform, font, sprite, u);
 
+            settingsRoot.transform.SetAsLastSibling();
             settingsRoot.SetActive(false);
             LayoutSettingsCard();
             RefreshSettingLabels();
@@ -1484,24 +1614,17 @@ namespace Handline
         /// </summary>
         void LayoutSettingsCard()
         {
-            if (settingsCard == null) return;
-            if (Screen.width < 16 || Screen.height < 16)
-            {
-                settingsCard.sizeDelta = new Vector2(400f, 560f);
-                if (settingsShadow != null)
-                {
-                    settingsShadow.sizeDelta = settingsCard.sizeDelta;
-                    settingsShadow.anchoredPosition = new Vector2(0f, -4f);
-                }
-
-                return;
-            }
-            if (Screen.width == settingsSeenW && Screen.height == settingsSeenH) return;
-            settingsSeenW = Screen.width;
-            settingsSeenH = Screen.height;
-            int u = Screen.height >= 1600 ? 2 : 1;
-            float w = Mathf.Clamp(Screen.width - (48f * u), 300f, 440f * u);
-            float h = Mathf.Clamp(Screen.height - (48f * u), 320f, 680f * u);
+            if (settingsCard == null || canvasRect == null) return;
+            Rect area = canvasRect.rect;
+            if (area.width < 16f || area.height < 16f) return;
+            int seenW = Mathf.RoundToInt(area.width);
+            int seenH = Mathf.RoundToInt(area.height);
+            if (seenW == settingsSeenW && seenH == settingsSeenH) return;
+            settingsSeenW = seenW;
+            settingsSeenH = seenH;
+            int u = 1;
+            float w = Mathf.Clamp(area.width - (80f * u), 360f, 520f);
+            float h = Mathf.Clamp(area.height - (96f * u), 460f, 700f);
             settingsCard.sizeDelta = new Vector2(w, h);
             if (settingsShadow == null) return;
             settingsShadow.sizeDelta = new Vector2(w, h);
@@ -1515,6 +1638,20 @@ namespace Handline
         {
             SectionLabel(page, font, "Camera", 12 * u, 22 * u);
             settingsCameraText = BlockLabel(page, font, "No camera yet", 16 * u, 28 * u, Ink);
+            settingsCameraText.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            deviceList = new GameObject("Devices", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter)).transform;
+            deviceList.SetParent(page, false);
+            VerticalLayoutGroup deviceLayout = deviceList.GetComponent<VerticalLayoutGroup>();
+            deviceLayout.spacing = 4f;
+            deviceLayout.childAlignment = TextAnchor.UpperLeft;
+            deviceLayout.childControlWidth = true;
+            deviceLayout.childControlHeight = true;
+            deviceLayout.childForceExpandWidth = true;
+            deviceLayout.childForceExpandHeight = false;
+            ContentSizeFitter deviceFit = deviceList.GetComponent<ContentSizeFitter>();
+            deviceFit.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            deviceFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             Transform actions = ActionRow(page, 40f * u);
             FlexButton(actions, roundSprite, font, "Previous", 104f * u, 36f * u, 14 * u, Btn.Text, delegate { StepCamera(-1); });
@@ -1838,6 +1975,7 @@ namespace Handline
             Text text = button.GetComponentInChildren<Text>();
             text.fontSize = fontSize;
             text.alignment = TextAnchor.MiddleCenter;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
             if (kind == Btn.Filled) text.color = Ink;
             LayoutElement element = button.gameObject.AddComponent<LayoutElement>();
             element.preferredWidth = width;
@@ -1881,7 +2019,8 @@ namespace Handline
             if (settingsPairing != null) settingsPairing.SetActive(true);
             waitingForPhone = true;
             waitingForCable = false;
-            WebCamDevice[] devices = WebCamTexture.devices;
+            bool live = webcam != null && webcam.isPlaying;
+            WebCamDevice[] devices = ReadDevices(!live);
             knownDeviceCount = devices == null ? 0 : devices.Length;
             if (TryConnectPhone(devices, "Phone camera connected. The picture stays on this device.")) return;
             if (pairingStatus != null) pairingStatus.text = "No phone camera yet. Follow the steps, then press Refresh.";
@@ -1898,7 +2037,8 @@ namespace Handline
             if (settingsCable != null) settingsCable.SetActive(true);
             waitingForCable = true;
             waitingForPhone = false;
-            WebCamDevice[] devices = WebCamTexture.devices;
+            bool live = webcam != null && webcam.isPlaying;
+            WebCamDevice[] devices = ReadDevices(!live);
             knownDeviceCount = devices == null ? 0 : devices.Length;
             if (TryConnectPhone(devices, "Cable camera connected. The picture stays on this device.")) return;
             if (cableStatus != null) cableStatus.text = "Plug in the data cable and tap Trust. This page connects the iPhone when the computer lists it.";
@@ -1923,6 +2063,7 @@ namespace Handline
         {
             int phone = FindPhone(devices);
             if (phone < 0) return false;
+            if (devices != null) cachedDevices = devices;
             waitingForPhone = false;
             waitingForCable = false;
             cameraHeldOff = false;
@@ -1973,7 +2114,8 @@ namespace Handline
         {
             if (settingsCameraText == null) return;
             settingsCameraText.text = CurrentCameraLabel();
-            settingsResolutionText.text = requestWidth + " × " + requestHeight;
+            settingsResolutionText.text = requestWidth <= 0 ? "Auto" : requestWidth + " × " + requestHeight;
+            RebuildDeviceList();
             settingsFpsText.text = requestFps.ToString();
             settingsMirrorText.text = mirror ? "On" : "Off";
             settingsRotationText.text = extraRotation + "°";
@@ -1987,7 +2129,7 @@ namespace Handline
         /// </summary>
         string CurrentCameraLabel()
         {
-            WebCamDevice[] devices = WebCamTexture.devices;
+            WebCamDevice[] devices = cachedDevices;
             if (devices == null || devices.Length == 0) return "No camera yet";
             int index = cameraIndex;
             if (index < 0 || index >= devices.Length) index = 0;
@@ -2021,11 +2163,11 @@ namespace Handline
         /// </summary>
         void StepCamera(int delta)
         {
-            WebCamDevice[] devices = WebCamTexture.devices;
+            WebCamDevice[] devices = ReadDevices(cachedDevices == null || cachedDevices.Length == 0);
             int count = devices == null ? 0 : devices.Length;
             if (count == 0)
             {
-                SetStatus("No camera yet. Connect a phone, then press Refresh.");
+                SetStatus("No camera is listed. Allow Unity under Privacy and Camera, then press Refresh.");
                 RefreshSettingLabels();
                 return;
             }
@@ -2051,8 +2193,7 @@ namespace Handline
         /// </summary>
         void RefreshCameras()
         {
-            knownDeviceCount = -1;
-            WebCamDevice[] devices = WebCamTexture.devices;
+            WebCamDevice[] devices = ReadDevices(true);
             knownDeviceCount = devices == null ? 0 : devices.Length;
             RefreshSettingLabels();
             bool pairingOpen = settingsPairing != null && settingsPairing.activeSelf;
@@ -2112,11 +2253,62 @@ namespace Handline
         }
 
         /// <summary>
-        /// Switches between 640×480, 1280×720, and 1920×1080, then reopens the camera.
+        /// Rebuilds the clickable camera list when the devices or the selection change.
+        /// </summary>
+        void RebuildDeviceList()
+        {
+            if (deviceList == null || settingsFont == null) return;
+            WebCamDevice[] devices = cachedDevices ?? new WebCamDevice[0];
+            string sig = cameraIndex.ToString();
+            for (int i = 0; i < devices.Length; i++) sig += "|" + devices[i].name;
+            if (sig == deviceSig) return;
+            deviceSig = sig;
+            for (int i = deviceList.childCount - 1; i >= 0; i--) Destroy(deviceList.GetChild(i).gameObject);
+            if (devices.Length == 0)
+            {
+                BlockLabel(deviceList, settingsFont, "None listed. Press Refresh.", 14, 32f, Muted);
+                return;
+            }
+
+            for (int i = 0; i < devices.Length; i++)
+            {
+                int picked = i;
+                string label = ShortName(devices[i].name);
+                if (devices[i].isFrontFacing) label += "  ·  front";
+                Btn kind = i == cameraIndex ? Btn.Filled : Btn.Text;
+                FlexButton(deviceList, roundSprite, settingsFont, label, 0f, 40f, 14, kind, delegate { SelectListedCamera(picked); });
+            }
+        }
+
+        /// <summary>
+        /// Opens the camera the user picked in the settings list.
+        /// </summary>
+        void SelectListedCamera(int index)
+        {
+            waitingForPhone = false;
+            waitingForCable = false;
+            cameraHeldOff = false;
+            if (engine == null)
+            {
+                pendingCamera = index;
+                if (!resuming) StartCoroutine(Resume());
+                return;
+            }
+
+            OpenCamera(index);
+        }
+
+        /// <summary>
+        /// Switches Auto, 640×480, 1280×720, and 1920×1080, then reopens the camera.
         /// </summary>
         void CycleResolution()
         {
-            if (requestWidth == 640)
+            if (requestWidth <= 0)
+            {
+                requestWidth = 640;
+                requestHeight = 480;
+            }
+            else if (requestWidth == 640)
             {
                 requestWidth = 1280;
                 requestHeight = 720;
@@ -2128,8 +2320,8 @@ namespace Handline
             }
             else
             {
-                requestWidth = 640;
-                requestHeight = 480;
+                requestWidth = 0;
+                requestHeight = 0;
             }
 
             SaveSettings();
