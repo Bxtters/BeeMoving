@@ -41,13 +41,17 @@ namespace Handline
         Transform[] hips;
         Transform[][] limbs;
         Vector3[][] jointPos;
-        float[][] seenX;
-        float[][] seenY;
-        bool[][] seenJoint;
+        float[][] poseU;
+        float[][] poseV;
+        bool[][] tracked;
+        float[] noseU;
+        float[] noseV;
+        bool[] hasNose;
+        bool[] posed;
+        float[] restLen;
         float[] anchorX;
         float[] anchorY;
         bool[] anchorSet;
-        float[] slotX;
         Material bodyMaterial;
         Material limbMaterial;
         Material headMaterial;
@@ -89,13 +93,17 @@ namespace Handline
             hips = new Transform[MaxPeople];
             limbs = new Transform[MaxPeople][];
             jointPos = new Vector3[MaxPeople][];
-            seenX = new float[MaxPeople][];
-            seenY = new float[MaxPeople][];
-            seenJoint = new bool[MaxPeople][];
+            poseU = new float[MaxPeople][];
+            poseV = new float[MaxPeople][];
+            tracked = new bool[MaxPeople][];
+            noseU = new float[MaxPeople];
+            noseV = new float[MaxPeople];
+            hasNose = new bool[MaxPeople];
+            posed = new bool[MaxPeople];
             anchorX = new float[MaxPeople];
             anchorY = new float[MaxPeople];
             anchorSet = new bool[MaxPeople];
-            slotX = new float[MaxPeople];
+            restLen = new float[limbCount];
             neutral = NeutralPose();
             for (int person = 0; person < MaxPeople; person++)
             {
@@ -107,14 +115,16 @@ namespace Handline
                 heads[person] = Box("Head", headMaterial, root.transform);
                 limbs[person] = new Transform[limbCount];
                 jointPos[person] = new Vector3[jointCount];
-                seenX[person] = new float[jointCount];
-                seenY[person] = new float[jointCount];
-                seenJoint[person] = new bool[jointCount];
+                poseU[person] = new float[jointCount];
+                poseV[person] = new float[jointCount];
+                tracked[person] = new bool[jointCount];
                 for (int i = 0; i < limbCount; i++) limbs[person][i] = Box("Limb", limbMaterial, root.transform);
-                Seed(person, 0f);
-                Rebuild(person);
+                Seed(person);
+                Rebuild(person, 0f);
                 root.SetActive(person == 0);
             }
+
+            MeasureRest();
         }
 
         /// <summary>
@@ -158,54 +168,52 @@ namespace Handline
             for (int i = 0; i < limit; i++)
             {
                 float originX = (i - ((limit - 1) * 0.5f)) * 1.15f;
-                if (!HasSeed(i)) Seed(i, originX);
-                else ShiftSlot(i, originX);
+                if (!posed[i]) Seed(i);
                 if (poses != null && used != null && used[i] && i < poses.Length && poses[i] != null)
                 {
-                    Absorb(i, poses[i], originX);
+                    Absorb(i, poses[i]);
                 }
 
-                Rebuild(i);
+                Rebuild(i, originX);
             }
-        }
-
-        bool HasSeed(int person)
-        {
-            return jointPos[person][(int)JointId.LeftShoulder].sqrMagnitude > 0.0001f
-                || jointPos[person][(int)JointId.RightHip].sqrMagnitude > 0.0001f;
-        }
-
-        void Seed(int person, float originX)
-        {
-            int end = (int)JointId.Count;
-            for (int id = (int)JointId.LeftShoulder; id < end; id++)
-            {
-                jointPos[person][id] = Map(neutral.Joints[id], id, originX, 0.5f, 0.56f);
-            }
-
-            slotX[person] = originX;
-        }
-
-        void ShiftSlot(int person, float originX)
-        {
-            float dx = originX - slotX[person];
-            if (Mathf.Abs(dx) < 0.001f) return;
-            int end = (int)JointId.Count;
-            for (int id = (int)JointId.LeftShoulder; id < end; id++)
-            {
-                Vector3 point = jointPos[person][id];
-                point.x += dx;
-                jointPos[person][id] = point;
-            }
-
-            slotX[person] = originX;
         }
 
         /// <summary>
-        /// Moves a joint only when this frame actually sees it inside the picture.
-        /// Anything else keeps the position it already has, so that part stays on the model.
+        /// Remembers a nose point for the head. The skeleton does not draw the face.
         /// </summary>
-        void Absorb(int person, PoseFrame pose, float originX)
+        public void NoteHead(int person, Joint nose)
+        {
+            if (person < 0 || person >= MaxPeople || noseU == null) return;
+            if (!Usable(nose)) return;
+            if (hasNose[person])
+            {
+                float dx = nose.X - noseU[person];
+                float dy = nose.Y - noseV[person];
+                if ((dx * dx) + (dy * dy) > 0.2f * 0.2f) return;
+            }
+
+            noseU[person] = nose.X;
+            noseV[person] = nose.Y;
+            hasNose[person] = true;
+        }
+
+        void Seed(int person)
+        {
+            int end = (int)JointId.Count;
+            for (int id = (int)JointId.LeftShoulder; id < end; id++)
+            {
+                poseU[person][id] = neutral.Joints[id].X;
+                poseV[person][id] = neutral.Joints[id].Y;
+            }
+
+            posed[person] = true;
+        }
+
+        /// <summary>
+        /// Moves a joint only when this frame sees it inside the picture.
+        /// The other joints keep the picture position they already have.
+        /// </summary>
+        void Absorb(int person, PoseFrame pose)
         {
             if (pose.Joints == null) return;
             int end = pose.Joints.Length;
@@ -217,29 +225,23 @@ namespace Handline
                 anchorSet[person] = true;
             }
 
-            float au = anchorSet[person] ? anchorX[person] : 0.5f;
-            float av = anchorSet[person] ? anchorY[person] : 0.56f;
             for (int id = (int)JointId.LeftShoulder; id < end; id++)
             {
                 Joint joint = pose.Joints[id];
                 if (!Usable(joint)) continue;
-                if (seenJoint[person][id])
+                if (tracked[person][id])
                 {
-                    float dx = joint.X - seenX[person][id];
-                    float dy = joint.Y - seenY[person][id];
-                    if ((dx * dx) + (dy * dy) > 0.22f * 0.22f) continue;
+                    float dx = joint.X - poseU[person][id];
+                    float dy = joint.Y - poseV[person][id];
+                    if ((dx * dx) + (dy * dy) > 0.2f * 0.2f) continue;
                 }
 
-                seenX[person][id] = joint.X;
-                seenY[person][id] = joint.Y;
-                seenJoint[person][id] = true;
-                jointPos[person][id] = Map(joint, id, originX, au, av);
+                poseU[person][id] = joint.X;
+                poseV[person][id] = joint.Y;
+                tracked[person][id] = true;
             }
         }
 
-        /// <summary>
-        /// A joint counts only when MoveNet sees it inside the picture, not on the border.
-        /// </summary>
         static bool Usable(Joint joint)
         {
             if (joint.Score < SeenScore) return false;
@@ -248,24 +250,76 @@ namespace Handline
             return true;
         }
 
-        void Rebuild(int person)
+        void MeasureRest()
         {
+            int end = (int)JointId.Count;
+            Vector3[] world = new Vector3[end];
+            for (int id = (int)JointId.LeftShoulder; id < end; id++)
+            {
+                world[id] = Plant(neutral.Joints[id].X, neutral.Joints[id].Y, id, 0f, 0.5f, 0.56f);
+            }
+
+            int limbCount = LimbJoints.Length / 2;
+            for (int i = 0; i < limbCount; i++)
+            {
+                restLen[i] = Vector3.Distance(world[LimbJoints[i * 2]], world[LimbJoints[i * 2 + 1]]);
+                if (restLen[i] < 0.05f) restLen[i] = 0.35f;
+            }
+        }
+
+        void Rebuild(int person, float originX)
+        {
+            float au = anchorSet[person] ? anchorX[person] : 0.5f;
+            float av = anchorSet[person] ? anchorY[person] : 0.56f;
+            int end = (int)JointId.Count;
+            for (int id = (int)JointId.LeftShoulder; id < end; id++)
+            {
+                jointPos[person][id] = Plant(poseU[person][id], poseV[person][id], id, originX, au, av);
+            }
+
+            int limbCount = LimbJoints.Length / 2;
+            if (restLen != null)
+            {
+                for (int i = 0; i < limbCount; i++)
+                {
+                    int aId = LimbJoints[i * 2];
+                    int bId = LimbJoints[i * 2 + 1];
+                    Vector3 delta = jointPos[person][bId] - jointPos[person][aId];
+                    float length = delta.magnitude;
+                    float limit = restLen[i] * 1.15f;
+                    if (length > limit && length > 0.001f)
+                    {
+                        jointPos[person][bId] = jointPos[person][aId] + (delta / length) * limit;
+                    }
+                }
+            }
+
             Vector3 leftHip = jointPos[person][(int)JointId.LeftHip];
             Vector3 rightHip = jointPos[person][(int)JointId.RightHip];
             Vector3 leftShoulder = jointPos[person][(int)JointId.LeftShoulder];
             Vector3 rightShoulder = jointPos[person][(int)JointId.RightShoulder];
             Vector3 hip = (leftHip + rightHip) * 0.5f;
             Vector3 shoulder = (leftShoulder + rightShoulder) * 0.5f;
-            Vector3 up = shoulder - hip;
-            if (up.sqrMagnitude < 0.0001f) up = Vector3.up;
-            PlaceBox(chests[person], hip, shoulder, 0.42f, 0.32f);
-            PlaceBox(hips[person], leftHip, rightHip, 0.36f, 0.26f);
+            float height = shoulder.y - hip.y;
+            if (height < 0.42f) height = 0.48f;
+            float midX = (hip.x + shoulder.x) * 0.5f;
+            float midZ = Mathf.Lerp(hip.z, shoulder.z, 0.35f);
+            Vector3 chestBottom = new Vector3(midX, hip.y, hip.z);
+            Vector3 chestTop = new Vector3(midX, hip.y + height, midZ);
+            float shoulderWidth = Vector3.Distance(leftShoulder, rightShoulder);
+            if (shoulderWidth < 0.28f) shoulderWidth = 0.42f;
+            if (shoulderWidth > 0.7f) shoulderWidth = 0.55f;
+            PlaceBox(chests[person], chestBottom, chestTop, shoulderWidth, 0.3f);
+            PlaceBox(hips[person], leftHip, rightHip, 0.2f, 0.24f);
+
+            Vector3 headPos;
+            if (hasNose[person]) headPos = Plant(noseU[person], noseV[person], (int)JointId.Nose, originX, au, av);
+            else headPos = chestTop + (Vector3.up * 0.16f);
             heads[person].gameObject.SetActive(true);
-            heads[person].position = shoulder + (up.normalized * 0.22f) + new Vector3(0f, 0f, -0.04f);
+            heads[person].position = headPos + new Vector3(0f, 0.06f, -0.06f);
             heads[person].rotation = Quaternion.identity;
             heads[person].localScale = new Vector3(0.32f, 0.3f, 0.3f);
 
-            int limbCount = LimbJoints.Length / 2;
             for (int i = 0; i < limbCount; i++)
             {
                 Vector3 a = jointPos[person][LimbJoints[i * 2]];
@@ -275,15 +329,15 @@ namespace Handline
         }
 
         /// <summary>
-        /// Maps a picture joint into the scene. Negative Z is toward the camera, so wrists read in front of the chest.
+        /// Maps one stored picture point into the scene with the same hip anchor as the rest of the body.
+        /// Negative Z is toward the camera.
         /// </summary>
-        static Vector3 Map(Joint joint, int jointId, float originX, float anchorX, float anchorY)
+        static Vector3 Plant(float u, float v, int jointId, float originX, float anchorU, float anchorV)
         {
-            float x = originX + ((joint.X - anchorX) * 1.45f);
-            float y = 0.92f + ((anchorY - joint.Y) * 1.85f);
-            float front = 1f - Mathf.Clamp01(Mathf.Abs(joint.X - 0.5f) / 0.42f);
-            float z = Depth(jointId, front);
-            return new Vector3(x, y, z);
+            float x = originX + ((u - anchorU) * 1.35f);
+            float y = 0.9f + ((anchorV - v) * 1.7f);
+            float front = 1f - Mathf.Clamp01(Mathf.Abs(u - 0.5f) / 0.42f);
+            return new Vector3(x, y, Depth(jointId, front));
         }
 
         /// <summary>
@@ -296,19 +350,21 @@ namespace Handline
             {
                 case JointId.LeftWrist:
                 case JointId.RightWrist:
-                    return Mathf.Lerp(-0.16f, -0.48f, front) + side;
+                    return Mathf.Lerp(-0.1f, -0.28f, front) + side;
                 case JointId.LeftElbow:
                 case JointId.RightElbow:
-                    return Mathf.Lerp(-0.08f, -0.3f, front) + side;
+                    return Mathf.Lerp(-0.06f, -0.18f, front) + side;
                 case JointId.LeftKnee:
                 case JointId.RightKnee:
                     return Mathf.Lerp(0.04f, -0.18f, front) + (side * 0.5f);
                 case JointId.LeftAnkle:
                 case JointId.RightAnkle:
                     return 0.06f + (side * 0.5f);
+                case JointId.Nose:
+                    return -0.12f;
                 case JointId.LeftShoulder:
                 case JointId.RightShoulder:
-                    return -0.08f + side;
+                    return -0.06f + side;
                 default:
                     return 0.1f + (side * 0.5f);
             }

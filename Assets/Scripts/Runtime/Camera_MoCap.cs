@@ -634,6 +634,11 @@ namespace Handline
 
                 for (int i = 0; i < MaxPeople; i++)
                 {
+                    if (i < crowdCount && crowd[i] != null && crowd[i].Joints != null && puppet != null)
+                    {
+                        puppet.NoteHead(i, crowd[i].Joints[(int)JointId.Nose]);
+                    }
+
                     if (i < crowdCount) DropFace(crowd[i]);
                     else Blank(crowd[i]);
                 }
