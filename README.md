@@ -14,7 +14,7 @@ Press Play to see a start screen. **Start** (or Enter) puts a simple character o
 
 ## Camera
 
-`Camera_MoCap` tracks one person with the same MoveNet Lightning file Handline uses, at the same 384-pixel crop, on every new camera frame. Choose 2–6 people in the People dropdown to switch to MultiPose. A limb that leaves the frame stays where it was. If only the end of a limb leaves, that end is placed from the joints still in view, so the character does not drop the limb. Settings for the camera, resolution, frame rate, mirror, rotation, people, and tracking are dropdowns.
+`Camera_MoCap` tracks one person with the same MoveNet Lightning file Handline uses, at the same 384-pixel crop, on every new camera frame. Choose 2–6 people in the People dropdown to switch to MultiPose. A joint that leaves the picture stays where it was last seen. It does not move, and it is not placed back on screen, until the camera picks it up again. Settings for the camera, resolution, frame rate, mirror, rotation, people, and tracking are dropdowns.
 
 The camera stays on this machine. The picture is shown in the bottom-left corner and it is not saved. Nose, eye, and ear points are thrown away before anything is drawn. The character uses shoulders, elbows, wrists, hips, knees, and ankles. MoveNet measures a hand at the wrist, so the character's hands end there.
 

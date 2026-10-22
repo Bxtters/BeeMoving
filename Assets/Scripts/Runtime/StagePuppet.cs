@@ -3,8 +3,10 @@ using UnityEngine;
 namespace Handline
 {
     /// <summary>
-    /// A simple standing character made of capsules. The body stays on a small floor
-    /// and the limbs follow a MoveNet pose. No face is drawn.
+    /// A blocky polygon character on a Unity plane, built the same way as the Handline runner.
+    /// Limbs are cubes between the joints that are still on screen. An off-screen joint
+    /// keeps the last cube pose and does not move until the camera sees it again.
+    /// No face is drawn.
     /// </summary>
     public sealed class StagePuppet : MonoBehaviour
     {
@@ -19,23 +21,31 @@ namespace Handline
             (int)JointId.LeftHip, (int)JointId.LeftKnee,
             (int)JointId.LeftKnee, (int)JointId.LeftAnkle,
             (int)JointId.RightHip, (int)JointId.RightKnee,
-            (int)JointId.RightKnee, (int)JointId.RightAnkle,
-            (int)JointId.LeftShoulder, (int)JointId.LeftHip,
-            (int)JointId.RightShoulder, (int)JointId.RightHip,
-            (int)JointId.LeftHip, (int)JointId.RightHip
+            (int)JointId.RightKnee, (int)JointId.RightAnkle
+        };
+
+        static readonly float[] LimbThickness =
+        {
+            0.16f, 0.13f,
+            0.16f, 0.13f,
+            0.18f, 0.15f,
+            0.18f, 0.15f
         };
 
         Transform floor;
         Transform[] roots;
         Transform[] heads;
-        Transform[] torsos;
+        Transform[] chests;
+        Transform[] hips;
         Transform[][] limbs;
         Vector3[][] heldA;
         Vector3[][] heldB;
         bool[][] heldLimb;
         Vector3[] heldHead;
-        Vector3[] heldHip;
-        Vector3[] heldShoulder;
+        Vector3[] heldChestA;
+        Vector3[] heldChestB;
+        Vector3[] heldHipA;
+        Vector3[] heldHipB;
         bool[] heldBody;
         Material bodyMaterial;
         Material limbMaterial;
@@ -44,47 +54,59 @@ namespace Handline
         PoseFrame neutral;
 
         /// <summary>
-        /// Builds the floor and one puppet for each person slot.
+        /// Builds the plane, a light, and one polygon figure for each person slot.
         /// </summary>
         public void Build()
         {
-            bodyMaterial = MakeMaterial(new Color(0.96f, 0.78f, 0.22f, 1f));
-            limbMaterial = MakeMaterial(new Color(0.55f, 0.36f, 0.08f, 1f));
-            headMaterial = MakeMaterial(new Color(0.99f, 0.93f, 0.72f, 1f));
-            floorMaterial = MakeMaterial(new Color(0.86f, 0.68f, 0.22f, 1f));
+            bodyMaterial = MakeMaterial(new Color(0.95f, 0.34f, 0.22f, 1f), 0.05f);
+            limbMaterial = MakeMaterial(new Color(0.55f, 0.18f, 0.13f, 1f), 0f);
+            headMaterial = MakeMaterial(new Color(0.95f, 0.34f, 0.22f, 1f), 0.05f);
+            floorMaterial = MakeMaterial(new Color(0.21f, 0.19f, 0.16f, 1f), 0.04f);
 
-            floor = Shape("Floor", PrimitiveType.Cube, floorMaterial, transform);
-            floor.localScale = new Vector3(2.4f, 0.12f, 1.7f);
-            floor.position = new Vector3(0f, -0.06f, 0f);
+            GameObject plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            plane.name = "Floor";
+            plane.transform.SetParent(transform, false);
+            Strip(plane);
+            plane.GetComponent<Renderer>().sharedMaterial = floorMaterial;
+            floor = plane.transform;
+            floor.localScale = new Vector3(0.28f, 1f, 0.2f);
+
+            Light sun = new GameObject("Sun").AddComponent<Light>();
+            sun.transform.SetParent(transform, false);
+            sun.type = LightType.Directional;
+            sun.color = new Color(1f, 0.94f, 0.84f);
+            sun.intensity = 1.15f;
+            sun.shadows = LightShadows.None;
+            sun.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
 
             int limbCount = LimbJoints.Length / 2;
             roots = new Transform[MaxPeople];
             heads = new Transform[MaxPeople];
-            torsos = new Transform[MaxPeople];
+            chests = new Transform[MaxPeople];
+            hips = new Transform[MaxPeople];
             limbs = new Transform[MaxPeople][];
             heldA = new Vector3[MaxPeople][];
             heldB = new Vector3[MaxPeople][];
             heldLimb = new bool[MaxPeople][];
             heldHead = new Vector3[MaxPeople];
-            heldHip = new Vector3[MaxPeople];
-            heldShoulder = new Vector3[MaxPeople];
+            heldChestA = new Vector3[MaxPeople];
+            heldChestB = new Vector3[MaxPeople];
+            heldHipA = new Vector3[MaxPeople];
+            heldHipB = new Vector3[MaxPeople];
             heldBody = new bool[MaxPeople];
             for (int person = 0; person < MaxPeople; person++)
             {
                 GameObject root = new GameObject("Character " + (person + 1));
                 root.transform.SetParent(transform, false);
                 roots[person] = root.transform;
-                torsos[person] = Shape("Torso", PrimitiveType.Capsule, bodyMaterial, root.transform);
-                heads[person] = Shape("Head", PrimitiveType.Sphere, headMaterial, root.transform);
+                chests[person] = Box("Chest", bodyMaterial, root.transform);
+                hips[person] = Box("Hips", limbMaterial, root.transform);
+                heads[person] = Box("Head", headMaterial, root.transform);
                 limbs[person] = new Transform[limbCount];
                 heldA[person] = new Vector3[limbCount];
                 heldB[person] = new Vector3[limbCount];
                 heldLimb[person] = new bool[limbCount];
-                for (int i = 0; i < limbCount; i++)
-                {
-                    limbs[person][i] = Shape("Limb", PrimitiveType.Capsule, limbMaterial, root.transform);
-                }
-
+                for (int i = 0; i < limbCount; i++) limbs[person][i] = Box("Limb", limbMaterial, root.transform);
                 root.SetActive(false);
             }
 
@@ -92,23 +114,29 @@ namespace Handline
         }
 
         /// <summary>
-        /// Points the stage camera at the floor so the characters stay in view.
+        /// Points the camera along the plane the way the Handline runner camera does.
         /// </summary>
         public void Frame(Camera camera, int visible)
         {
             if (camera == null) return;
             if (visible < 1) visible = 1;
             float span = Mathf.Max(1.8f, ((visible - 1) * 1.15f) + 1.4f);
-            ResizeFloor(span);
-            float dist = (span * 0.62f) / Mathf.Tan(16f * Mathf.Deg2Rad);
-            if (dist < 3.4f) dist = 3.4f;
-            Vector3 look = new Vector3(0f, 1.05f, 0f);
+            if (floor != null)
+            {
+                float width = Mathf.Max(3.2f, span + 1.4f);
+                floor.localScale = new Vector3(width / 10f, 1f, 0.22f);
+                floor.position = new Vector3(0f, 0f, 0f);
+            }
+
+            float dist = (span * 0.72f) / Mathf.Tan(18f * Mathf.Deg2Rad);
+            if (dist < 4.2f) dist = 4.2f;
+            Vector3 look = new Vector3(0f, 1.05f, 0.4f);
             camera.orthographic = false;
-            camera.fieldOfView = 32f;
-            camera.transform.position = new Vector3(0f, 1.2f, -dist);
+            camera.fieldOfView = 36f;
+            camera.transform.position = new Vector3(0f, 2.35f, -dist);
             camera.transform.rotation = Quaternion.LookRotation(look - camera.transform.position, Vector3.up);
-            camera.nearClipPlane = 0.05f;
-            camera.farClipPlane = 40f;
+            camera.nearClipPlane = 0.08f;
+            camera.farClipPlane = 80f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(1f, 0.953f, 0.835f, 1f);
         }
@@ -152,60 +180,62 @@ namespace Handline
         {
             if (pose == null || pose.Joints == null) return;
             roots[person].gameObject.SetActive(true);
-            Vector3 Hip(int id)
+            bool shoulders = Live(pose, JointId.LeftShoulder) && Live(pose, JointId.RightShoulder);
+            bool hipJoints = Live(pose, JointId.LeftHip) && Live(pose, JointId.RightHip);
+            if (shoulders && hipJoints)
             {
-                return Map(pose.Joints[id], originX);
-            }
-
-            Vector3 leftHip = Hip((int)JointId.LeftHip);
-            Vector3 rightHip = Hip((int)JointId.RightHip);
-            Vector3 leftShoulder = Hip((int)JointId.LeftShoulder);
-            Vector3 rightShoulder = Hip((int)JointId.RightShoulder);
-            bool torsoLive = pose.Joints[(int)JointId.LeftHip].Score >= 0.15f
-                && pose.Joints[(int)JointId.RightHip].Score >= 0.15f
-                && pose.Joints[(int)JointId.LeftShoulder].Score >= 0.15f
-                && pose.Joints[(int)JointId.RightShoulder].Score >= 0.15f;
-            Vector3 hip = torsoLive ? (leftHip + rightHip) * 0.5f : heldHip[person];
-            Vector3 shoulder = torsoLive ? (leftShoulder + rightShoulder) * 0.5f : heldShoulder[person];
-            if (torsoLive)
-            {
-                heldHip[person] = hip;
-                heldShoulder[person] = shoulder;
+                Vector3 hip = (Map(pose, JointId.LeftHip, originX) + Map(pose, JointId.RightHip, originX)) * 0.5f;
+                Vector3 shoulder = (Map(pose, JointId.LeftShoulder, originX) + Map(pose, JointId.RightShoulder, originX)) * 0.5f;
+                heldChestA[person] = hip;
+                heldChestB[person] = shoulder;
+                heldHipA[person] = Map(pose, JointId.LeftHip, originX);
+                heldHipB[person] = Map(pose, JointId.RightHip, originX);
+                Vector3 up = shoulder - hip;
+                if (up.sqrMagnitude < 0.0001f) up = Vector3.up;
+                heldHead[person] = shoulder + (up.normalized * 0.2f);
                 heldBody[person] = true;
             }
 
-            if (torsoLive || heldBody[person])
+            if (heldBody[person])
             {
-                Vector3 up = shoulder - hip;
-                if (up.sqrMagnitude < 0.0001f) up = Vector3.up;
-                PlaceLimb(torsos[person], hip, shoulder, 0.34f);
+                PlaceBox(chests[person], heldChestA[person], heldChestB[person], 0.42f, 0.28f);
+                PlaceBox(hips[person], heldHipA[person], heldHipB[person], 0.36f, 0.24f);
                 heads[person].gameObject.SetActive(true);
-                Vector3 head = shoulder + (up.normalized * 0.22f);
-                if (torsoLive) heldHead[person] = head;
-                heads[person].position = torsoLive ? head : heldHead[person];
-                heads[person].localScale = new Vector3(0.36f, 0.4f, 0.36f);
+                heads[person].position = heldHead[person];
+                heads[person].rotation = Quaternion.identity;
+                heads[person].localScale = new Vector3(0.32f, 0.3f, 0.3f);
             }
 
             int limbCount = LimbJoints.Length / 2;
             for (int i = 0; i < limbCount; i++)
             {
-                Joint a = pose.Joints[LimbJoints[i * 2]];
-                Joint b = pose.Joints[LimbJoints[i * 2 + 1]];
-                bool live = a.Score >= 0.15f && b.Score >= 0.15f;
+                int aId = LimbJoints[i * 2];
+                int bId = LimbJoints[i * 2 + 1];
+                bool live = pose.Joints[aId].Score >= 0.15f && pose.Joints[bId].Score >= 0.15f;
                 if (!live)
                 {
-                    if (heldLimb[person][i]) PlaceLimb(limbs[person][i], heldA[person][i], heldB[person][i], 0.12f);
+                    if (heldLimb[person][i]) PlaceBox(limbs[person][i], heldA[person][i], heldB[person][i], LimbThickness[i], LimbThickness[i]);
                     else limbs[person][i].gameObject.SetActive(false);
                     continue;
                 }
 
-                Vector3 worldA = Map(a, originX);
-                Vector3 worldB = Map(b, originX);
+                Vector3 worldA = Map(pose.Joints[aId], originX);
+                Vector3 worldB = Map(pose.Joints[bId], originX);
                 heldA[person][i] = worldA;
                 heldB[person][i] = worldB;
                 heldLimb[person][i] = true;
-                PlaceLimb(limbs[person][i], worldA, worldB, 0.12f);
+                PlaceBox(limbs[person][i], worldA, worldB, LimbThickness[i], LimbThickness[i]);
             }
+        }
+
+        static bool Live(PoseFrame pose, JointId id)
+        {
+            return pose.Joints[(int)id].Score >= 0.15f;
+        }
+
+        static Vector3 Map(PoseFrame pose, JointId id, float originX)
+        {
+            return Map(pose.Joints[(int)id], originX);
         }
 
         static Vector3 Map(Joint joint, float originX)
@@ -215,50 +245,54 @@ namespace Handline
             return new Vector3(x, y, 0f);
         }
 
-        static void PlaceLimb(Transform limb, Vector3 a, Vector3 b, float thickness)
+        static void PlaceBox(Transform box, Vector3 a, Vector3 b, float width, float depth)
         {
             Vector3 delta = b - a;
             float length = delta.magnitude;
             if (length < 0.02f)
             {
-                limb.gameObject.SetActive(false);
+                box.gameObject.SetActive(false);
                 return;
             }
 
-            limb.gameObject.SetActive(true);
-            limb.position = (a + b) * 0.5f;
-            limb.rotation = Quaternion.FromToRotation(Vector3.up, delta / length);
-            limb.localScale = new Vector3(thickness, length * 0.5f, thickness);
+            box.gameObject.SetActive(true);
+            box.position = (a + b) * 0.5f;
+            box.rotation = Quaternion.FromToRotation(Vector3.up, delta / length);
+            box.localScale = new Vector3(width, length, depth);
         }
 
-        void ResizeFloor(float span)
+        static Transform Box(string name, Material material, Transform parent)
         {
-            if (floor == null) return;
-            float width = Mathf.Max(2.2f, span + 0.8f);
-            floor.localScale = new Vector3(width, 0.12f, 1.8f);
-            floor.position = new Vector3(0f, -0.06f, 0f);
-        }
-
-        static Transform Shape(string name, PrimitiveType type, Material material, Transform parent)
-        {
-            GameObject go = GameObject.CreatePrimitive(type);
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = name;
             go.transform.SetParent(parent, false);
-            Collider collider = go.GetComponent<Collider>();
-            if (collider != null) Destroy(collider);
-            Renderer renderer = go.GetComponent<Renderer>();
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+            Strip(go);
+            go.GetComponent<Renderer>().sharedMaterial = material;
+            go.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            go.GetComponent<Renderer>().receiveShadows = false;
             return go.transform;
         }
 
-        static Material MakeMaterial(Color color)
+        static void Strip(GameObject go)
         {
-            Shader shader = Shader.Find("Unlit/Color");
+            Collider collider = go.GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+        }
+
+        static Material MakeMaterial(Color color, float emission)
+        {
+            Shader shader = Shader.Find("Standard");
+            if (shader == null) shader = Shader.Find("Diffuse");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
             if (shader == null) shader = Shader.Find("Sprites/Default");
             Material material = new Material(shader);
             material.color = color;
+            if (emission > 0f && material.HasProperty("_EmissionColor"))
+            {
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", color * emission);
+            }
+
             return material;
         }
 

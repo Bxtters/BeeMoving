@@ -148,7 +148,6 @@ namespace Handline
         readonly int[] tryF = new int[3];
         readonly bool[] slotTaken = new bool[MaxPeople];
         readonly int[] slotAssigned = new int[MaxPeople];
-        readonly bool[] jointFresh = new bool[(int)JointId.Count];
         RectTransform canvasRect;
         RectTransform stage;
         RectTransform stageFrame;
@@ -909,52 +908,18 @@ namespace Handline
         }
 
         /// <summary>
-        /// Follows joints that are still on screen. A joint that leaves keeps its last pose.
-        /// If the rest of that limb is still visible, the missing end is placed from the last bone.
+        /// Follows a joint only while it is inside the picture. An off-screen joint stays
+        /// at the last place it was seen and does not move again until the camera picks it up.
+        /// A sudden jump inside the frame is ignored, so a lost point is not pasted back on screen.
         /// </summary>
         void BlendSlot(int slot, PoseFrame raw)
         {
             float now = Time.unscaledTime;
             float dt = Mathf.Clamp(Time.unscaledDeltaTime, 0.001f, 0.05f);
-            float follow = 1f - Mathf.Exp(-dt / 0.045f);
+            float follow = 1f - Mathf.Exp(-dt / 0.05f);
             PoseFrame dest = stable[slot];
             int start = (int)JointId.LeftShoulder;
             int end = (int)JointId.Count;
-            for (int i = 0; i < jointFresh.Length; i++) jointFresh[i] = false;
-
-            for (int i = start; i < end; i++)
-            {
-                TrackPoint point = track[slot][i];
-                if (raw != null && raw.Joints != null && i < raw.Joints.Length && InFrame(raw.Joints[i]))
-                {
-                    Joint sample = raw.Joints[i];
-                    if (point.Seen <= 0f)
-                    {
-                        point.X = sample.X;
-                        point.Y = sample.Y;
-                    }
-                    else
-                    {
-                        float gain = follow * Mathf.Clamp01(0.45f + sample.Score);
-                        point.X = Mathf.Lerp(point.X, sample.X, gain);
-                        point.Y = Mathf.Lerp(point.Y, sample.Y, gain);
-                    }
-
-                    point.Score = sample.Score;
-                    point.Seen = now;
-                    jointFresh[i] = true;
-                }
-
-                track[slot][i] = point;
-            }
-
-            HoldToParent(slot, (int)JointId.LeftShoulder, (int)JointId.RightShoulder);
-            HoldToParent(slot, (int)JointId.LeftHip, (int)JointId.RightHip);
-            HoldChain(slot, (int)JointId.LeftShoulder, (int)JointId.LeftElbow, (int)JointId.LeftWrist);
-            HoldChain(slot, (int)JointId.RightShoulder, (int)JointId.RightElbow, (int)JointId.RightWrist);
-            HoldChain(slot, (int)JointId.LeftHip, (int)JointId.LeftKnee, (int)JointId.LeftAnkle);
-            HoldChain(slot, (int)JointId.RightHip, (int)JointId.RightKnee, (int)JointId.RightAnkle);
-
             bool any = false;
             for (int i = 0; i < end; i++)
             {
@@ -965,14 +930,33 @@ namespace Handline
                 }
 
                 TrackPoint point = track[slot][i];
+                if (raw != null && raw.Joints != null && i < raw.Joints.Length && InFrame(raw.Joints[i]) && Steady(point, raw.Joints[i]))
+                {
+                    Joint sample = raw.Joints[i];
+                    if (point.Seen <= 0f)
+                    {
+                        point.X = sample.X;
+                        point.Y = sample.Y;
+                    }
+                    else
+                    {
+                        float gain = follow * Mathf.Clamp01(0.55f + sample.Score);
+                        point.X = Mathf.Lerp(point.X, sample.X, gain);
+                        point.Y = Mathf.Lerp(point.Y, sample.Y, gain);
+                    }
+
+                    point.Score = sample.Score;
+                    point.Seen = now;
+                }
+
+                track[slot][i] = point;
                 if (point.Seen <= 0f)
                 {
                     dest.Joints[i] = default(Joint);
                     continue;
                 }
 
-                float shown = point.Score < DrawScore ? DrawScore : point.Score;
-                dest.Joints[i] = new Joint(point.X, point.Y, shown);
+                dest.Joints[i] = new Joint(point.X, point.Y, point.Score < DrawScore ? DrawScore : point.Score);
                 any = true;
             }
 
@@ -985,67 +969,20 @@ namespace Handline
         bool InFrame(Joint joint)
         {
             if (joint.Score < jointThreshold) return false;
-            if (joint.X <= 0.01f || joint.X >= 0.99f) return false;
-            if (joint.Y <= 0.01f || joint.Y >= 0.99f) return false;
+            if (joint.X <= 0.04f || joint.X >= 0.96f) return false;
+            if (joint.Y <= 0.04f || joint.Y >= 0.96f) return false;
             return true;
         }
 
         /// <summary>
-        /// Keeps a missing joint beside its partner using the last measured gap.
+        /// Rejects a reading that leaps across the frame. That reading is not used until a closer one arrives.
         /// </summary>
-        void HoldToParent(int slot, int joint, int parent)
+        static bool Steady(TrackPoint point, Joint sample)
         {
-            RememberOffset(slot, joint, parent);
-            if (!track[slot][joint].HasOffset) return;
-            bool jointOn = jointFresh[joint];
-            bool parentOn = jointFresh[parent];
-            if (jointOn && parentOn) return;
-            if (!jointOn && parentOn)
-            {
-                TrackPoint point = track[slot][joint];
-                TrackPoint root = track[slot][parent];
-                point.X = root.X + point.OffX;
-                point.Y = root.Y + point.OffY;
-                point.Score = point.Score < DrawScore ? DrawScore : point.Score;
-                track[slot][joint] = point;
-                jointFresh[joint] = true;
-                return;
-            }
-
-            if (jointOn && !parentOn && track[slot][parent].Seen > 0f)
-            {
-                TrackPoint point = track[slot][joint];
-                TrackPoint root = track[slot][parent];
-                root.X = point.X - point.OffX;
-                root.Y = point.Y - point.OffY;
-                root.Score = root.Score < DrawScore ? DrawScore : root.Score;
-                track[slot][parent] = root;
-                jointFresh[parent] = true;
-            }
-        }
-
-        /// <summary>
-        /// Places each missing joint down the limb from the joints that are still in frame.
-        /// A limb that has left entirely stays where it last was.
-        /// </summary>
-        void HoldChain(int slot, int root, int mid, int tip)
-        {
-            HoldToParent(slot, mid, root);
-            HoldToParent(slot, tip, mid);
-        }
-
-        /// <summary>
-        /// Records the bone from parent to joint while both ends are on screen.
-        /// </summary>
-        void RememberOffset(int slot, int joint, int parent)
-        {
-            if (!jointFresh[joint] || !jointFresh[parent]) return;
-            TrackPoint point = track[slot][joint];
-            TrackPoint root = track[slot][parent];
-            point.OffX = point.X - root.X;
-            point.OffY = point.Y - root.Y;
-            point.HasOffset = true;
-            track[slot][joint] = point;
+            if (point.Seen <= 0f) return true;
+            float dx = sample.X - point.X;
+            float dy = sample.Y - point.Y;
+            return (dx * dx) + (dy * dy) <= 0.28f * 0.28f;
         }
 
         /// <summary>
@@ -3294,9 +3231,6 @@ namespace Handline
             public float Y;
             public float Score;
             public float Seen;
-            public float OffX;
-            public float OffY;
-            public bool HasOffset;
         }
 
         /// <summary>
