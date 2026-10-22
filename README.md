@@ -14,7 +14,7 @@ Press Play to see the start screen. **Start** (or Enter) opens the camera. A pol
 
 ## Camera
 
-The pose read is the Handline one. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The character stands upright on the plane from the start. The chest stays vertical. The head follows the nose, and the face is not drawn. A limb moves only while its joints are inside the picture, and its length cannot stretch past a normal reach. A joint that drops out keeps its last pose. Arms sit in front of the chest so front and back are visible. Choose 2–6 people in Settings to use MultiPose. The lane does not run.
+The pose read is the Handline one. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The character is a fixed polygon body on the plane, the same kind of boxes as the Handline runner. It is standing when Play starts. A bone turns only when both of its joints are inside the picture. Otherwise that bone stays put, and it does not stretch. The head follows the nose. The chest stays upright. Arms sit in front of the chest so front and back are visible. Choose 2–6 people in Settings to use MultiPose. The lane does not run.
 
 The camera stays on this machine. The picture is shown in the corner and it is not saved. Nose, eye, and ear points are not part of the drawn body. Hands are the wrists, because that is what MoveNet measures.
 
