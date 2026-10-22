@@ -118,15 +118,17 @@ namespace Handline
             new Color(0.78f, 0.34f, 0.04f, 1f)
         };
 
-        static readonly Color Paper = new Color(0.973f, 0.976f, 0.980f, 1f);
-        static readonly Color Ink = new Color(0.125f, 0.129f, 0.141f, 1f);
-        static readonly Color StageColor = new Color(1f, 1f, 1f, 1f);
-        static readonly Color Cream = new Color(0.125f, 0.129f, 0.141f, 1f);
-        static readonly Color Yellow = new Color(0.976f, 0.671f, 0.000f, 1f);
-        static readonly Color YellowDeep = new Color(0.722f, 0.408f, 0.000f, 1f);
-        static readonly Color Muted = new Color(0.373f, 0.388f, 0.408f, 1f);
-        static readonly Color Line = new Color(0.886f, 0.910f, 0.929f, 1f);
-        static readonly Color Hover = new Color(0.945f, 0.949f, 0.957f, 1f);
+        static readonly Color Paper = new Color(1f, 0.953f, 0.835f, 1f);
+        static readonly Color Ink = new Color(0.22f, 0.16f, 0.05f, 1f);
+        static readonly Color StageColor = new Color(1f, 0.988f, 0.94f, 1f);
+        static readonly Color Card = new Color(1f, 0.988f, 0.94f, 1f);
+        static readonly Color Cream = new Color(0.22f, 0.16f, 0.05f, 1f);
+        static readonly Color Yellow = new Color(1f, 0.855f, 0.42f, 1f);
+        static readonly Color YellowDeep = new Color(0.62f, 0.42f, 0.05f, 1f);
+        static readonly Color Muted = new Color(0.48f, 0.37f, 0.16f, 1f);
+        static readonly Color Line = new Color(0.86f, 0.70f, 0.32f, 1f);
+        static readonly Color Border = new Color(0.72f, 0.50f, 0.08f, 1f);
+        static readonly Color Drop = new Color(0.45f, 0.30f, 0.05f, 0.22f);
 
         readonly PoseFrame[] crowd = new PoseFrame[MaxPeople];
         readonly PoseFrame[] stable = new PoseFrame[MaxPeople];
@@ -144,6 +146,7 @@ namespace Handline
         readonly int[] slotAssigned = new int[MaxPeople];
         RectTransform canvasRect;
         RectTransform stage;
+        RectTransform stageFrame;
         Image[][] lines;
         Image[][] dots;
         Text countText;
@@ -154,10 +157,17 @@ namespace Handline
         Sprite roundSprite;
         RectTransform settingsCard;
         RectTransform settingsShadow;
+        RectTransform settingsBorder;
         int settingsSeenW = -1;
         int settingsSeenH = -1;
-        Color32[] sensorPixels;
         Color32[] crop;
+        int[] sampleIndex;
+        int sampleWidth;
+        int sampleHeight;
+        int sampleRotation = int.MinValue;
+        int sampleSize;
+        bool sampleMirror;
+        bool sampleVertical;
         byte[] loadedBytes;
 
         string modelLabel = "";
@@ -576,12 +586,10 @@ namespace Handline
 
             try
             {
-                EnsureSensorBuffer(sw, sh);
-                Color32[] filled = webcam.GetPixels32(sensorPixels);
-                if (filled == null) return;
-                if (filled != sensorPixels) sensorPixels = filled;
+                Color32[] filled = webcam.GetPixels32();
+                if (filled == null || filled.Length == 0) return;
                 int modelSize = ModelSize();
-                FillCrop(sensorPixels, sw, sh, modelSize);
+                FillCrop(filled, sw, sh, modelSize);
                 if (engine != null)
                 {
                     crowdCount = engine.TryRead(crop, modelSize, crowd, peopleLimit);
@@ -632,40 +640,35 @@ namespace Handline
         }
 
         /// <summary>
-        /// Grows the reusable camera buffer when the device changes resolution.
-        /// </summary>
-        void EnsureSensorBuffer(int width, int height)
-        {
-            int needed = width * height;
-            if (sensorPixels != null && sensorPixels.Length == needed) return;
-            sensorPixels = new Color32[needed];
-        }
-
-        /// <summary>
         /// Center-crops the sensor image into the upright square MoveNet reads.
         /// The square is the model input. It is not copied onto a texture.
         /// </summary>
         void FillCrop(Color32[] source, int srcWidth, int srcHeight, int size)
         {
             if (size < 32) size = CropSize;
-            if (crop == null || crop.Length != size * size)
-            {
-                crop = new Color32[size * size];
-            }
+            int count = size * size;
+            if (crop == null || crop.Length != count) crop = new Color32[count];
 
             int rotation = webcam.videoRotationAngle + extraRotation;
             bool vertical = webcam.videoVerticallyMirrored;
-            for (int y = 0; y < size; y++)
+            if (sampleIndex == null || sampleSize != size || sampleWidth != srcWidth || sampleHeight != srcHeight
+                || sampleRotation != rotation || sampleMirror != mirror || sampleVertical != vertical)
             {
-                int row = y * size;
-                for (int x = 0; x < size; x++)
-                {
-                    int bx;
-                    int by;
-                    FrameOrient.Map(x, y, size, srcWidth, srcHeight, rotation, vertical, mirror, out bx, out by);
-                    int index = by * srcWidth + bx;
-                    crop[row + x] = index >= 0 && index < source.Length ? source[index] : default(Color32);
-                }
+                sampleIndex = new int[count];
+                FrameOrient.FillIndices(sampleIndex, size, srcWidth, srcHeight, rotation, vertical, mirror);
+                sampleSize = size;
+                sampleWidth = srcWidth;
+                sampleHeight = srcHeight;
+                sampleRotation = rotation;
+                sampleMirror = mirror;
+                sampleVertical = vertical;
+            }
+
+            int limit = source.Length;
+            for (int i = 0; i < count; i++)
+            {
+                int index = sampleIndex[i];
+                crop[i] = (uint)index < (uint)limit ? source[index] : default(Color32);
             }
         }
 
@@ -890,7 +893,6 @@ namespace Handline
         /// </summary>
         void WipePixels()
         {
-            if (sensorPixels != null) Array.Clear(sensorPixels, 0, sensorPixels.Length);
             if (crop != null) Array.Clear(crop, 0, crop.Length);
         }
 
@@ -1019,16 +1021,39 @@ namespace Handline
         }
 
         /// <summary>
+        /// Loads the camera list. Pass true to ask the operating system again.
+        /// </summary>
+        void EnsureDeviceCache(bool force)
+        {
+            ReadDevices(force);
+        }
+
+        /// <summary>
         /// Reads the operating-system camera list. A playing camera is not queried again, because that read drops the stream on Windows.
         /// </summary>
         WebCamDevice[] ReadDevices(bool force)
         {
             if (!force && cachedDevices != null && cachedDevices.Length > 0) return cachedDevices;
             WebCamDevice[] found = WebCamTexture.devices;
-            cachedDevices = found ?? new WebCamDevice[0];
+            if (found == null) found = new WebCamDevice[0];
+            if (!SameDevices(cachedDevices, found)) deviceSig = "";
+            cachedDevices = found;
             knownDeviceCount = cachedDevices.Length;
-            deviceSig = "";
             return cachedDevices;
+        }
+
+        /// <summary>
+        /// True when two camera lists have the same names in the same order.
+        /// </summary>
+        static bool SameDevices(WebCamDevice[] left, WebCamDevice[] right)
+        {
+            if (left == null || right == null || left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++)
+            {
+                if (left[i].name != right[i].name) return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -1132,6 +1157,14 @@ namespace Handline
             Image background = MakeImage("Background", canvasRect, sprite, Paper);
             Stretch(background.rectTransform);
 
+            Image frameImage = MakeImage("Stage Frame", canvasRect, roundSprite, Border);
+            frameImage.type = Image.Type.Sliced;
+            stageFrame = frameImage.rectTransform;
+            stageFrame.anchorMin = new Vector2(0.5f, 0.5f);
+            stageFrame.anchorMax = new Vector2(0.5f, 0.5f);
+            stageFrame.pivot = new Vector2(0.5f, 0.5f);
+            stageFrame.anchoredPosition = new Vector2(0f, -12f);
+
             GameObject stageObject = new GameObject("Stage", typeof(RectTransform), typeof(Image));
             stageObject.transform.SetParent(canvasRect, false);
             stage = stageObject.GetComponent<RectTransform>();
@@ -1233,6 +1266,12 @@ namespace Handline
             if (side < 64f) side = 64f;
             if (Mathf.Abs(stage.sizeDelta.x - side) < 0.5f) return false;
             stage.sizeDelta = new Vector2(side, side);
+            if (stageFrame != null)
+            {
+                stageFrame.sizeDelta = new Vector2(side + 10f, side + 10f);
+                stageFrame.anchoredPosition = stage.anchoredPosition;
+            }
+
             return true;
         }
 
@@ -1522,8 +1561,8 @@ namespace Handline
         }
 
         /// <summary>
-        /// Builds the settings card on its own overlay so it stays above the stage.
-        /// The card is white, sized to the screen, and scrolled so every row can be reached.
+        /// Builds the settings card on the stage canvas.
+        /// The card is light yellow with a gold rim, and it scrolls so every row can be reached.
         /// </summary>
         void BuildSettings(Font font, Sprite sprite)
         {
@@ -1546,7 +1585,7 @@ namespace Handline
             settingsRoot.transform.SetParent(root, false);
             Stretch(settingsRoot.GetComponent<RectTransform>());
 
-            Image dim = MakeImage("Dim", settingsRoot.transform, sprite, new Color(0.125f, 0.129f, 0.141f, 0.32f));
+            Image dim = MakeImage("Dim", settingsRoot.transform, sprite, new Color(0.35f, 0.26f, 0.08f, 0.35f));
             dim.raycastTarget = true;
             Stretch(dim.rectTransform);
             Button dimButton = dim.gameObject.AddComponent<Button>();
@@ -1554,13 +1593,19 @@ namespace Handline
             dimButton.transition = Selectable.Transition.None;
             dimButton.onClick.AddListener(delegate { SetSettingsOpen(false); });
 
-            settingsShadow = MakeImage("Shadow", settingsRoot.transform, roundSprite, new Color(0.125f, 0.129f, 0.141f, 0.16f)).rectTransform;
+            settingsShadow = MakeImage("Shadow", settingsRoot.transform, roundSprite, Drop).rectTransform;
             settingsShadow.GetComponent<Image>().type = Image.Type.Sliced;
             settingsShadow.anchorMin = new Vector2(0.5f, 0.5f);
             settingsShadow.anchorMax = new Vector2(0.5f, 0.5f);
             settingsShadow.pivot = new Vector2(0.5f, 0.5f);
 
-            Image panel = MakeImage("Panel", settingsRoot.transform, roundSprite, Color.white);
+            settingsBorder = MakeImage("Border", settingsRoot.transform, roundSprite, Border).rectTransform;
+            settingsBorder.GetComponent<Image>().type = Image.Type.Sliced;
+            settingsBorder.anchorMin = new Vector2(0.5f, 0.5f);
+            settingsBorder.anchorMax = new Vector2(0.5f, 0.5f);
+            settingsBorder.pivot = new Vector2(0.5f, 0.5f);
+
+            Image panel = MakeImage("Panel", settingsRoot.transform, roundSprite, Card);
             panel.type = Image.Type.Sliced;
             panel.raycastTarget = true;
             settingsCard = panel.rectTransform;
@@ -1568,11 +1613,7 @@ namespace Handline
             settingsCard.anchorMax = new Vector2(0.5f, 0.5f);
             settingsCard.pivot = new Vector2(0.5f, 0.5f);
             settingsCard.sizeDelta = new Vector2(520f, 640f);
-            if (settingsShadow != null)
-            {
-                settingsShadow.sizeDelta = settingsCard.sizeDelta;
-                settingsShadow.anchoredPosition = new Vector2(0f, -4f);
-            }
+            FitCardChrome(520f, 640f);
 
             Button close = MakeButton("Close", panel.transform, roundSprite, font, "Close", delegate { SetSettingsOpen(false); }, Btn.Text);
             Text closeLabel = close.GetComponentInChildren<Text>();
@@ -1622,13 +1663,26 @@ namespace Handline
             if (seenW == settingsSeenW && seenH == settingsSeenH) return;
             settingsSeenW = seenW;
             settingsSeenH = seenH;
-            int u = 1;
-            float w = Mathf.Clamp(area.width - (80f * u), 360f, 520f);
-            float h = Mathf.Clamp(area.height - (96f * u), 460f, 700f);
+            float w = Mathf.Clamp(area.width - 80f, 360f, 520f);
+            float h = Mathf.Clamp(area.height - 96f, 460f, 700f);
             settingsCard.sizeDelta = new Vector2(w, h);
+            FitCardChrome(w, h);
+        }
+
+        /// <summary>
+        /// Sizes the gold rim and the soft drop behind the settings card.
+        /// </summary>
+        void FitCardChrome(float width, float height)
+        {
+            if (settingsBorder != null)
+            {
+                settingsBorder.sizeDelta = new Vector2(width + 10f, height + 10f);
+                settingsBorder.anchoredPosition = Vector2.zero;
+            }
+
             if (settingsShadow == null) return;
-            settingsShadow.sizeDelta = new Vector2(w, h);
-            settingsShadow.anchoredPosition = new Vector2(0f, -4f * u);
+            settingsShadow.sizeDelta = new Vector2(width + 10f, height + 10f);
+            settingsShadow.anchoredPosition = new Vector2(0f, -12f);
         }
 
         /// <summary>
@@ -1695,7 +1749,7 @@ namespace Handline
             Stretch(viewport.GetComponent<RectTransform>());
             Image viewportImage = viewport.GetComponent<Image>();
             viewportImage.sprite = sprite;
-            viewportImage.color = Color.white;
+            viewportImage.color = Card;
             viewportImage.raycastTarget = true;
             viewport.GetComponent<Mask>().showMaskGraphic = false;
 
@@ -1760,7 +1814,7 @@ namespace Handline
             Stretch(viewport.GetComponent<RectTransform>());
             Image viewportImage = viewport.GetComponent<Image>();
             viewportImage.sprite = sprite;
-            viewportImage.color = Color.white;
+            viewportImage.color = Card;
             viewportImage.raycastTarget = true;
             viewport.GetComponent<Mask>().showMaskGraphic = false;
 
@@ -1849,7 +1903,7 @@ namespace Handline
             Stretch(viewport.GetComponent<RectTransform>());
             Image viewportImage = viewport.GetComponent<Image>();
             viewportImage.sprite = sprite;
-            viewportImage.color = Color.white;
+            viewportImage.color = Card;
             viewportImage.raycastTarget = true;
             viewport.GetComponent<Mask>().showMaskGraphic = false;
 
@@ -1885,8 +1939,8 @@ namespace Handline
         /// </summary>
         static void Rule(Transform parent, Sprite sprite, float x, float y, float width)
         {
-            Image line = MakeImage("Rule", parent, sprite, new Color(1f, 0.82f, 0.12f, 0.45f));
-            PlaceTop(line.rectTransform, x, y, width, 1f);
+            Image line = MakeImage("Rule", parent, sprite, Line);
+            PlaceTop(line.rectTransform, x, y, width, 2f);
         }
 
         /// <summary>
@@ -2451,34 +2505,26 @@ namespace Handline
             image.color = Color.white;
             image.raycastTarget = true;
             image.canvasRenderer.cullTransparentMesh = false;
+            if (sprite != null)
+            {
+                Image face = MakeImage("Face", go.transform, sprite, kind == Btn.Filled ? Yellow : Card);
+                face.type = Image.Type.Sliced;
+                face.raycastTarget = false;
+                RectTransform faceRect = face.rectTransform;
+                faceRect.anchorMin = Vector2.zero;
+                faceRect.anchorMax = Vector2.one;
+                faceRect.offsetMin = new Vector2(3f, 3f);
+                faceRect.offsetMax = new Vector2(-3f, -3f);
+            }
+
             Button button = go.GetComponent<Button>();
             button.targetGraphic = image;
             ColorBlock colors = button.colors;
-            Color labelColor = Ink;
-            if (kind == Btn.Filled)
-            {
-                colors.normalColor = Yellow;
-                colors.highlightedColor = new Color(0.93f, 0.62f, 0.00f, 1f);
-                colors.pressedColor = YellowDeep;
-                colors.selectedColor = colors.highlightedColor;
-                labelColor = Ink;
-            }
-            else if (kind == Btn.Row)
-            {
-                colors.normalColor = Color.white;
-                colors.highlightedColor = Hover;
-                colors.pressedColor = Line;
-                colors.selectedColor = colors.highlightedColor;
-                labelColor = Ink;
-            }
-            else
-            {
-                colors.normalColor = new Color(1f, 1f, 1f, 0.04f);
-                colors.highlightedColor = Hover;
-                colors.pressedColor = Line;
-                colors.selectedColor = colors.highlightedColor;
-                labelColor = YellowDeep;
-            }
+            Color labelColor = kind == Btn.Filled ? Ink : YellowDeep;
+            colors.normalColor = Border;
+            colors.highlightedColor = YellowDeep;
+            colors.pressedColor = new Color(0.42f, 0.28f, 0.04f, 1f);
+            colors.selectedColor = colors.highlightedColor;
 
             colors.disabledColor = new Color(1f, 1f, 1f, 0.4f);
             colors.colorMultiplier = 1f;

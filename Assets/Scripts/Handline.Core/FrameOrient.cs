@@ -95,5 +95,34 @@ namespace Handline
             bufferX = sx;
             bufferY = srcHeight - 1 - sy;
         }
+
+        /// <summary>
+        /// Writes one source index per upright pixel. Callers keep the table until the camera size or rotation changes.
+        /// </summary>
+        public static void FillIndices(
+            int[] dest,
+            int destSize,
+            int srcWidth,
+            int srcHeight,
+            int rotationClockwise,
+            bool verticallyMirrored,
+            bool mirrorHorizontal)
+        {
+            if (dest == null || destSize <= 0 || srcWidth <= 0 || srcHeight <= 0) return;
+            int needed = destSize * destSize;
+            if (dest.Length < needed) return;
+
+            for (int y = 0; y < destSize; y++)
+            {
+                int row = y * destSize;
+                for (int x = 0; x < destSize; x++)
+                {
+                    int bx;
+                    int by;
+                    Map(x, y, destSize, srcWidth, srcHeight, rotationClockwise, verticallyMirrored, mirrorHorizontal, out bx, out by);
+                    dest[row + x] = by * srcWidth + bx;
+                }
+            }
+        }
     }
 }
