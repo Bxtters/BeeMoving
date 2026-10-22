@@ -30,6 +30,13 @@ namespace Handline
         Transform[] heads;
         Transform[] torsos;
         Transform[][] limbs;
+        Vector3[][] heldA;
+        Vector3[][] heldB;
+        bool[][] heldLimb;
+        Vector3[] heldHead;
+        Vector3[] heldHip;
+        Vector3[] heldShoulder;
+        bool[] heldBody;
         Material bodyMaterial;
         Material limbMaterial;
         Material headMaterial;
@@ -55,6 +62,13 @@ namespace Handline
             heads = new Transform[MaxPeople];
             torsos = new Transform[MaxPeople];
             limbs = new Transform[MaxPeople][];
+            heldA = new Vector3[MaxPeople][];
+            heldB = new Vector3[MaxPeople][];
+            heldLimb = new bool[MaxPeople][];
+            heldHead = new Vector3[MaxPeople];
+            heldHip = new Vector3[MaxPeople];
+            heldShoulder = new Vector3[MaxPeople];
+            heldBody = new bool[MaxPeople];
             for (int person = 0; person < MaxPeople; person++)
             {
                 GameObject root = new GameObject("Character " + (person + 1));
@@ -63,6 +77,9 @@ namespace Handline
                 torsos[person] = Shape("Torso", PrimitiveType.Capsule, bodyMaterial, root.transform);
                 heads[person] = Shape("Head", PrimitiveType.Sphere, headMaterial, root.transform);
                 limbs[person] = new Transform[limbCount];
+                heldA[person] = new Vector3[limbCount];
+                heldB[person] = new Vector3[limbCount];
+                heldLimb[person] = new bool[limbCount];
                 for (int i = 0; i < limbCount; i++)
                 {
                     limbs[person][i] = Shape("Limb", PrimitiveType.Capsule, limbMaterial, root.transform);
@@ -144,27 +161,50 @@ namespace Handline
             Vector3 rightHip = Hip((int)JointId.RightHip);
             Vector3 leftShoulder = Hip((int)JointId.LeftShoulder);
             Vector3 rightShoulder = Hip((int)JointId.RightShoulder);
-            Vector3 hip = (leftHip + rightHip) * 0.5f;
-            Vector3 shoulder = (leftShoulder + rightShoulder) * 0.5f;
-            Vector3 up = shoulder - hip;
-            if (up.sqrMagnitude < 0.0001f) up = Vector3.up;
-            PlaceLimb(torsos[person], hip, shoulder, 0.34f);
-            heads[person].gameObject.SetActive(true);
-            heads[person].position = shoulder + (up.normalized * 0.22f);
-            heads[person].localScale = new Vector3(0.36f, 0.4f, 0.36f);
+            bool torsoLive = pose.Joints[(int)JointId.LeftHip].Score >= 0.15f
+                && pose.Joints[(int)JointId.RightHip].Score >= 0.15f
+                && pose.Joints[(int)JointId.LeftShoulder].Score >= 0.15f
+                && pose.Joints[(int)JointId.RightShoulder].Score >= 0.15f;
+            Vector3 hip = torsoLive ? (leftHip + rightHip) * 0.5f : heldHip[person];
+            Vector3 shoulder = torsoLive ? (leftShoulder + rightShoulder) * 0.5f : heldShoulder[person];
+            if (torsoLive)
+            {
+                heldHip[person] = hip;
+                heldShoulder[person] = shoulder;
+                heldBody[person] = true;
+            }
+
+            if (torsoLive || heldBody[person])
+            {
+                Vector3 up = shoulder - hip;
+                if (up.sqrMagnitude < 0.0001f) up = Vector3.up;
+                PlaceLimb(torsos[person], hip, shoulder, 0.34f);
+                heads[person].gameObject.SetActive(true);
+                Vector3 head = shoulder + (up.normalized * 0.22f);
+                if (torsoLive) heldHead[person] = head;
+                heads[person].position = torsoLive ? head : heldHead[person];
+                heads[person].localScale = new Vector3(0.36f, 0.4f, 0.36f);
+            }
 
             int limbCount = LimbJoints.Length / 2;
             for (int i = 0; i < limbCount; i++)
             {
                 Joint a = pose.Joints[LimbJoints[i * 2]];
                 Joint b = pose.Joints[LimbJoints[i * 2 + 1]];
-                if (a.Score < 0.15f || b.Score < 0.15f)
+                bool live = a.Score >= 0.15f && b.Score >= 0.15f;
+                if (!live)
                 {
-                    limbs[person][i].gameObject.SetActive(false);
+                    if (heldLimb[person][i]) PlaceLimb(limbs[person][i], heldA[person][i], heldB[person][i], 0.12f);
+                    else limbs[person][i].gameObject.SetActive(false);
                     continue;
                 }
 
-                PlaceLimb(limbs[person][i], Map(a, originX), Map(b, originX), 0.12f);
+                Vector3 worldA = Map(a, originX);
+                Vector3 worldB = Map(b, originX);
+                heldA[person][i] = worldA;
+                heldB[person][i] = worldB;
+                heldLimb[person][i] = true;
+                PlaceLimb(limbs[person][i], worldA, worldB, 0.12f);
             }
         }
 

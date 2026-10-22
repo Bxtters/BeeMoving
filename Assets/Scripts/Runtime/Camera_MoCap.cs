@@ -148,6 +148,7 @@ namespace Handline
         readonly int[] tryF = new int[3];
         readonly bool[] slotTaken = new bool[MaxPeople];
         readonly int[] slotAssigned = new int[MaxPeople];
+        readonly bool[] jointFresh = new bool[(int)JointId.Count];
         RectTransform canvasRect;
         RectTransform stage;
         RectTransform stageFrame;
@@ -908,8 +909,8 @@ namespace Handline
         }
 
         /// <summary>
-        /// Follows a new MoveNet sample and keeps a covered joint in place for a short hold.
-        /// The hold is what stops a limb from vanishing when it leaves the frame.
+        /// Follows joints that are still on screen. A joint that leaves keeps its last pose.
+        /// If the rest of that limb is still visible, the missing end is placed from the last bone.
         /// </summary>
         void BlendSlot(int slot, PoseFrame raw)
         {
@@ -919,17 +920,12 @@ namespace Handline
             PoseFrame dest = stable[slot];
             int start = (int)JointId.LeftShoulder;
             int end = (int)JointId.Count;
-            bool any = false;
-            for (int i = 0; i < end; i++)
-            {
-                if (i < start || dest.Joints == null)
-                {
-                    if (dest.Joints != null && i < dest.Joints.Length) dest.Joints[i] = default(Joint);
-                    continue;
-                }
+            for (int i = 0; i < jointFresh.Length; i++) jointFresh[i] = false;
 
+            for (int i = start; i < end; i++)
+            {
                 TrackPoint point = track[slot][i];
-                if (raw != null && raw.Joints != null && i < raw.Joints.Length && raw.Joints[i].Score >= jointThreshold)
+                if (raw != null && raw.Joints != null && i < raw.Joints.Length && InFrame(raw.Joints[i]))
                 {
                     Joint sample = raw.Joints[i];
                     if (point.Seen <= 0f)
@@ -946,35 +942,110 @@ namespace Handline
 
                     point.Score = sample.Score;
                     point.Seen = now;
-                }
-
-                float age = point.Seen > 0f ? now - point.Seen : 99f;
-                if (point.Seen > 0f && age < HoldSeconds)
-                {
-                    float shown = point.Score;
-                    if (age > HoldSeconds * 0.75f)
-                    {
-                        float fade = 1f - ((age - HoldSeconds * 0.75f) / (HoldSeconds * 0.25f));
-                        shown = DrawScore * Mathf.Clamp01(fade);
-                    }
-                    else if (shown < DrawScore)
-                    {
-                        shown = DrawScore;
-                    }
-
-                    dest.Joints[i] = new Joint(point.X, point.Y, shown);
-                    any = true;
-                }
-                else
-                {
-                    dest.Joints[i] = default(Joint);
-                    if (age >= HoldSeconds) point.Seen = 0f;
+                    jointFresh[i] = true;
                 }
 
                 track[slot][i] = point;
             }
 
+            HoldToParent(slot, (int)JointId.LeftShoulder, (int)JointId.RightShoulder);
+            HoldToParent(slot, (int)JointId.LeftHip, (int)JointId.RightHip);
+            HoldChain(slot, (int)JointId.LeftShoulder, (int)JointId.LeftElbow, (int)JointId.LeftWrist);
+            HoldChain(slot, (int)JointId.RightShoulder, (int)JointId.RightElbow, (int)JointId.RightWrist);
+            HoldChain(slot, (int)JointId.LeftHip, (int)JointId.LeftKnee, (int)JointId.LeftAnkle);
+            HoldChain(slot, (int)JointId.RightHip, (int)JointId.RightKnee, (int)JointId.RightAnkle);
+
+            bool any = false;
+            for (int i = 0; i < end; i++)
+            {
+                if (i < start || dest.Joints == null)
+                {
+                    if (dest.Joints != null && i < dest.Joints.Length) dest.Joints[i] = default(Joint);
+                    continue;
+                }
+
+                TrackPoint point = track[slot][i];
+                if (point.Seen <= 0f)
+                {
+                    dest.Joints[i] = default(Joint);
+                    continue;
+                }
+
+                float shown = point.Score < DrawScore ? DrawScore : point.Score;
+                dest.Joints[i] = new Joint(point.X, point.Y, shown);
+                any = true;
+            }
+
             slotUsed[slot] = any;
+        }
+
+        /// <summary>
+        /// True when MoveNet still sees the joint inside the picture, not clamped to the border.
+        /// </summary>
+        bool InFrame(Joint joint)
+        {
+            if (joint.Score < jointThreshold) return false;
+            if (joint.X <= 0.01f || joint.X >= 0.99f) return false;
+            if (joint.Y <= 0.01f || joint.Y >= 0.99f) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Keeps a missing joint beside its partner using the last measured gap.
+        /// </summary>
+        void HoldToParent(int slot, int joint, int parent)
+        {
+            RememberOffset(slot, joint, parent);
+            if (!track[slot][joint].HasOffset) return;
+            bool jointOn = jointFresh[joint];
+            bool parentOn = jointFresh[parent];
+            if (jointOn && parentOn) return;
+            if (!jointOn && parentOn)
+            {
+                TrackPoint point = track[slot][joint];
+                TrackPoint root = track[slot][parent];
+                point.X = root.X + point.OffX;
+                point.Y = root.Y + point.OffY;
+                point.Score = point.Score < DrawScore ? DrawScore : point.Score;
+                track[slot][joint] = point;
+                jointFresh[joint] = true;
+                return;
+            }
+
+            if (jointOn && !parentOn && track[slot][parent].Seen > 0f)
+            {
+                TrackPoint point = track[slot][joint];
+                TrackPoint root = track[slot][parent];
+                root.X = point.X - point.OffX;
+                root.Y = point.Y - point.OffY;
+                root.Score = root.Score < DrawScore ? DrawScore : root.Score;
+                track[slot][parent] = root;
+                jointFresh[parent] = true;
+            }
+        }
+
+        /// <summary>
+        /// Places each missing joint down the limb from the joints that are still in frame.
+        /// A limb that has left entirely stays where it last was.
+        /// </summary>
+        void HoldChain(int slot, int root, int mid, int tip)
+        {
+            HoldToParent(slot, mid, root);
+            HoldToParent(slot, tip, mid);
+        }
+
+        /// <summary>
+        /// Records the bone from parent to joint while both ends are on screen.
+        /// </summary>
+        void RememberOffset(int slot, int joint, int parent)
+        {
+            if (!jointFresh[joint] || !jointFresh[parent]) return;
+            TrackPoint point = track[slot][joint];
+            TrackPoint root = track[slot][parent];
+            point.OffX = point.X - root.X;
+            point.OffY = point.Y - root.Y;
+            point.HasOffset = true;
+            track[slot][joint] = point;
         }
 
         /// <summary>
@@ -3223,6 +3294,9 @@ namespace Handline
             public float Y;
             public float Score;
             public float Seen;
+            public float OffX;
+            public float OffY;
+            public bool HasOffset;
         }
 
         /// <summary>
