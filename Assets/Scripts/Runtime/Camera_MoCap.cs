@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
@@ -36,9 +37,9 @@ namespace Handline
         public const int MaxPeople = 6;
 
         const int CropSize = 192;
-        const float PoseInterval = 0.07f;
-        const int MinBodyPoints = 3;
-        const float SlotMatchDistance = 0.35f;
+        const int HandlineSize = 384;
+        const float HoldSeconds = 0.7f;
+        const float DrawScore = 0.18f;
         const string MultiModelFile = "movenet_multipose.tflite";
         const string SingleModelFile = "movenet_lightning.tflite";
         const string PrivacyNotice = "Shown in this window only. The picture is not saved or uploaded. Faces are not drawn.";
@@ -135,8 +136,11 @@ namespace Handline
         readonly bool[] slotUsed = new bool[MaxPeople];
         readonly float[] slotX = new float[MaxPeople];
         readonly float[] slotY = new float[MaxPeople];
+        readonly float[] slotSeen = new float[MaxPeople];
+        readonly TrackPoint[][] track = new TrackPoint[MaxPeople][];
 
         PoseEngine engine;
+        PoseEngine multiEngine;
         WebCamTexture webcam;
         WebCamDevice[] cachedDevices = new WebCamDevice[0];
         readonly int[] tryW = new int[3];
@@ -164,13 +168,6 @@ namespace Handline
         Color32[] crop;
         Texture2D previewTex;
         Color32[] previewPixels;
-        int[] previewIndex;
-        int previewWidth;
-        int previewHeight;
-        int previewRotation = int.MinValue;
-        int previewEdge;
-        bool previewMirror;
-        bool previewVertical;
         int[] sampleIndex;
         int sampleWidth;
         int sampleHeight;
@@ -204,7 +201,6 @@ namespace Handline
         bool reportedGiveUp;
         int tryIndex;
         int tryCount;
-        int modelInputSize;
         bool ready;
         bool cameraHeldOff;
         bool resuming;
@@ -217,17 +213,16 @@ namespace Handline
         GameObject settingsCable;
         Text pairingStatus;
         Text cableStatus;
-        Transform deviceList;
         string deviceSig = "";
-        Font settingsFont;
-        Text settingsCameraText;
-        Text settingsResolutionText;
-        Text settingsFpsText;
-        Text settingsMirrorText;
-        Text settingsRotationText;
-        Text settingsPeopleText;
-        Text settingsDetailText;
-        Text settingsPowerText;
+        Dropdown cameraDropdown;
+        Dropdown resolutionDropdown;
+        Dropdown fpsDropdown;
+        Dropdown mirrorDropdown;
+        Dropdown rotationDropdown;
+        Dropdown peopleDropdown;
+        Dropdown detailDropdown;
+        Dropdown powerDropdown;
+        bool suppressDropdown;
 
         /// <summary>
         /// Creates the camera stage when the open scene does not already contain it.
@@ -252,6 +247,7 @@ namespace Handline
                 {
                     crowd[i] = new PoseFrame();
                     stable[i] = new PoseFrame();
+                    track[i] = new TrackPoint[(int)JointId.Count];
                 }
 
                 LoadSettings();
@@ -272,7 +268,7 @@ namespace Handline
         {
             if (!ready) yield break;
             yield return LoadModel();
-            if (engine == null || cameraHeldOff) yield break;
+            if (!ModelReady() || cameraHeldOff) yield break;
             if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
             {
                 yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
@@ -294,12 +290,12 @@ namespace Handline
             LayoutSettingsCard();
             PollKeys();
             WatchCamera();
-            if (!cameraHeldOff && engine != null) ScanDevices();
+            if (!cameraHeldOff && ModelReady()) ScanDevices();
 
-            if (webcam != null && webcam.isPlaying && webcam.width > 16 && Time.unscaledTime >= nextPose)
+            if (webcam != null && webcam.isPlaying && webcam.width > 16 && (webcam.didUpdateThisFrame || Time.unscaledTime >= nextPose))
             {
                 CaptureAndEstimate();
-                nextPose = Time.unscaledTime + PoseInterval;
+                nextPose = Time.unscaledTime + 0.05f;
             }
             else if (webcam == null && poseUntil > 0f && Time.unscaledTime > poseUntil)
             {
@@ -395,9 +391,9 @@ namespace Handline
         {
             resuming = true;
             cameraHeldOff = false;
-            if (engine == null) yield return LoadModel();
+            if (!ModelReady()) yield return LoadModel();
             resuming = false;
-            if (engine == null || cameraHeldOff) yield break;
+            if (!ModelReady() || cameraHeldOff) yield break;
             int index = pendingCamera >= 0 ? pendingCamera : ChooseStartupCamera();
             pendingCamera = -1;
             OpenCamera(index);
@@ -435,56 +431,74 @@ namespace Handline
         }
 
         /// <summary>
-        /// Tries the six-person model first and keeps the single-person Lightning file as the fallback.
+        /// Loads the Handline Lightning file first, then the six-person file for groups.
+        /// One person uses Lightning. More than one person uses MultiPose.
         /// </summary>
         IEnumerator LoadModelFiles()
         {
             SetStatus("Loading MoveNet Lightning…");
             modelError = null;
-            yield return ReadModelFile(MultiModelFile);
+            yield return ReadModelFile(SingleModelFile);
             if (loadedBytes != null)
             {
-                string error;
-                engine = TryCreateEngine(loadedBytes, out error);
+                string singleError;
+                engine = TryCreateEngine(loadedBytes, out singleError);
                 loadedBytes = null;
-                if (engine != null)
-                {
-                    modelLabel = "MoveNet MultiPose Lightning · up to 6 people";
-                    if (!string.IsNullOrEmpty(engine.Summary)) modelLabel += "  ·  " + engine.Summary;
-                    SetStatus(modelLabel);
-                    yield break;
-                }
-
-                modelError = error;
+                if (engine == null) modelError = singleError;
             }
             else if (!string.IsNullOrEmpty(loadError))
             {
                 modelError = loadError;
             }
 
-            yield return ReadModelFile(SingleModelFile);
-            if (loadedBytes == null)
+            yield return ReadModelFile(MultiModelFile);
+            if (loadedBytes != null)
             {
-                if (string.IsNullOrEmpty(modelError)) modelError = loadError;
+                string multiError;
+                multiEngine = TryCreateEngine(loadedBytes, out multiError);
+                loadedBytes = null;
+                if (multiEngine == null && !string.IsNullOrEmpty(multiError)) Debug.LogWarning(multiError);
+            }
+
+            if (!ModelReady())
+            {
                 if (string.IsNullOrEmpty(modelError)) modelError = "MoveNet Lightning did not load.";
                 SetStatus(modelError);
                 yield break;
             }
 
-            string singleError;
-            engine = TryCreateEngine(loadedBytes, out singleError);
-            loadedBytes = null;
-            if (engine == null)
-            {
-                modelError = string.IsNullOrEmpty(singleError) ? modelError : singleError;
-                SetStatus(modelError);
-                yield break;
-            }
-
-            modelLabel = "MoveNet Lightning · 1 person";
-            if (!string.IsNullOrEmpty(engine.Summary)) modelLabel += "  ·  " + engine.Summary;
-            if (!string.IsNullOrEmpty(modelError)) Debug.LogWarning("Multi-person MoveNet did not start. " + modelError);
+            ApplyModelLabel();
             SetStatus(modelLabel);
+        }
+
+        /// <summary>
+        /// Lightning for one person, the same file Handline uses. MultiPose when the dropdown asks for more.
+        /// </summary>
+        PoseEngine ActiveEngine()
+        {
+            if (peopleLimit <= 1 && engine != null) return engine;
+            if (multiEngine != null) return multiEngine;
+            return engine;
+        }
+
+        /// <summary>
+        /// True when at least one MoveNet file started.
+        /// </summary>
+        bool ModelReady()
+        {
+            return engine != null || multiEngine != null;
+        }
+
+        /// <summary>
+        /// Names the model that is tracking right now.
+        /// </summary>
+        void ApplyModelLabel()
+        {
+            PoseEngine active = ActiveEngine();
+            if (active == null) return;
+            bool handline = active == engine;
+            modelLabel = handline ? "MoveNet Lightning" : "MoveNet MultiPose Lightning";
+            if (!string.IsNullOrEmpty(active.Summary)) modelLabel += "  ·  " + active.Summary;
         }
 
         /// <summary>
@@ -574,10 +588,10 @@ namespace Handline
         /// </summary>
         void ReleaseEngine()
         {
-            if (engine == null) return;
-            engine.Dispose();
+            if (engine != null) engine.Dispose();
+            if (multiEngine != null) multiEngine.Dispose();
             engine = null;
-            modelInputSize = 0;
+            multiEngine = null;
         }
 
         /// <summary>
@@ -593,12 +607,12 @@ namespace Handline
             {
                 Color32[] filled = webcam.GetPixels32();
                 if (filled == null || filled.Length == 0) return;
-                ShowFrame(filled, sw, sh);
-                int modelSize = ModelSize();
-                FillCrop(filled, sw, sh, modelSize);
-                if (engine != null)
+                FillCrop(filled, sw, sh, HandlineSize);
+                ShowCrop(crop, HandlineSize);
+                PoseEngine active = ActiveEngine();
+                if (active != null)
                 {
-                    crowdCount = engine.TryRead(crop, modelSize, crowd, peopleLimit);
+                    crowdCount = active.TryRead(crop, HandlineSize, crowd, peopleLimit);
                     if (crowdCount < 0) crowdCount = 0;
                     if (crowdCount > MaxPeople) crowdCount = MaxPeople;
                 }
@@ -618,7 +632,7 @@ namespace Handline
                 crowdCount = 0;
                 poseUntil = Time.unscaledTime + 0.4f;
                 ShowCount(VisiblePeople());
-                if (engine != null && !string.IsNullOrEmpty(engine.Failure)) NoteModelFailure();
+                if (active != null && !string.IsNullOrEmpty(active.Failure)) NoteModelFailure();
                 else RefreshStatus();
             }
             catch (Exception ex)
@@ -631,18 +645,6 @@ namespace Handline
             {
                 if (crop != null) Array.Clear(crop, 0, crop.Length);
             }
-        }
-
-        /// <summary>
-        /// Uses the model edge when MoveNet has reported one. 192 is Lightning's usual input.
-        /// </summary>
-        int ModelSize()
-        {
-            if (modelInputSize >= 96) return modelInputSize;
-            int size = engine == null ? 0 : engine.InputSize;
-            if (size < 96 || size > 320) size = CropSize;
-            modelInputSize = size;
-            return size;
         }
 
         /// <summary>
@@ -729,7 +731,7 @@ namespace Handline
             if (end > (int)JointId.Count) end = (int)JointId.Count;
             for (int i = start; i < end; i++)
             {
-                if (pose.Joints[i].Score >= jointThreshold) count++;
+                if (pose.Joints[i].Score >= DrawScore) count++;
             }
 
             return count;
@@ -740,7 +742,7 @@ namespace Handline
         /// </summary>
         bool HasBody(PoseFrame pose)
         {
-            return BodyPoints(pose) >= MinBodyPoints;
+            return BodyPoints(pose) >= 1;
         }
 
         /// <summary>
@@ -765,7 +767,7 @@ namespace Handline
             {
                 if (ids[i] >= pose.Joints.Length) continue;
                 Joint joint = pose.Joints[ids[i]];
-                if (joint.Score < jointThreshold) continue;
+                if (joint.Score < DrawScore) continue;
                 x += joint.X;
                 y += joint.Y;
                 count++;
@@ -779,7 +781,7 @@ namespace Handline
                 for (int i = start; i < end; i++)
                 {
                     Joint joint = pose.Joints[i];
-                    if (joint.Score < jointThreshold) continue;
+                    if (joint.Score < DrawScore) continue;
                     x += joint.X;
                     y += joint.Y;
                     count++;
@@ -809,10 +811,10 @@ namespace Handline
             {
                 if (!slotUsed[slot]) continue;
                 int best = -1;
-                float bestDist = SlotMatchDistance;
+                    float bestDist = 0.6f;
                 for (int n = 0; n < crowdCount && n < MaxPeople; n++)
                 {
-                    if (slotTaken[n] || !HasBody(crowd[n])) continue;
+                    if (slotTaken[n] || !Detectable(crowd[n])) continue;
                     float x;
                     float y;
                     if (!Torso(crowd[n], out x, out y)) continue;
@@ -833,7 +835,7 @@ namespace Handline
 
             for (int n = 0; n < crowdCount && n < MaxPeople; n++)
             {
-                if (slotTaken[n] || !HasBody(crowd[n])) continue;
+                if (slotTaken[n] || !Detectable(crowd[n])) continue;
                 for (int slot = 0; slot < MaxPeople; slot++)
                 {
                     if (slotAssigned[slot] >= 0) continue;
@@ -848,20 +850,128 @@ namespace Handline
                 int source = slotAssigned[slot];
                 if (source < 0)
                 {
+                    if (slotSeen[slot] > 0f && Time.unscaledTime - slotSeen[slot] < HoldSeconds)
+                    {
+                        BlendSlot(slot, null);
+                        continue;
+                    }
+
                     Blank(stable[slot]);
+                    ClearTrack(slot);
                     slotUsed[slot] = false;
                     slotX[slot] = 0f;
                     slotY[slot] = 0f;
+                    slotSeen[slot] = 0f;
                     continue;
                 }
 
-                CopyBody(crowd[source], stable[slot]);
+                BlendSlot(slot, crowd[source]);
                 float x;
                 float y;
-                slotUsed[slot] = Torso(stable[slot], out x, out y);
-                slotX[slot] = x;
-                slotY[slot] = y;
+                if (Torso(stable[slot], out x, out y))
+                {
+                    slotX[slot] = x;
+                    slotY[slot] = y;
+                }
+
+                slotSeen[slot] = Time.unscaledTime;
             }
+        }
+
+        /// <summary>
+        /// True when a new sample has at least one body joint worth matching.
+        /// </summary>
+        bool Detectable(PoseFrame pose)
+        {
+            if (pose == null || pose.Joints == null) return false;
+            int start = (int)JointId.LeftShoulder;
+            int end = pose.Joints.Length;
+            if (end > (int)JointId.Count) end = (int)JointId.Count;
+            for (int i = start; i < end; i++)
+            {
+                if (pose.Joints[i].Score >= 0.15f) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Follows a new MoveNet sample and keeps a covered joint in place for a short hold.
+        /// The hold is what stops a limb from vanishing when it leaves the frame.
+        /// </summary>
+        void BlendSlot(int slot, PoseFrame raw)
+        {
+            float now = Time.unscaledTime;
+            float dt = Mathf.Clamp(Time.unscaledDeltaTime, 0.001f, 0.05f);
+            float follow = 1f - Mathf.Exp(-dt / 0.045f);
+            PoseFrame dest = stable[slot];
+            int start = (int)JointId.LeftShoulder;
+            int end = (int)JointId.Count;
+            bool any = false;
+            for (int i = 0; i < end; i++)
+            {
+                if (i < start || dest.Joints == null)
+                {
+                    if (dest.Joints != null && i < dest.Joints.Length) dest.Joints[i] = default(Joint);
+                    continue;
+                }
+
+                TrackPoint point = track[slot][i];
+                if (raw != null && raw.Joints != null && i < raw.Joints.Length && raw.Joints[i].Score >= jointThreshold)
+                {
+                    Joint sample = raw.Joints[i];
+                    if (point.Seen <= 0f)
+                    {
+                        point.X = sample.X;
+                        point.Y = sample.Y;
+                    }
+                    else
+                    {
+                        float gain = follow * Mathf.Clamp01(0.45f + sample.Score);
+                        point.X = Mathf.Lerp(point.X, sample.X, gain);
+                        point.Y = Mathf.Lerp(point.Y, sample.Y, gain);
+                    }
+
+                    point.Score = sample.Score;
+                    point.Seen = now;
+                }
+
+                float age = point.Seen > 0f ? now - point.Seen : 99f;
+                if (point.Seen > 0f && age < HoldSeconds)
+                {
+                    float shown = point.Score;
+                    if (age > HoldSeconds * 0.75f)
+                    {
+                        float fade = 1f - ((age - HoldSeconds * 0.75f) / (HoldSeconds * 0.25f));
+                        shown = DrawScore * Mathf.Clamp01(fade);
+                    }
+                    else if (shown < DrawScore)
+                    {
+                        shown = DrawScore;
+                    }
+
+                    dest.Joints[i] = new Joint(point.X, point.Y, shown);
+                    any = true;
+                }
+                else
+                {
+                    dest.Joints[i] = default(Joint);
+                    if (age >= HoldSeconds) point.Seen = 0f;
+                }
+
+                track[slot][i] = point;
+            }
+
+            slotUsed[slot] = any;
+        }
+
+        /// <summary>
+        /// Forgets the smoothed joints for one person.
+        /// </summary>
+        void ClearTrack(int slot)
+        {
+            if (track[slot] == null) return;
+            for (int i = 0; i < track[slot].Length; i++) track[slot][i] = default(TrackPoint);
         }
 
         /// <summary>
@@ -888,9 +998,11 @@ namespace Handline
             {
                 Blank(crowd[i]);
                 Blank(stable[i]);
+                ClearTrack(i);
                 slotUsed[i] = false;
                 slotX[i] = 0f;
                 slotY[i] = 0f;
+                slotSeen[i] = 0f;
             }
         }
 
@@ -907,8 +1019,9 @@ namespace Handline
         /// </summary>
         void NoteModelFailure()
         {
-            if (engine == null || string.IsNullOrEmpty(engine.Failure)) return;
-            SetStatus("Pose tracking stopped. " + engine.Failure);
+            PoseEngine active = ActiveEngine();
+            if (active == null || string.IsNullOrEmpty(active.Failure)) return;
+            SetStatus("Pose tracking stopped. " + active.Failure);
         }
 
         /// <summary>
@@ -1250,44 +1363,31 @@ namespace Handline
         /// Draws the same upright center crop MoveNet reads, so the skeleton sits on the picture.
         /// The texture lives on the GPU for this window. It is not written to a file.
         /// </summary>
-        void ShowFrame(Color32[] source, int srcWidth, int srcHeight)
+        void ShowCrop(Color32[] square, int size)
         {
-            if (videoView == null || source == null) return;
-            const int size = 512;
-            if (previewTex == null)
+            if (videoView == null || square == null || size < 32) return;
+            if (previewTex == null || previewTex.width != size)
             {
+                if (previewTex != null) Destroy(previewTex);
                 previewTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
                 previewTex.wrapMode = TextureWrapMode.Clamp;
                 previewTex.filterMode = FilterMode.Bilinear;
                 previewTex.name = "Camera preview";
             }
 
-            if (previewPixels == null || previewPixels.Length != size * size) previewPixels = new Color32[size * size];
-            int rotation = webcam.videoRotationAngle + extraRotation;
-            bool vertical = webcam.videoVerticallyMirrored;
-            if (previewIndex == null || previewEdge != size || previewWidth != srcWidth || previewHeight != srcHeight
-                || previewRotation != rotation || previewMirror != mirror || previewVertical != vertical)
+            int count = size * size;
+            if (previewPixels == null || previewPixels.Length != count) previewPixels = new Color32[count];
+            for (int y = 0; y < size; y++)
             {
-                previewIndex = new int[size * size];
-                FrameOrient.FillIndices(previewIndex, size, srcWidth, srcHeight, rotation, vertical, mirror);
-                previewEdge = size;
-                previewWidth = srcWidth;
-                previewHeight = srcHeight;
-                previewRotation = rotation;
-                previewMirror = mirror;
-                previewVertical = vertical;
-            }
-
-            int limit = source.Length;
-            for (int i = 0; i < previewPixels.Length; i++)
-            {
-                int index = previewIndex[i];
-                previewPixels[i] = (uint)index < (uint)limit ? source[index] : default(Color32);
+                int src = y * size;
+                int dst = (size - 1 - y) * size;
+                for (int x = 0; x < size; x++) previewPixels[dst + x] = square[src + x];
             }
 
             previewTex.SetPixels32(previewPixels);
             previewTex.Apply(false, false);
             Array.Clear(previewPixels, 0, previewPixels.Length);
+            videoView.uvRect = new Rect(0f, 0f, 1f, 1f);
             videoView.texture = previewTex;
             videoView.enabled = true;
         }
@@ -1304,8 +1404,6 @@ namespace Handline
             }
 
             previewPixels = null;
-            previewIndex = null;
-            previewEdge = 0;
             if (videoView == null) return;
             videoView.texture = null;
             videoView.enabled = false;
@@ -1394,7 +1492,7 @@ namespace Handline
 
                 Joint a = pose.Joints[aId];
                 Joint b = pose.Joints[bId];
-                if (a.Score < jointThreshold || b.Score < jointThreshold)
+                if (a.Score < DrawScore || b.Score < DrawScore)
                 {
                     bones[i].enabled = false;
                     continue;
@@ -1423,7 +1521,7 @@ namespace Handline
             for (int i = 0; i < joints.Length; i++)
             {
                 int jointId = start + i;
-                if (!show || jointId >= pose.Joints.Length || pose.Joints[jointId].Score < jointThreshold)
+                if (!show || jointId >= pose.Joints.Length || pose.Joints[jointId].Score < DrawScore)
                 {
                     joints[i].enabled = false;
                     continue;
@@ -1488,7 +1586,7 @@ namespace Handline
         void RefreshStatus()
         {
             if (cameraHeldOff) return;
-            if (engine == null)
+            if (!ModelReady())
             {
                 if (!string.IsNullOrEmpty(modelError)) SetStatus(modelError);
                 return;
@@ -1591,9 +1689,9 @@ namespace Handline
 
             requestFps = PlayerPrefs.GetInt(PrefFps, 30);
             if (requestFps != 15 && requestFps != 30 && requestFps != 60) requestFps = 30;
-            peopleLimit = Mathf.Clamp(PlayerPrefs.GetInt(PrefPeople, MaxPeople), 1, MaxPeople);
-            jointThreshold = PlayerPrefs.GetFloat(PrefThreshold, 0.3f);
-            if (jointThreshold < 0.15f || jointThreshold > 0.6f) jointThreshold = 0.3f;
+            peopleLimit = Mathf.Clamp(PlayerPrefs.GetInt(PrefPeople, 1), 1, MaxPeople);
+            jointThreshold = PlayerPrefs.GetFloat(PrefThreshold, 0.2f);
+            if (jointThreshold < 0.1f || jointThreshold > 0.6f) jointThreshold = 0.2f;
             savedCameraName = PlayerPrefs.GetString(PrefCamera, "");
         }
 
@@ -1655,7 +1753,6 @@ namespace Handline
         void BuildSettings(Font font, Sprite sprite)
         {
             int u = 1;
-            settingsFont = font;
             RectTransform root = canvasRect;
 
             Button open = MakeButton("Open Settings", root, roundSprite, font, "Settings", delegate { SetSettingsOpen(true); }, Btn.Filled);
@@ -1727,7 +1824,7 @@ namespace Handline
             headingRect.anchoredPosition = new Vector2(24f * u, -16f * u);
             headingRect.sizeDelta = new Vector2(220f * u, 32f * u);
 
-            Transform content = MakeScroll(settingsMain.transform, sprite, u, 64f * u);
+            Transform content = MakeScroll(settingsMain.transform, sprite, u, 64f * u, false);
             BuildSettingsMain(content, font, sprite, u);
             BuildPairingPage(panel.transform, font, sprite, u);
             BuildCablePage(panel.transform, font, sprite, u);
@@ -1778,46 +1875,41 @@ namespace Handline
         /// </summary>
         void BuildSettingsMain(Transform page, Font font, Sprite sprite, int u)
         {
-            SectionLabel(page, font, "Camera", 12 * u, 22 * u);
-            settingsCameraText = BlockLabel(page, font, "No camera yet", 16 * u, 28 * u, Ink);
-            settingsCameraText.horizontalOverflow = HorizontalWrapMode.Wrap;
-
-            deviceList = new GameObject("Devices", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter)).transform;
-            deviceList.SetParent(page, false);
-            VerticalLayoutGroup deviceLayout = deviceList.GetComponent<VerticalLayoutGroup>();
-            deviceLayout.spacing = 4f;
-            deviceLayout.childAlignment = TextAnchor.UpperLeft;
-            deviceLayout.childControlWidth = true;
-            deviceLayout.childControlHeight = true;
-            deviceLayout.childForceExpandWidth = true;
-            deviceLayout.childForceExpandHeight = false;
-            ContentSizeFitter deviceFit = deviceList.GetComponent<ContentSizeFitter>();
-            deviceFit.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            deviceFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            SectionLabel(page, font, "Camera", 14 * u, 24 * u);
+            cameraDropdown = AddDropdown(page, roundSprite, font, "No camera yet", PickCamera);
 
             Transform actions = ActionRow(page, 40f * u);
-            FlexButton(actions, roundSprite, font, "Previous", 104f * u, 36f * u, 14 * u, Btn.Text, delegate { StepCamera(-1); });
-            FlexButton(actions, roundSprite, font, "Next", 72f * u, 36f * u, 14 * u, Btn.Text, delegate { StepCamera(1); });
-            FlexButton(actions, roundSprite, font, "Refresh", 96f * u, 36f * u, 14 * u, Btn.Text, RefreshCameras);
+            FlexButton(actions, roundSprite, font, "Refresh", 120f * u, 40f * u, 16 * u, Btn.Text, RefreshCameras);
 
             Transform links = ActionRow(page, 44f * u);
-            FlexButton(links, roundSprite, font, "Pair phone", 140f * u, 40f * u, 14 * u, Btn.Filled, ShowPairing);
-            FlexButton(links, roundSprite, font, "USB cable", 140f * u, 40f * u, 14 * u, Btn.Filled, ShowCable);
+            FlexButton(links, roundSprite, font, "Pair phone", 140f * u, 40f * u, 16 * u, Btn.Filled, ShowPairing);
+            FlexButton(links, roundSprite, font, "USB cable", 140f * u, 40f * u, 16 * u, Btn.Filled, ShowCable);
 
-            Spacer(page, 8f * u);
-            settingsResolutionText = AddSettingRow(page, roundSprite, font, "Resolution", u, CycleResolution);
-            settingsFpsText = AddSettingRow(page, roundSprite, font, "Frame rate", u, CycleFrameRate);
-            settingsMirrorText = AddSettingRow(page, roundSprite, font, "Mirror", u, ToggleMirror);
-            settingsRotationText = AddSettingRow(page, roundSprite, font, "Rotate", u, CycleRotation);
-            settingsPeopleText = AddSettingRow(page, roundSprite, font, "People", u, CyclePeople);
-            settingsDetailText = AddSettingRow(page, roundSprite, font, "Tracking", u, CycleDetail);
-            settingsPowerText = AddSettingRow(page, roundSprite, font, "Camera", u, TogglePower);
+            Spacer(page, 10f * u);
+            SectionLabel(page, font, "Picture", 14 * u, 24 * u);
+            resolutionDropdown = AddDropdown(page, roundSprite, font, "Auto", PickResolution);
+            FillFixedDropdown(resolutionDropdown, new string[] { "Auto", "640 × 480", "1280 × 720", "1920 × 1080" }, ResolutionIndex());
+            fpsDropdown = AddDropdown(page, roundSprite, font, "30", PickFrameRate);
+            FillFixedDropdown(fpsDropdown, new string[] { "15", "30", "60" }, FpsIndex());
+            mirrorDropdown = AddDropdown(page, roundSprite, font, "On", PickMirror);
+            FillFixedDropdown(mirrorDropdown, new string[] { "Mirror on", "Mirror off" }, mirror ? 0 : 1);
+            rotationDropdown = AddDropdown(page, roundSprite, font, "0°", PickRotation);
+            FillFixedDropdown(rotationDropdown, new string[] { "0°", "90°", "180°", "270°" }, extraRotation / 90);
+
+            Spacer(page, 10f * u);
+            SectionLabel(page, font, "Tracking", 14 * u, 24 * u);
+            peopleDropdown = AddDropdown(page, roundSprite, font, "1 person", PickPeople);
+            FillFixedDropdown(peopleDropdown, new string[] { "1 person", "2 people", "3 people", "4 people", "5 people", "6 people" }, peopleLimit - 1);
+            detailDropdown = AddDropdown(page, roundSprite, font, "Normal", PickDetail);
+            FillFixedDropdown(detailDropdown, new string[] { "Relaxed", "Normal", "Firm" }, DetailIndex());
+            powerDropdown = AddDropdown(page, roundSprite, font, "On", PickPower);
+            FillFixedDropdown(powerDropdown, new string[] { "Camera on", "Camera off" }, cameraHeldOff ? 1 : 0);
         }
 
         /// <summary>
         /// Adds a scroll view that fills the parent below a top inset, so the card can be shorter than its contents.
         /// </summary>
-        static Transform MakeScroll(Transform parent, Sprite sprite, int u, float top)
+        static Transform MakeScroll(Transform parent, Sprite sprite, int u, float top, bool clip)
         {
             GameObject scrollObject = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect));
             scrollObject.transform.SetParent(parent, false);
@@ -1832,7 +1924,8 @@ namespace Handline
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 24f * u;
 
-            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image));
+            if (clip) viewport.AddComponent<RectMask2D>();
             viewport.transform.SetParent(scrollObject.transform, false);
             Stretch(viewport.GetComponent<RectTransform>());
             Image viewportImage = viewport.GetComponent<Image>();
@@ -2237,7 +2330,7 @@ namespace Handline
             cameraHeldOff = false;
             if (pairingStatus != null) pairingStatus.text = connectedLine;
             if (cableStatus != null) cableStatus.text = connectedLine;
-            if (engine == null)
+            if (!ModelReady())
             {
                 pendingCamera = phone;
                 if (!resuming) StartCoroutine(Resume());
@@ -2276,20 +2369,304 @@ namespace Handline
         }
 
         /// <summary>
+        /// Builds one settings dropdown. The list opens downward and is not clipped by the card.
+        /// </summary>
+        Dropdown AddDropdown(Transform parent, Sprite sprite, Font font, string caption, UnityAction<int> onPick)
+        {
+            Dropdown dropdown = BuildDropdown(parent, sprite, font, caption);
+            LayoutElement element = dropdown.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = 44f;
+            element.preferredHeight = 44f;
+            element.flexibleWidth = 1f;
+            dropdown.onValueChanged.AddListener(delegate (int index)
+            {
+                if (suppressDropdown || onPick == null) return;
+                onPick(index);
+            });
+            return dropdown;
+        }
+
+        /// <summary>
+        /// Creates the dropdown control Unity's template expects: caption, scroll list, and one item.
+        /// </summary>
+        Dropdown BuildDropdown(Transform parent, Sprite sprite, Font font, string caption)
+        {
+            GameObject root = new GameObject(caption, typeof(RectTransform), typeof(Image), typeof(Dropdown));
+            root.transform.SetParent(parent, false);
+            Image background = root.GetComponent<Image>();
+            background.sprite = sprite;
+            background.type = Image.Type.Sliced;
+            background.color = Card;
+            Outline rim = root.AddComponent<Outline>();
+            rim.effectColor = Border;
+            rim.effectDistance = new Vector2(1.5f, -1.5f);
+            Dropdown dropdown = root.GetComponent<Dropdown>();
+            dropdown.targetGraphic = background;
+
+            Text label = MakeText("Label", root.transform, font, caption, 17, TextAnchor.MiddleLeft, Ink);
+            label.fontStyle = FontStyle.Bold;
+            Stretch(label.rectTransform);
+            label.rectTransform.offsetMin = new Vector2(14f, 4f);
+            label.rectTransform.offsetMax = new Vector2(-28f, -4f);
+            dropdown.captionText = label;
+
+            Text arrow = MakeText("Arrow", root.transform, font, "▾", 16, TextAnchor.MiddleCenter, YellowDeep);
+            RectTransform arrowRect = arrow.rectTransform;
+            arrowRect.anchorMin = new Vector2(1f, 0f);
+            arrowRect.anchorMax = new Vector2(1f, 1f);
+            arrowRect.pivot = new Vector2(1f, 0.5f);
+            arrowRect.anchoredPosition = new Vector2(-8f, 0f);
+            arrowRect.sizeDelta = new Vector2(24f, 0f);
+
+            GameObject template = new GameObject("Template", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            template.transform.SetParent(root.transform, false);
+            RectTransform templateRect = template.GetComponent<RectTransform>();
+            templateRect.anchorMin = new Vector2(0f, 0f);
+            templateRect.anchorMax = new Vector2(1f, 0f);
+            templateRect.pivot = new Vector2(0.5f, 1f);
+            templateRect.anchoredPosition = new Vector2(0f, -4f);
+            templateRect.sizeDelta = new Vector2(0f, 220f);
+            Image templateImage = template.GetComponent<Image>();
+            templateImage.sprite = sprite;
+            templateImage.type = Image.Type.Sliced;
+            templateImage.color = Card;
+
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewport.transform.SetParent(template.transform, false);
+            Stretch(viewport.GetComponent<RectTransform>());
+            viewport.GetComponent<Image>().color = Card;
+
+            GameObject content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            RectTransform contentRect = content.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.sizeDelta = new Vector2(0f, 36f);
+            VerticalLayoutGroup listLayout = content.GetComponent<VerticalLayoutGroup>();
+            listLayout.childControlWidth = true;
+            listLayout.childControlHeight = true;
+            listLayout.childForceExpandWidth = true;
+            listLayout.childForceExpandHeight = false;
+            ContentSizeFitter listFit = content.GetComponent<ContentSizeFitter>();
+            listFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            GameObject item = new GameObject("Item", typeof(RectTransform), typeof(Toggle), typeof(LayoutElement));
+            item.transform.SetParent(content.transform, false);
+            item.GetComponent<LayoutElement>().preferredHeight = 36f;
+            Toggle toggle = item.GetComponent<Toggle>();
+            Image itemImage = item.AddComponent<Image>();
+            itemImage.color = new Color(1f, 0.95f, 0.8f, 1f);
+            toggle.targetGraphic = itemImage;
+            ColorBlock colors = toggle.colors;
+            colors.normalColor = Card;
+            colors.highlightedColor = Yellow;
+            colors.pressedColor = Yellow;
+            colors.selectedColor = Yellow;
+            toggle.colors = colors;
+            Text itemLabel = MakeText("Item Label", item.transform, font, "Option", 17, TextAnchor.MiddleLeft, Ink);
+            Stretch(itemLabel.rectTransform);
+            itemLabel.rectTransform.offsetMin = new Vector2(12f, 0f);
+            itemLabel.rectTransform.offsetMax = new Vector2(-8f, 0f);
+
+            ScrollRect scroll = template.GetComponent<ScrollRect>();
+            scroll.content = contentRect;
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            dropdown.template = templateRect;
+            dropdown.itemText = itemLabel;
+            template.SetActive(false);
+            return dropdown;
+        }
+
+        /// <summary>
+        /// Replaces a dropdown's choices without treating that as a user click.
+        /// </summary>
+        void FillFixedDropdown(Dropdown dropdown, string[] options, int value)
+        {
+            if (dropdown == null || options == null) return;
+            suppressDropdown = true;
+            dropdown.ClearOptions();
+            dropdown.AddOptions(new List<string>(options));
+            if (value < 0) value = 0;
+            if (value >= options.Length) value = options.Length - 1;
+            dropdown.value = value;
+            dropdown.RefreshShownValue();
+            suppressDropdown = false;
+        }
+
+        /// <summary>
+        /// Shows the current choice. A refresh does not count as the user picking it.
+        /// </summary>
+        void SetDropdown(Dropdown dropdown, int value)
+        {
+            if (dropdown == null || dropdown.options == null || dropdown.options.Count == 0) return;
+            if (value < 0) value = 0;
+            if (value >= dropdown.options.Count) value = dropdown.options.Count - 1;
+            suppressDropdown = true;
+            dropdown.value = value;
+            dropdown.RefreshShownValue();
+            suppressDropdown = false;
+        }
+
+        /// <summary>
+        /// Index of the saved resolution in the dropdown.
+        /// </summary>
+        int ResolutionIndex()
+        {
+            if (requestWidth == 640) return 1;
+            if (requestWidth == 1280) return 2;
+            if (requestWidth == 1920) return 3;
+            return 0;
+        }
+
+        /// <summary>
+        /// Index of the saved frame rate in the dropdown.
+        /// </summary>
+        int FpsIndex()
+        {
+            if (requestFps == 15) return 0;
+            if (requestFps == 60) return 2;
+            return 1;
+        }
+
+        /// <summary>
+        /// Index of the tracking strictness in the dropdown.
+        /// </summary>
+        int DetailIndex()
+        {
+            if (jointThreshold < 0.16f) return 0;
+            if (jointThreshold < 0.28f) return 1;
+            return 2;
+        }
+
+        /// <summary>
+        /// Opens the camera chosen in the dropdown.
+        /// </summary>
+        void PickCamera(int index)
+        {
+            if (cachedDevices == null || index < 0 || index >= cachedDevices.Length) return;
+            SelectListedCamera(index);
+        }
+
+        /// <summary>
+        /// Applies a resolution from the dropdown and reopens the camera.
+        /// </summary>
+        void PickResolution(int index)
+        {
+            if (index == 1)
+            {
+                requestWidth = 640;
+                requestHeight = 480;
+            }
+            else if (index == 2)
+            {
+                requestWidth = 1280;
+                requestHeight = 720;
+            }
+            else if (index == 3)
+            {
+                requestWidth = 1920;
+                requestHeight = 1080;
+            }
+            else
+            {
+                requestWidth = 0;
+                requestHeight = 0;
+            }
+
+            SaveSettings();
+            ReopenCamera();
+        }
+
+        /// <summary>
+        /// Applies a frame rate from the dropdown and reopens the camera.
+        /// </summary>
+        void PickFrameRate(int index)
+        {
+            requestFps = index == 0 ? 15 : index == 2 ? 60 : 30;
+            SaveSettings();
+            ReopenCamera();
+        }
+
+        /// <summary>
+        /// Turns the selfie mirror on or off.
+        /// </summary>
+        void PickMirror(int index)
+        {
+            mirror = index == 0;
+            SaveSettings();
+        }
+
+        /// <summary>
+        /// Sets the extra rotation from the dropdown.
+        /// </summary>
+        void PickRotation(int index)
+        {
+            extraRotation = index * 90;
+            if (extraRotation < 0 || extraRotation > 270) extraRotation = 0;
+            SaveSettings();
+        }
+
+        /// <summary>
+        /// Sets how many people to track. One person uses the Handline Lightning model.
+        /// </summary>
+        void PickPeople(int index)
+        {
+            peopleLimit = Mathf.Clamp(index + 1, 1, MaxPeople);
+            for (int i = peopleLimit; i < MaxPeople; i++)
+            {
+                Blank(stable[i]);
+                ClearTrack(i);
+                slotUsed[i] = false;
+                slotSeen[i] = 0f;
+            }
+
+            ApplyModelLabel();
+            SetStatus(modelLabel);
+            SaveSettings();
+        }
+
+        /// <summary>
+        /// Sets how sure a new joint must be before it moves the skeleton.
+        /// </summary>
+        void PickDetail(int index)
+        {
+            if (index == 0) jointThreshold = 0.12f;
+            else if (index == 2) jointThreshold = 0.35f;
+            else jointThreshold = 0.2f;
+            SaveSettings();
+        }
+
+        /// <summary>
+        /// Turns the camera on or off from the dropdown.
+        /// </summary>
+        void PickPower(int index)
+        {
+            if (index == 0)
+            {
+                if (cameraHeldOff && !resuming) StartCoroutine(Resume());
+                return;
+            }
+
+            if (!cameraHeldOff) StopCapture("Camera off. Turn it on in Settings, or press Enter.");
+            RefreshSettingLabels();
+        }
+
+        /// <summary>
         /// Rewrites the settings labels from the current choices.
         /// </summary>
         void RefreshSettingLabels()
         {
-            if (settingsCameraText == null) return;
-            settingsCameraText.text = CurrentCameraLabel();
-            settingsResolutionText.text = requestWidth <= 0 ? "Auto" : requestWidth + " × " + requestHeight;
-            RebuildDeviceList();
-            settingsFpsText.text = requestFps.ToString();
-            settingsMirrorText.text = mirror ? "On" : "Off";
-            settingsRotationText.text = extraRotation + "°";
-            settingsPeopleText.text = peopleLimit.ToString();
-            settingsDetailText.text = DetailLabel();
-            settingsPowerText.text = cameraHeldOff ? "Off" : "On";
+            SyncCameraDropdown();
+            SetDropdown(resolutionDropdown, ResolutionIndex());
+            SetDropdown(fpsDropdown, FpsIndex());
+            SetDropdown(mirrorDropdown, mirror ? 0 : 1);
+            SetDropdown(rotationDropdown, extraRotation / 90);
+            SetDropdown(peopleDropdown, peopleLimit - 1);
+            SetDropdown(detailDropdown, DetailIndex());
+            SetDropdown(powerDropdown, cameraHeldOff ? 1 : 0);
         }
 
         /// <summary>
@@ -2346,7 +2723,7 @@ namespace Handline
             cameraHeldOff = false;
             waitingForPhone = false;
             waitingForCable = false;
-            if (engine == null)
+            if (!ModelReady())
             {
                 pendingCamera = next;
                 if (!resuming) StartCoroutine(Resume());
@@ -2421,31 +2798,36 @@ namespace Handline
         }
 
         /// <summary>
-        /// Rebuilds the clickable camera list when the devices or the selection change.
+        /// Fills the camera dropdown when the devices or the selection change.
         /// </summary>
-        void RebuildDeviceList()
+        void SyncCameraDropdown()
         {
-            if (deviceList == null || settingsFont == null) return;
+            if (cameraDropdown == null) return;
             WebCamDevice[] devices = cachedDevices ?? new WebCamDevice[0];
             string sig = cameraIndex.ToString();
             for (int i = 0; i < devices.Length; i++) sig += "|" + devices[i].name;
-            if (sig == deviceSig) return;
-            deviceSig = sig;
-            for (int i = deviceList.childCount - 1; i >= 0; i--) Destroy(deviceList.GetChild(i).gameObject);
-            if (devices.Length == 0)
+            if (sig != deviceSig || cameraDropdown.options.Count != Mathf.Max(1, devices.Length))
             {
-                BlockLabel(deviceList, settingsFont, "None listed. Press Refresh.", 14, 32f, Muted);
-                return;
+                deviceSig = sig;
+                List<string> names = new List<string>();
+                if (devices.Length == 0) names.Add("No camera yet");
+                else
+                {
+                    for (int i = 0; i < devices.Length; i++)
+                    {
+                        string label = ShortName(devices[i].name);
+                        if (devices[i].isFrontFacing) label += "  ·  front";
+                        names.Add(label);
+                    }
+                }
+
+                suppressDropdown = true;
+                cameraDropdown.ClearOptions();
+                cameraDropdown.AddOptions(names);
+                suppressDropdown = false;
             }
 
-            for (int i = 0; i < devices.Length; i++)
-            {
-                int picked = i;
-                string label = ShortName(devices[i].name);
-                if (devices[i].isFrontFacing) label += "  ·  front";
-                Btn kind = i == cameraIndex ? Btn.Filled : Btn.Text;
-                FlexButton(deviceList, roundSprite, settingsFont, label, 0f, 40f, 14, kind, delegate { SelectListedCamera(picked); });
-            }
+            SetDropdown(cameraDropdown, devices.Length == 0 ? 0 : cameraIndex);
         }
 
         /// <summary>
@@ -2456,7 +2838,7 @@ namespace Handline
             waitingForPhone = false;
             waitingForCable = false;
             cameraHeldOff = false;
-            if (engine == null)
+            if (!ModelReady())
             {
                 pendingCamera = index;
                 if (!resuming) StartCoroutine(Resume());
@@ -2580,7 +2962,7 @@ namespace Handline
         void ReopenCamera()
         {
             RefreshSettingLabels();
-            if (cameraHeldOff || engine == null) return;
+            if (cameraHeldOff || !ModelReady()) return;
             OpenCamera(cameraIndex);
         }
 
@@ -2710,6 +3092,17 @@ namespace Handline
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>
+        /// One smoothed body joint. Seen is the last time MoveNet measured it.
+        /// </summary>
+        struct TrackPoint
+        {
+            public float X;
+            public float Y;
+            public float Score;
+            public float Seen;
         }
 
         /// <summary>
