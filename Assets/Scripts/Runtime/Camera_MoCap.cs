@@ -62,12 +62,26 @@ namespace Handline
             "2. Open the app on both. Allow the camera on the phone.\n" +
             "3. Use the same Wi-Fi, or USB when the app offers it.\n" +
             "4. Press Refresh here and select that camera.\n\n" +
-            "USB\n\n" +
-            "1. Use a data cable, not a charge-only cable.\n" +
-            "2. On the phone, pick USB webcam or File transfer if it asks.\n" +
-            "3. Allow the permission prompt.\n" +
-            "4. Press Refresh here.\n\n" +
+            "A plugged-in iPhone is a different setup. Press Back, then USB cable.\n\n" +
             "This app only uses a webcam the computer already lists. It does not install a driver and it does not show the picture.";
+        const string CableGuide =
+            "Use the charging cable that came with the iPhone, or another data cable. A charge-only cable powers the phone and never becomes a camera.\n\n" +
+            "MAC\n\n" +
+            "1. Plug the iPhone into the Mac.\n" +
+            "2. Unlock the iPhone. If it asks to Trust This Computer, tap Trust and enter the passcode.\n" +
+            "3. Leave the phone unlocked. Continuity Camera uses the cable while it is plugged in.\n" +
+            "4. Press Check cable. This page selects the iPhone when the Mac lists it.\n\n" +
+            "WINDOWS\n\n" +
+            "Windows does not speak iPhone USB until Apple's phone service is installed. Until then the cable only charges the phone.\n\n" +
+            "1. Press Apple driver and install Apple Devices. Open it once. iTunes from Apple does the same job if you already have it.\n" +
+            "2. Plug the iPhone into a USB port on the PC. Unlock it, tap Trust, and enter the passcode.\n" +
+            "3. If the PC still does not see the phone, press Windows+R, type services.msc, and start Apple Mobile Device Service. Set its startup type to Automatic.\n" +
+            "4. Press Iriun and install Iriun Webcam on the PC. Open the PC app first and leave it open.\n" +
+            "5. Install Iriun Webcam on the iPhone from the App Store. Open it, allow the camera, and leave the cable plugged in. Iriun uses the cable when it is connected.\n" +
+            "6. Press Check cable. This page selects the camera named Iriun when Windows lists it.\n\n" +
+            "The picture stays on this computer. It is not shown and it is not saved.";
+        const string AppleDriverUrl = "https://apps.microsoft.com/detail/9np83lwlpz9k";
+        const string IriunUrl = "https://iriun.com/";
         const string PrefMirror = "CameraMoCap.Mirror";
         const string PrefRotation = "CameraMoCap.Rotation";
         const string PrefWidth = "CameraMoCap.Width";
@@ -152,11 +166,14 @@ namespace Handline
         bool cameraHeldOff;
         bool resuming;
         bool waitingForPhone;
+        bool waitingForCable;
         string savedCameraName = "";
         GameObject settingsRoot;
         GameObject settingsMain;
         GameObject settingsPairing;
+        GameObject settingsCable;
         Text pairingStatus;
+        Text cableStatus;
         Text settingsCameraText;
         Text settingsResolutionText;
         Text settingsFpsText;
@@ -927,21 +944,16 @@ namespace Handline
                 return;
             }
 
-            if (waitingForPhone)
+            if (waitingForPhone || waitingForCable)
             {
-                int phone = FindPhone(devices);
-                if (phone >= 0)
-                {
-                    waitingForPhone = false;
-                    cameraHeldOff = false;
-                    if (pairingStatus != null) pairingStatus.text = "Phone camera connected. The picture stays on this device.";
-                    OpenCamera(phone);
-                    SetStatus("Phone camera connected. The picture stays on this device.");
-                    return;
-                }
-
+                string connected = waitingForCable
+                    ? "Cable camera connected. The picture stays on this device."
+                    : "Phone camera connected. The picture stays on this device.";
+                if (TryConnectPhone(devices, connected)) return;
                 if (pairingStatus != null && settingsPairing != null && settingsPairing.activeSelf)
                     pairingStatus.text = "No phone camera yet. Follow the steps, then press Refresh.";
+                if (cableStatus != null && settingsCable != null && settingsCable.activeSelf)
+                    cableStatus.text = "Plug in the data cable and tap Trust. This page connects the iPhone when the computer lists it.";
             }
 
             if (webcam == null && !cameraHeldOff) OpenCamera(ChooseStartupCamera());
@@ -952,6 +964,7 @@ namespace Handline
         /// </summary>
         void BuildStage()
         {
+            EnsureStageCamera();
             Font font = BuiltinFont();
             Sprite sprite = WhiteSprite();
 
@@ -962,6 +975,7 @@ namespace Handline
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = true;
             canvas.sortingOrder = 100;
+            canvas.targetDisplay = 0;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1600f, 900f);
@@ -1028,6 +1042,36 @@ namespace Handline
             Text help = MakeText("Help", canvasRect, font, "Tab settings    F mirror    Q rotate    Esc stop    Enter start", 16, TextAnchor.LowerLeft, Muted);
             Place(help.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 28f), new Vector2(1100f, 24f));
             BuildSettings(font, sprite);
+        }
+
+        /// <summary>
+        /// Gives the Game view a display to render. The camera clears to black and never receives the webcam picture.
+        /// </summary>
+        void EnsureStageCamera()
+        {
+            Camera[] cameras = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            for (int i = 0; i < cameras.Length; i++)
+            {
+                Camera existing = cameras[i];
+                if (existing != null && existing.enabled && existing.targetDisplay == 0) return;
+            }
+
+            GameObject go = new GameObject("Stage Camera");
+            go.tag = "MainCamera";
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = new Vector3(0f, 0f, -10f);
+            Camera cam = go.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = Color.black;
+            cam.orthographic = true;
+            cam.orthographicSize = 5f;
+            cam.nearClipPlane = 0.3f;
+            cam.farClipPlane = 1000f;
+            cam.depth = -1;
+            cam.targetDisplay = 0;
+            cam.allowHDR = false;
+            cam.allowMSAA = false;
+            if (UnityEngine.Object.FindAnyObjectByType<AudioListener>() == null) go.AddComponent<AudioListener>();
         }
 
         /// <summary>
@@ -1284,6 +1328,7 @@ namespace Handline
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = true;
             canvas.sortingOrder = 200;
+            canvas.targetDisplay = 0;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = 1f;
@@ -1341,6 +1386,7 @@ namespace Handline
             Stretch(settingsMain.GetComponent<RectTransform>());
             BuildSettingsMain(settingsMain.transform, font, sprite, u);
             BuildPairingPage(panel.transform, font, sprite, u);
+            BuildCablePage(panel.transform, font, sprite, u);
 
             settingsRoot.SetActive(false);
             RefreshSettingLabels();
@@ -1364,7 +1410,8 @@ namespace Handline
             AddTextButton(page, sprite, font, "Next", 150f * u, 136f * u, 80f * u, 32f * u, 15 * u, delegate { StepCamera(1); });
             AddTextButton(page, sprite, font, "Refresh", 250f * u, 136f * u, 110f * u, 32f * u, 15 * u, RefreshCameras);
 
-            AddTextButton(page, sprite, font, "Pair phone", 28f * u, 180f * u, 160f * u, 32f * u, 16 * u, ShowPairing);
+            AddTextButton(page, sprite, font, "Pair phone", 28f * u, 180f * u, 150f * u, 32f * u, 16 * u, ShowPairing);
+            AddTextButton(page, sprite, font, "USB cable", 190f * u, 180f * u, 150f * u, 32f * u, 16 * u, ShowCable);
             Rule(page, sprite, 28f * u, 224f * u, 404f * u);
 
             settingsResolutionText = AddSettingRow(page, sprite, font, "Resolution", 240f * u, u, CycleResolution);
@@ -1441,6 +1488,79 @@ namespace Handline
         }
 
         /// <summary>
+        /// Builds the USB setup. It stays hidden until USB cable is clicked.
+        /// </summary>
+        void BuildCablePage(Transform panel, Font font, Sprite sprite, int u)
+        {
+            settingsCable = new GameObject("Cable", typeof(RectTransform));
+            settingsCable.transform.SetParent(panel, false);
+            Stretch(settingsCable.GetComponent<RectTransform>());
+
+            AddTextButton(settingsCable.transform, sprite, font, "Back", 28f * u, 18f * u, 72f * u, 32f * u, 15 * u, HideCable);
+            Text title = MakeText("Cable Title", settingsCable.transform, font, "USB cable", 22 * u, TextAnchor.MiddleLeft, Yellow);
+            PlaceTop(title.rectTransform, 112f * u, 18f * u, 240f * u, 32f * u);
+            cableStatus = MakeText("Cable Status", settingsCable.transform, font, "", 14 * u, TextAnchor.UpperLeft, Muted);
+            cableStatus.horizontalOverflow = HorizontalWrapMode.Wrap;
+            cableStatus.verticalOverflow = VerticalWrapMode.Overflow;
+            PlaceTop(cableStatus.rectTransform, 28f * u, 58f * u, 404f * u, 36f * u);
+            AddTextButton(settingsCable.transform, sprite, font, "Check cable", 28f * u, 98f * u, 140f * u, 32f * u, 15 * u, RefreshCameras);
+            AddTextButton(settingsCable.transform, sprite, font, "Apple driver", 176f * u, 98f * u, 140f * u, 32f * u, 15 * u, OpenAppleDriver);
+            AddTextButton(settingsCable.transform, sprite, font, "Iriun", 324f * u, 98f * u, 90f * u, 32f * u, 15 * u, OpenIriun);
+            BuildGuideScroll(settingsCable.transform, font, sprite, u, CableGuide, 142f * u, 420f * u);
+            settingsCable.SetActive(false);
+        }
+
+        /// <summary>
+        /// Adds the scrolling steps used by the pairing and cable pages.
+        /// </summary>
+        static void BuildGuideScroll(Transform parent, Font font, Sprite sprite, int u, string body, float y, float height)
+        {
+            GameObject scrollObject = new GameObject("Steps", typeof(RectTransform), typeof(ScrollRect));
+            scrollObject.transform.SetParent(parent, false);
+            PlaceTop(scrollObject.GetComponent<RectTransform>(), 28f * u, y, 404f * u, height);
+            ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 28f * u;
+
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollObject.transform, false);
+            Stretch(viewport.GetComponent<RectTransform>());
+            Image viewportImage = viewport.GetComponent<Image>();
+            viewportImage.sprite = sprite;
+            viewportImage.color = Color.white;
+            viewportImage.raycastTarget = true;
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            GameObject content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(viewport.transform, false);
+            RectTransform contentRect = content.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = new Vector2(0f, 0f);
+
+            Text guide = MakeText("Guide", content.transform, font, body, 15 * u, TextAnchor.UpperLeft, Cream);
+            guide.horizontalOverflow = HorizontalWrapMode.Wrap;
+            guide.verticalOverflow = VerticalWrapMode.Overflow;
+            guide.lineSpacing = 1.08f;
+            RectTransform guideRect = guide.rectTransform;
+            guideRect.anchorMin = new Vector2(0f, 1f);
+            guideRect.anchorMax = new Vector2(1f, 1f);
+            guideRect.pivot = new Vector2(0.5f, 1f);
+            guideRect.anchoredPosition = Vector2.zero;
+            guideRect.sizeDelta = new Vector2(-4f * u, 0f);
+            ContentSizeFitter fitter = guide.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = guideRect;
+        }
+
+        /// <summary>
         /// Draws a one-pixel yellow hairline.
         /// </summary>
         static void Rule(Transform parent, Sprite sprite, float x, float y, float width)
@@ -1483,6 +1603,7 @@ namespace Handline
         {
             if (settingsRoot == null) return;
             if (settingsPairing != null) settingsPairing.SetActive(false);
+            if (settingsCable != null) settingsCable.SetActive(false);
             if (settingsMain != null) settingsMain.SetActive(true);
             settingsRoot.SetActive(open);
             if (open) RefreshSettingLabels();
@@ -1494,30 +1615,83 @@ namespace Handline
         void ShowPairing()
         {
             if (settingsMain != null) settingsMain.SetActive(false);
+            if (settingsCable != null) settingsCable.SetActive(false);
             if (settingsPairing != null) settingsPairing.SetActive(true);
             waitingForPhone = true;
+            waitingForCable = false;
             WebCamDevice[] devices = WebCamTexture.devices;
             knownDeviceCount = devices == null ? 0 : devices.Length;
-            int phone = FindPhone(devices);
-            if (phone < 0)
-            {
-                if (pairingStatus != null) pairingStatus.text = "No phone camera yet. Follow the steps, then press Refresh.";
-                SetStatus("Waiting for the phone. Follow the pairing steps, then press Refresh.");
-                return;
-            }
+            if (TryConnectPhone(devices, "Phone camera connected. The picture stays on this device.")) return;
+            if (pairingStatus != null) pairingStatus.text = "No phone camera yet. Follow the steps, then press Refresh.";
+            SetStatus("Waiting for the phone. Follow the pairing steps, then press Refresh.");
+        }
 
+        /// <summary>
+        /// Opens the cable setup and watches for an iPhone plugged in with a data cable.
+        /// </summary>
+        void ShowCable()
+        {
+            if (settingsMain != null) settingsMain.SetActive(false);
+            if (settingsPairing != null) settingsPairing.SetActive(false);
+            if (settingsCable != null) settingsCable.SetActive(true);
+            waitingForCable = true;
             waitingForPhone = false;
+            WebCamDevice[] devices = WebCamTexture.devices;
+            knownDeviceCount = devices == null ? 0 : devices.Length;
+            if (TryConnectPhone(devices, "Cable camera connected. The picture stays on this device.")) return;
+            if (cableStatus != null) cableStatus.text = "Plug in the data cable and tap Trust. This page connects the iPhone when the computer lists it.";
+            SetStatus("Waiting for the USB camera.");
+        }
+
+        /// <summary>
+        /// Returns from the cable setup to the settings rows.
+        /// </summary>
+        void HideCable()
+        {
+            waitingForCable = false;
+            if (settingsCable != null) settingsCable.SetActive(false);
+            if (settingsMain != null) settingsMain.SetActive(true);
+            RefreshSettingLabels();
+        }
+
+        /// <summary>
+        /// Selects a phone webcam and writes the connected line. Returns false when none is listed.
+        /// </summary>
+        bool TryConnectPhone(WebCamDevice[] devices, string connectedLine)
+        {
+            int phone = FindPhone(devices);
+            if (phone < 0) return false;
+            waitingForPhone = false;
+            waitingForCable = false;
             cameraHeldOff = false;
-            if (pairingStatus != null) pairingStatus.text = "Phone camera connected. The picture stays on this device.";
+            if (pairingStatus != null) pairingStatus.text = connectedLine;
+            if (cableStatus != null) cableStatus.text = connectedLine;
             if (engine == null)
             {
                 pendingCamera = phone;
                 if (!resuming) StartCoroutine(Resume());
-                return;
+                return true;
             }
 
             OpenCamera(phone);
-            SetStatus("Phone camera connected. The picture stays on this device.");
+            SetStatus(connectedLine);
+            return true;
+        }
+
+        /// <summary>
+        /// Opens the Apple Devices install page. Windows needs it before an iPhone USB cable is more than power.
+        /// </summary>
+        void OpenAppleDriver()
+        {
+            Application.OpenURL(AppleDriverUrl);
+        }
+
+        /// <summary>
+        /// Opens the Iriun Webcam site. The Windows app is what publishes the plugged-in iPhone as a webcam.
+        /// </summary>
+        void OpenIriun()
+        {
+            Application.OpenURL(IriunUrl);
         }
 
         /// <summary>
@@ -1599,6 +1773,7 @@ namespace Handline
             if (next >= count) next = 0;
             cameraHeldOff = false;
             waitingForPhone = false;
+            waitingForCable = false;
             if (engine == null)
             {
                 pendingCamera = next;
@@ -1619,33 +1794,32 @@ namespace Handline
             knownDeviceCount = devices == null ? 0 : devices.Length;
             RefreshSettingLabels();
             bool pairingOpen = settingsPairing != null && settingsPairing.activeSelf;
-            int phone = FindPhone(devices);
-            if (!waitingForPhone && !pairingOpen)
+            bool cableOpen = settingsCable != null && settingsCable.activeSelf;
+            if (pairingOpen) waitingForPhone = true;
+            if (cableOpen) waitingForCable = true;
+            if (!waitingForPhone && !waitingForCable)
             {
                 SetStatus(knownDeviceCount == 0 ? "No camera yet." : "Camera list refreshed.");
                 return;
             }
 
-            if (phone < 0)
+            string connected = (cableOpen || waitingForCable)
+                ? "Cable camera connected. The picture stays on this device."
+                : "Phone camera connected. The picture stays on this device.";
+            if (TryConnectPhone(devices, connected)) return;
+
+            if (cableOpen || waitingForCable)
+            {
+                if (cableStatus != null) cableStatus.text = "No cable camera yet. Plug in the data cable, tap Trust, then press Check cable.";
+                SetStatus("Waiting for the USB camera. Leave the cable connected, then press Check cable.");
+            }
+
+            if (pairingOpen || waitingForPhone)
             {
                 waitingForPhone = true;
                 if (pairingStatus != null) pairingStatus.text = "No phone camera yet. Follow the steps, then press Refresh.";
-                SetStatus("Still waiting for the phone. Leave the webcam app running, then press Refresh.");
-                return;
+                if (!cableOpen) SetStatus("Still waiting for the phone. Leave the webcam app running, then press Refresh.");
             }
-
-            waitingForPhone = false;
-            cameraHeldOff = false;
-            if (pairingStatus != null) pairingStatus.text = "Phone camera connected. The picture stays on this device.";
-            if (engine == null)
-            {
-                pendingCamera = phone;
-                if (!resuming) StartCoroutine(Resume());
-                return;
-            }
-
-            OpenCamera(phone);
-            SetStatus("Phone camera connected. The picture stays on this device.");
         }
 
         /// <summary>

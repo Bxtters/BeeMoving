@@ -10,7 +10,7 @@ This repository folder is that same Unity project if you already have it checked
 2. Leave the project alone until the first import finishes. It needs an internet connection once, so Package Manager can download TensorFlow Lite.
 3. `Assets/Scenes/Camera_MoCap.unity` opens by itself. Press Play.
 
-The window is the camera stage: a black field, yellow type, and the skeleton. Press **Settings** or **Tab**. Press **Pair phone** and the pairing steps appear on that card. If the skeleton is sideways, press **Q**. If your left and right feel swapped, press **F**. The stage does not show the camera picture.
+The window is the camera stage: a black field, yellow type, and the skeleton. Press **Settings** or **Tab**. **Pair phone** shows the wireless steps. **USB cable** is the plugged-in iPhone setup. If the skeleton is sideways, press **Q**. If your left and right feel swapped, press **F**. The stage does not show the camera picture.
 
 ## Camera
 
@@ -45,7 +45,7 @@ Colors distinguish people who are on screen together. A color follows the torso 
 
 ## Pair a phone
 
-**Pair phone** is the only place the steps are shown. The computer must already list the phone as a webcam. This project does not open a network stream and it does not install a driver.
+**Pair phone** shows the wireless steps. **USB cable** shows the plugged-in steps. The computer must already list the phone as a webcam. This project does not open a network stream and it does not install a driver.
 
 **iPhone on a Mac**
 
@@ -73,14 +73,31 @@ Continuity Camera is a Mac feature. Windows does not see an iPhone until a webca
 3. Use the same Wi-Fi, or USB when the app offers it.
 4. Press Refresh and select that camera.
 
-**USB**
-
-1. Use a data cable, not a charge-only cable.
-2. On the phone, pick USB webcam or File transfer if it asks.
-3. Allow the permission prompt.
-4. Press Refresh.
-
 If the phone is not in the list yet, the stage keeps watching and selects it when it appears.
+
+## USB cable
+
+**USB cable** on the settings card is the physical iPhone connection. The steps stay hidden until that button is pressed. The page keeps watching and selects the phone when the computer lists it.
+
+Use a data cable. A charge-only cable only powers the phone.
+
+**Mac**
+
+1. Plug the iPhone into the Mac.
+2. Unlock it. Tap Trust and enter the passcode if asked.
+3. Leave it unlocked. Continuity Camera uses the cable while it is plugged in.
+4. Press Check cable.
+
+**Windows**
+
+Windows needs Apple's phone service before a cable is anything but power.
+
+1. Press **Apple driver** and install Apple Devices. Open it once.
+2. Plug the iPhone into a USB port. Unlock it, tap Trust, and enter the passcode.
+3. If the PC still does not see the phone, press Windows+R, type `services.msc`, and start Apple Mobile Device Service. Set it to Automatic.
+4. Press **Iriun**, install Iriun Webcam on the PC, and open that app first.
+5. Install Iriun Webcam on the iPhone from the App Store. Open it, allow the camera, and leave the cable plugged in.
+6. Press Check cable and choose the camera named Iriun.
 
 ## Chromebook page
 
@@ -115,6 +132,6 @@ Older lane scripts remain in the project and are not part of the build. Play sta
 
 **No camera in the list.** Plug one in, or finish the pairing steps and press Refresh. The list also refreshes on its own.
 
-**The phone never appears on Windows.** Continuity Camera will not show up there. Use Iriun on the PC and on the iPhone, on the same Wi-Fi or a trusted USB cable, then press Refresh.
+**The phone never appears on Windows.** Continuity Camera will not show up there. For a cable, open Settings, then USB cable, install Apple Devices, and use Iriun over that cable. For Wi-Fi, use Pair phone.
 
 **Pose tracking failed to load.** The status line names the reason. On a phone build the model is read out of StreamingAssets. On desktop it is read from `Assets/StreamingAssets`.
