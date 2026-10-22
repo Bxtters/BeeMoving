@@ -152,6 +152,11 @@ namespace Handline
         RectTransform stage;
         RectTransform stageFrame;
         RawImage videoView;
+        StagePuppet puppet;
+        Camera stageCamera;
+        GameObject startRoot;
+        bool sessionStarted;
+        bool modelPrepared;
         Image[][] lines;
         Image[][] dots;
         Text countText;
@@ -277,7 +282,8 @@ namespace Handline
             float until = Time.unscaledTime + 3f;
             while (Time.unscaledTime < until && ReadDevices(true).Length == 0)
                 yield return new WaitForSecondsRealtime(0.4f);
-            OpenCamera(ChooseStartupCamera());
+            modelPrepared = true;
+            if (sessionStarted) OpenCamera(ChooseStartupCamera());
         }
 
         /// <summary>
@@ -367,6 +373,12 @@ namespace Handline
             if (Keys.Pressed(Key.Enter) || Keys.Pressed(Key.Space))
             {
                 if (settingsRoot != null && settingsRoot.activeSelf) return;
+                if (!sessionStarted)
+                {
+                    BeginSession();
+                    return;
+                }
+
                 if (!resuming) StartCoroutine(Resume());
                 return;
             }
@@ -1275,7 +1287,7 @@ namespace Handline
             scaler.dynamicPixelsPerUnit = 4f;
             canvasRect = canvasObject.GetComponent<RectTransform>();
 
-            Image background = MakeImage("Background", canvasRect, sprite, Paper);
+            Image background = MakeImage("Background", canvasRect, sprite, new Color(Paper.r, Paper.g, Paper.b, 0f));
             Stretch(background.rectTransform);
 
             Image frameImage = MakeImage("Stage Frame", canvasRect, roundSprite, Border);
@@ -1355,8 +1367,92 @@ namespace Handline
             statusText.verticalOverflow = VerticalWrapMode.Overflow;
             Place(statusText.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 56f), new Vector2(1200f, 32f));
             Text help = MakeText("Help", canvasRect, font, "Tab settings    F mirror    Q rotate    Esc stop    Enter start", 18, TextAnchor.LowerLeft, Muted);
-            Place(help.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 24f), new Vector2(1200f, 28f));
+            Place(help.rectTransform, new Vector2(0f, 0f), new Vector2(340f, 36f), new Vector2(900f, 28f));
+            Place(statusText.rectTransform, new Vector2(0f, 0f), new Vector2(340f, 72f), new Vector2(900f, 32f));
+            BuildStartScreen(font, sprite);
+            BuildPuppet();
             BuildSettings(font, sprite);
+        }
+
+        /// <summary>
+        /// Shows the title card until the player starts. The character is already standing behind it.
+        /// </summary>
+        void BuildStartScreen(Font font, Sprite sprite)
+        {
+            startRoot = new GameObject("Start Screen", typeof(RectTransform));
+            startRoot.transform.SetParent(canvasRect, false);
+            Stretch(startRoot.GetComponent<RectTransform>());
+
+            Image dim = MakeImage("Start Dim", startRoot.transform, sprite, new Color(0.35f, 0.26f, 0.08f, 0.28f));
+            dim.raycastTarget = true;
+            Stretch(dim.rectTransform);
+
+            Image card = MakeImage("Start Card", startRoot.transform, roundSprite, Card);
+            card.type = Image.Type.Sliced;
+            card.raycastTarget = true;
+            RectTransform cardRect = card.rectTransform;
+            cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRect.pivot = new Vector2(0.5f, 0.5f);
+            cardRect.anchoredPosition = new Vector2(0f, 150f);
+            cardRect.sizeDelta = new Vector2(560f, 340f);
+
+            Image rim = MakeImage("Start Rim", startRoot.transform, roundSprite, Border);
+            rim.type = Image.Type.Sliced;
+            rim.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rim.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rim.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rim.rectTransform.anchoredPosition = new Vector2(0f, 150f);
+            rim.rectTransform.sizeDelta = new Vector2(572f, 352f);
+            rim.rectTransform.SetSiblingIndex(card.transform.GetSiblingIndex());
+
+            Text heading = MakeText("Start Title", card.transform, font, "Camera MoCap", 40, TextAnchor.MiddleCenter, Ink);
+            heading.fontStyle = FontStyle.Bold;
+            Place(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -36f), new Vector2(480f, 52f));
+            heading.rectTransform.pivot = new Vector2(0.5f, 1f);
+
+            Text body = MakeText("Start Body", card.transform, font, "A character stands on the floor and follows your camera pose. The picture stays in the corner and is not saved.", 20, TextAnchor.UpperCenter, Ink);
+            body.horizontalOverflow = HorizontalWrapMode.Wrap;
+            body.verticalOverflow = VerticalWrapMode.Overflow;
+            Place(body.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(460f, 90f));
+            body.rectTransform.pivot = new Vector2(0.5f, 1f);
+
+            Button start = MakeButton("Start", card.transform, roundSprite, font, "Start", BeginSession, Btn.Filled);
+            Text startLabel = start.GetComponentInChildren<Text>();
+            startLabel.fontSize = 22;
+            startLabel.fontStyle = FontStyle.Bold;
+            RectTransform startRect = start.GetComponent<RectTransform>();
+            startRect.anchorMin = new Vector2(0.5f, 0f);
+            startRect.anchorMax = new Vector2(0.5f, 0f);
+            startRect.pivot = new Vector2(0.5f, 0f);
+            startRect.anchoredPosition = new Vector2(0f, 36f);
+            startRect.sizeDelta = new Vector2(220f, 56f);
+        }
+
+        /// <summary>
+        /// Leaves the title card and opens the camera so the character can follow.
+        /// </summary>
+        void BeginSession()
+        {
+            if (sessionStarted) return;
+            sessionStarted = true;
+            if (startRoot != null) startRoot.SetActive(false);
+            if (modelPrepared && ModelReady() && webcam == null && !cameraHeldOff)
+            {
+                OpenCamera(ChooseStartupCamera());
+            }
+        }
+
+        /// <summary>
+        /// Creates the floor and the characters the camera pose will move.
+        /// </summary>
+        void BuildPuppet()
+        {
+            GameObject go = new GameObject("Standing Area");
+            go.transform.SetParent(transform, false);
+            puppet = go.AddComponent<StagePuppet>();
+            puppet.Build();
+            if (stageCamera != null) puppet.Frame(stageCamera, 1);
         }
 
         /// <summary>
@@ -1418,25 +1514,38 @@ namespace Handline
             for (int i = 0; i < cameras.Length; i++)
             {
                 Camera existing = cameras[i];
-                if (existing != null && existing.enabled && existing.targetDisplay == 0) return;
+                if (existing == null || !existing.enabled || existing.targetDisplay != 0) continue;
+                stageCamera = existing;
+                FrameStageCamera(existing);
+                return;
             }
 
             GameObject go = new GameObject("Stage Camera");
             go.tag = "MainCamera";
             go.transform.SetParent(transform, false);
-            go.transform.localPosition = new Vector3(0f, 0f, -10f);
             Camera cam = go.AddComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = Paper;
-            cam.orthographic = true;
-            cam.orthographicSize = 5f;
-            cam.nearClipPlane = 0.3f;
-            cam.farClipPlane = 1000f;
             cam.depth = -1;
             cam.targetDisplay = 0;
             cam.allowHDR = false;
             cam.allowMSAA = false;
+            stageCamera = cam;
+            FrameStageCamera(cam);
             if (UnityEngine.Object.FindAnyObjectByType<AudioListener>() == null) go.AddComponent<AudioListener>();
+        }
+
+        /// <summary>
+        /// Looks at the standing area. The picture itself is a canvas card, not this camera.
+        /// </summary>
+        void FrameStageCamera(Camera cam)
+        {
+            cam.orthographic = false;
+            cam.fieldOfView = 32f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = Paper;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 40f;
+            cam.transform.position = new Vector3(0f, 1.2f, -4.2f);
+            cam.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 1.05f, 0f) - cam.transform.position, Vector3.up);
         }
 
         /// <summary>
@@ -1444,19 +1553,23 @@ namespace Handline
         /// </summary>
         bool LayoutStage()
         {
-            if (stage == null || canvasRect == null) return false;
-            Rect area = canvasRect.rect;
-            float side = Mathf.Min(area.width - 64f, area.height - 280f);
-            if (side < 64f) side = 64f;
-            if (Mathf.Abs(stage.sizeDelta.x - side) < 0.5f) return false;
+            if (stage == null) return false;
+            const float side = 280f;
+            stage.anchorMin = Vector2.zero;
+            stage.anchorMax = Vector2.zero;
+            stage.pivot = Vector2.zero;
+            stage.anchoredPosition = new Vector2(28f, 28f);
             stage.sizeDelta = new Vector2(side, side);
             if (stageFrame != null)
             {
+                stageFrame.anchorMin = Vector2.zero;
+                stageFrame.anchorMax = Vector2.zero;
+                stageFrame.pivot = Vector2.zero;
+                stageFrame.anchoredPosition = new Vector2(23f, 23f);
                 stageFrame.sizeDelta = new Vector2(side + 10f, side + 10f);
-                stageFrame.anchoredPosition = stage.anchoredPosition;
             }
 
-            return true;
+            return false;
         }
 
         /// <summary>
@@ -1471,6 +1584,13 @@ namespace Handline
             {
                 bool show = slotUsed[person] && HasBody(stable[person]) && width > 2f && height > 2f;
                 DrawPerson(person, show ? stable[person] : null, show, width, height);
+            }
+
+            if (puppet != null)
+            {
+                puppet.Follow(stable, slotUsed, peopleLimit);
+                int visible = VisiblePeople();
+                puppet.Frame(stageCamera, visible > 0 ? visible : 1);
             }
         }
 

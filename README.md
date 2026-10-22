@@ -10,13 +10,13 @@ This repository folder is that same Unity project if you already have it checked
 2. Leave the project alone until the first import finishes. It needs an internet connection once, so Package Manager can download TensorFlow Lite.
 3. `Assets/Scenes/Camera_MoCap.unity` opens by itself. Press Play.
 
-The window is a light camera stage with yellow as the main color. Press the yellow **Settings** button or **Tab**. **Pair phone** shows the wireless steps. **USB cable** is the plugged-in iPhone setup. If the skeleton is sideways, press **Q**. If your left and right feel swapped, press **F**. The stage shows the camera picture with the skeleton drawn on top of it.
+Press Play to see a start screen. **Start** (or Enter) puts a simple character on a small floor. The character follows the pose from the camera. The camera picture sits in the bottom-left corner and is not saved. Press the yellow **Settings** button or **Tab**. **Pair phone** shows the wireless steps. **USB cable** is the plugged-in iPhone setup. If the pose is sideways, press **Q**. If your left and right feel swapped, press **F**.
 
 ## Camera
 
 `Camera_MoCap` tracks one person with the same MoveNet Lightning file Handline uses, at the same 384-pixel crop, on every new camera frame. Choose 2–6 people in the People dropdown to switch to MultiPose. A covered joint stays where it was for a short hold instead of vanishing. Settings for the camera, resolution, frame rate, mirror, rotation, people, and tracking are dropdowns.
 
-The camera stays on this machine. The picture is shown in the window and it is not saved. Nose, eye, and ear points are thrown away before anything is drawn. MoveNet Lightning measures a hand at the wrist. It does not output finger joints, so the display does not invent any.
+The camera stays on this machine. The picture is shown in the bottom-left corner and it is not saved. Nose, eye, and ear points are thrown away before anything is drawn. The character uses shoulders, elbows, wrists, hips, knees, and ankles. MoveNet measures a hand at the wrist, so the character's hands end there.
 
 The settings card is a light yellow sheet, closer to a Google web app: a pale yellow surface, a thin gold edge, warm type, and yellow for the main actions. It stays inside the window and scrolls when the list is taller than the screen.
 
