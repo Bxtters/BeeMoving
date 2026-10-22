@@ -37,8 +37,11 @@ namespace Handline
         public const int MaxPeople = 6;
 
         const int CropSize = 192;
+        // 384 is the crop sent to MoveNet. The model then scales that square to 192 or 256.
         const int HandlineSize = 384;
+        // How long a lost person keeps a color before the slot is cleared.
         const float HoldSeconds = 0.7f;
+        // Minimum score for a joint to be drawn on the corner card.
         const float DrawScore = 0.25f;
         const string MultiModelFile = "movenet_multipose.tflite";
         const string SingleModelFile = "movenet_lightning.tflite";
@@ -84,6 +87,7 @@ namespace Handline
             "The picture stays in this window. It is not saved.";
         const string AppleDriverUrl = "https://apps.microsoft.com/detail/9np83lwlpz9k";
         const string IriunUrl = "https://iriun.com/";
+        // PlayerPrefs keys. Added so resolution, mirror, people, and the chosen camera survive the next Play.
         const string PrefMirror = "CameraMoCap.Mirror";
         const string PrefRotation = "CameraMoCap.Rotation";
         const string PrefWidth = "CameraMoCap.Width";
@@ -95,6 +99,7 @@ namespace Handline
 
         static readonly int[] Bones =
         {
+            // Pairs of joints for the corner skeleton. The face is omitted, so nose, eyes, and ears are not drawn.
             (int)JointId.LeftShoulder, (int)JointId.RightShoulder,
             (int)JointId.LeftShoulder, (int)JointId.LeftElbow,
             (int)JointId.LeftElbow, (int)JointId.LeftWrist,

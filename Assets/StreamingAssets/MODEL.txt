@@ -1,5 +1,6 @@
-movenet_lightning.tflite is one person.
-movenet_multipose.tflite is up to six people. Choose the count on the title screen.
+This file names the two models in this folder. It is not loaded by the game.
+movenet_lightning.tflite is one person and is what the lane uses.
+movenet_multipose.tflite is up to six people. The camera stage uses it when Settings asks for more than one person.
 
 MoveNet SinglePose Lightning, float16
 Source: https://tfhub.dev/google/lite-model/movenet/singlepose/lightning/tflite/float16/4

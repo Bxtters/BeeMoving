@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Skeleton</title>
   <style>
+    /* Full-window page. Added so the skeleton fills a phone or a Chromebook screen. */
     html, body {
       margin: 0;
       height: 100%;
@@ -60,6 +61,7 @@
   <p id="status">Starting the camera…</p>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <!-- MoveNet in the browser. Added as a page that is separate from the Unity project. -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
   <script>
     (function () {
@@ -67,6 +69,7 @@
       var canvas = document.getElementById("stage");
       var ctx = canvas.getContext("2d");
       var BONES = [
+        // MoveNet pairs: shoulders, arms, hips, legs, then the face.
         [5, 6], [5, 7], [7, 9], [6, 8], [8, 10],
         [5, 11], [6, 12], [11, 12],
         [11, 13], [13, 15], [12, 14], [14, 16],
@@ -74,11 +77,13 @@
       ];
       var MIN_SCORE = 0.3;
 
+      // Hides the status line when text is empty. Added so a tracked person clears the prompt.
       function setStatus(text) {
         statusEl.textContent = text || "";
         statusEl.hidden = !text;
       }
 
+      // Saves this page. Added so the button can download the HTML the browser is showing.
       document.getElementById("download").addEventListener("click", function () {
         fetch(location.href).then(function (response) {
           return response.text();
@@ -109,6 +114,7 @@
         return "Chrome blocks the camera when this file is opened from Downloads. In the folder that contains skeleton.html, run: python3 -m http.server 8741 — then open http://localhost:8741/skeleton.html";
       }
 
+      // Flips x so the preview faces the user. Added because the camera is a selfie.
       function point(keypoint, width) {
         return {
           x: width - keypoint.x,
@@ -117,6 +123,7 @@
         };
       }
 
+      // Draws one bone. The dark stroke is an outline. The yellow stroke is the bone itself.
       function stroke(x1, y1, x2, y2, color, width) {
         ctx.strokeStyle = color;
         ctx.lineWidth = width;
@@ -159,6 +166,7 @@
         }
       }
 
+      // Asks for the front camera at 640x480, then any camera if that size is refused.
       function openCamera() {
         var preferred = {
           audio: false,
@@ -225,6 +233,7 @@
         var missingSince = 0;
         setStatus("Step into frame.");
 
+        // Mirrors the video, then draws the last pose. busy stops a second estimate from starting before the first returns.
         async function frame() {
           var width = video.videoWidth;
           var height = video.videoHeight;

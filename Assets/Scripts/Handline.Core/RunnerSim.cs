@@ -3,6 +3,10 @@ using System.Collections.Generic;
 
 namespace Handline
 {
+    /// <summary>
+    /// What a track piece is. Added so the sim and the view share one set of names.
+    /// A crate is jumped, a beam is slid under, a blocker forces a lane change, and a coin is collected.
+    /// </summary>
     public enum ObstacleKind
     {
         Crate = 1,
@@ -11,6 +15,7 @@ namespace Handline
         Coin = 4
     }
 
+    /// <summary>One piece on the track. Z is how far ahead it is. Alive is cleared when it is passed or hit.</summary>
     public sealed class Obstacle
     {
         public int Id;
@@ -20,6 +25,7 @@ namespace Handline
         public bool Alive = true;
     }
 
+    /// <summary>What the player is doing this frame. Added so the sim does not read the camera itself.</summary>
     public struct RunnerInput
     {
         public bool JumpHeld;
@@ -94,6 +100,7 @@ namespace Handline
         public bool GameOver { get; private set; }
         public IReadOnlyList<Obstacle> Obstacles { get { return obstacles; } }
 
+        /// <summary>Starts a run. autoSpawn adds the repeating gates. Tests pass false and place obstacles themselves.</summary>
         public RunnerSim(int seed = 1, bool autoSpawn = true)
         {
             rng = new Random(seed);
@@ -101,6 +108,7 @@ namespace Handline
             Reset();
         }
 
+        /// <summary>Returns the runner to three lives at the start line. Obstacle ids keep climbing so a restarted prop cannot collide with a leftover one.</summary>
         public void Reset()
         {
             obstacles.Clear();
@@ -126,6 +134,7 @@ namespace Handline
             }
         }
 
+        /// <summary>Places one obstacle. Lane is clamped to -1, 0, or 1, which adds a guard against a bad spawn.</summary>
         public Obstacle Spawn(ObstacleKind kind, int lane, float z)
         {
             Obstacle obstacle = new Obstacle();
@@ -137,6 +146,10 @@ namespace Handline
             return obstacle;
         }
 
+        /// <summary>
+        /// Advances the run by dt. Added as the whole frame of movement, collision, and scoring.
+        /// dt is capped at 1/20 second so a hitch cannot tunnel the runner through a crate.
+        /// </summary>
         public void Tick(float dt, RunnerInput input)
         {
             if (dt < 0f) dt = 0f;

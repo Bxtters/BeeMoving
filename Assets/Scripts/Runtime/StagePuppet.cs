@@ -21,6 +21,7 @@ namespace Handline
         const float Neck = 0.28f;
         const float Torso = 0.48f;
         const float HipY = 0.92f;
+        // Smooth times in seconds. A larger value adds more glide. Wrists and ankles are longer so the ends trail the limbs.
         const float GlideBody = 0.11f;
         const float GlideElbow = 0.09f;
         const float GlideWrist = 0.15f;
@@ -41,6 +42,7 @@ namespace Handline
 
         class Figure
         {
+            // Pieces of one polygon body. Each transform is created once and moved every frame.
             public Transform Root;
             public Transform Chest;
             public Transform Pelvis;
@@ -59,6 +61,7 @@ namespace Handline
             public Transform FootL;
             public Transform FootR;
             public Vector3[] Pos;
+            // Speed carried into the next frame. Added so SmoothDamp can ease instead of stepping.
             public Vector3[] Vel;
             public float[] Reach;
             public bool[] Held;
@@ -69,6 +72,7 @@ namespace Handline
             public float[] JumpY;
             public float Scale = 1.8f;
             public bool Sized;
+            // Hip center in the camera crop. Added so the body stays on the plane while the pose is measured around it.
             public float AnchorU = 0.5f;
             public float AnchorV = 0.62f;
             public float AnchorUVel;

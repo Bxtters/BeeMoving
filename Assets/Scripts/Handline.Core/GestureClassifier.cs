@@ -43,6 +43,7 @@ namespace Handline
         bool leftArmed = true;
         bool rightArmed = true;
 
+        /// <summary>Clears the sprint history and the lane lock. Added when a run starts over.</summary>
         public void Reset()
         {
             head = 0;
@@ -56,6 +57,11 @@ namespace Handline
             rightArmed = true;
         }
 
+        /// <summary>
+        /// Reads one pose and returns the lane controls for this moment.
+        /// Added as the only place wrists become jump, slide, lane, and sprint.
+        /// A time gap over half a second clears the sprint window so a pause does not look like pumping arms.
+        /// </summary>
         public GestureSignal Evaluate(PoseFrame pose, float time)
         {
             float dt = 1f / 30f;
@@ -202,6 +208,7 @@ namespace Handline
             return signal;
         }
 
+        /// <summary>Picks the short word shown on the HUD. The first match wins, so jump beats slide and sprint.</summary>
         static string LabelFor(bool jump, bool duck, int laneStep, bool reachLeft, bool reachRight, float run)
         {
             if (jump) return "Jump";
@@ -260,11 +267,13 @@ namespace Handline
             }
         }
 
+        /// <summary>True when MoveNet is confident in the point. Added so a guessed joint cannot trigger a jump.</summary>
         static bool Visible(Joint joint)
         {
             return joint.Score >= MinScore;
         }
 
+        /// <summary>True when the point is inside the crop, not clamped to the border.</summary>
         static bool InFrame(Joint joint)
         {
             return joint.Score >= MinScore

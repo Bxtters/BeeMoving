@@ -32,11 +32,13 @@ namespace Handline
             }
 
             int rot = ((rotationClockwise % 360) + 360) % 360;
+            // Anything other than a quarter turn is treated as upright. Added so a bad angle cannot index off the image.
             if (rot != 0 && rot != 90 && rot != 180 && rot != 270)
             {
                 rot = 0;
             }
 
+            // After rotation the frame may be taller than it is wide. The crop is the largest centered square.
             int uprightW = (rot == 90 || rot == 270) ? srcHeight : srcWidth;
             int uprightH = (rot == 90 || rot == 270) ? srcWidth : srcHeight;
             int crop = uprightW < uprightH ? uprightW : uprightH;
@@ -45,6 +47,7 @@ namespace Handline
 
             float u = (destX + 0.5f) / destSize;
             float v = (destY + 0.5f) / destSize;
+            // The mirror is applied in the upright square, so screen-left stays the player's left.
             if (mirrorHorizontal)
             {
                 u = 1f - u;
@@ -93,6 +96,7 @@ namespace Handline
             if (sy > srcHeight - 1) sy = srcHeight - 1;
 
             bufferX = sx;
+            // GetPixels32 row 0 is the bottom of the texture, so the upright top is stored at the last row.
             bufferY = srcHeight - 1 - sy;
         }
 

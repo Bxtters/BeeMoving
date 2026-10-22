@@ -258,6 +258,7 @@ namespace Handline
             return input;
         }
 
+        /// <summary>True while Space, W, or Up is held. Added so the lane can be practiced without a camera.</summary>
         static bool KeyJump()
         {
             return Keys.Held(Key.Space) || Keys.Held(Key.W) || Keys.Held(Key.UpArrow);
@@ -564,6 +565,7 @@ namespace Handline
             }
         }
 
+        /// <summary>Maps the runner's mode onto the HUD enum. Added because the view does not know the app's private mode.</summary>
         static HudMode ToHud(Mode mode)
         {
             if (mode == Mode.Play) return HudMode.Play;
@@ -572,6 +574,7 @@ namespace Handline
             return HudMode.Attract;
         }
 
+        /// <summary>The runner already in the scene, if one was placed by hand. Added so Boot does not create a second copy.</summary>
         static HandlineApp FindOne()
         {
             return UnityEngine.Object.FindAnyObjectByType<HandlineApp>();

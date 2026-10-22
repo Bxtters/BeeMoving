@@ -3,6 +3,11 @@ using UnityEngine.UI;
 
 namespace Handline
 {
+    /// <summary>
+    /// Draws a 2D skeleton on the lane preview.
+    /// Added for the runner. The camera stage has its own overlay and does not use this class.
+    /// Bones lists pairs of joint indexes. The last four pairs are the face, which the camera stage skips.
+    /// </summary>
     public sealed class PoseOverlay : MonoBehaviour
     {
         static readonly int[] Bones =
@@ -30,6 +35,10 @@ namespace Handline
         Image[][] dots;
         RectTransform rect;
 
+        /// <summary>
+        /// Creates one line and one dot per joint for six people.
+        /// The first person is yellow and coral. Extra people are teal, which adds a way to tell bodies apart.
+        /// </summary>
         public void Build()
         {
             Sprite sprite = White();
@@ -60,12 +69,17 @@ namespace Handline
             }
         }
 
+        /// <summary>Draws one pose. Added so the single-person lane does not build an array.</summary>
         public void Redraw(PoseFrame pose)
         {
             PoseFrame[] one = pose == null ? null : new PoseFrame[] { pose };
             Redraw(one, pose == null ? 0 : 1, 0);
         }
 
+        /// <summary>
+        /// Draws every supplied pose. active draws that person's bones thicker.
+        /// A missing pose hides that slot, which removes a person who left the frame.
+        /// </summary>
         public void Redraw(PoseFrame[] poses, int count, int active)
         {
             float width = rect.sizeDelta.x;
@@ -129,11 +143,15 @@ namespace Handline
             }
         }
 
+        /// <summary>
+        /// Flips Y so image-down becomes UI-up. Added because MoveNet's origin is the top left and uGUI's origin is the bottom left.
+        /// </summary>
         static Vector2 ToPoint(Joint joint, float width, float height)
         {
             return new Vector2(joint.X * width, (1f - joint.Y) * height);
         }
 
+        /// <summary>A 2x2 white sprite. Added so UI Images have a texture to tint.</summary>
         static Sprite White()
         {
             Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
@@ -142,6 +160,9 @@ namespace Handline
             return Sprite.Create(texture, new Rect(0f, 0f, 2f, 2f), new Vector2(0.5f, 0.5f), 100f);
         }
 
+        /// <summary>
+        /// One UI mark anchored at its center. raycastTarget is off so the skeleton does not block buttons.
+        /// </summary>
         Image Mark(string name, Sprite sprite, Color color)
         {
             GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image));

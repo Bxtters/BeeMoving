@@ -3,6 +3,10 @@ using Xunit;
 
 namespace Handline.Tests
 {
+    /// <summary>
+    /// Checks that an upright crop pixel maps back to the webcam buffer.
+    /// Added so rotation, mirror, and the center crop cannot drift from FrameOrient.Map.
+    /// </summary>
     public class FrameOrientTests
     {
         [Fact]

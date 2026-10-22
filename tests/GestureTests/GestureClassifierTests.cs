@@ -3,6 +3,10 @@ using Xunit;
 
 namespace Handline.Tests
 {
+    /// <summary>
+    /// Checks jump, slide, reach, and sprint without a camera.
+    /// Added so a gesture change fails here before it changes the lane.
+    /// </summary>
     public class GestureClassifierTests
     {
         [Fact]

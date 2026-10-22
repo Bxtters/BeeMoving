@@ -2,6 +2,10 @@ using UnityEngine;
 
 namespace Handline
 {
+    /// <summary>
+    /// Short tones for the lane. Added so the runner has feedback without shipping audio files.
+    /// Each clip is generated once in the constructor and played as a one-shot.
+    /// </summary>
     public sealed class Sfx
     {
         readonly AudioSource source;
@@ -12,6 +16,10 @@ namespace Handline
         readonly AudioClip over;
         readonly AudioClip lane;
 
+        /// <summary>
+        /// Builds the six tones on the runner's audio source.
+        /// playOnAwake is cleared so nothing sounds at spawn. spatialBlend 0 keeps the tone in stereo, not in the 3D world.
+        /// </summary>
         public Sfx(AudioSource source)
         {
             this.source = source;
@@ -25,13 +33,29 @@ namespace Handline
             lane = Tone("lane", 340f, 0.05f, 28f, false);
         }
 
+        /// <summary>Plays the jump tone. The volume argument keeps it under the rest of the mix.</summary>
         public void Jump() { source.PlayOneShot(jump, 0.32f); }
+
+        /// <summary>Plays the coin tone.</summary>
         public void Coin() { source.PlayOneShot(coin, 0.28f); }
+
+        /// <summary>Plays the hit tone. Noise is used so a collision sounds rough.</summary>
         public void Hit() { source.PlayOneShot(hit, 0.4f); }
+
+        /// <summary>Plays the start tone.</summary>
         public void Go() { source.PlayOneShot(go, 0.3f); }
+
+        /// <summary>Plays the game-over tone.</summary>
         public void Over() { source.PlayOneShot(over, 0.35f); }
+
+        /// <summary>Plays the lane-change click.</summary>
         public void Lane() { source.PlayOneShot(lane, 0.22f); }
 
+        /// <summary>
+        /// Writes a decaying sine, or noise when noise is true.
+        /// Added so each event has its own pitch and length without an imported clip.
+        /// The envelope makes the tone fade instead of clicking off.
+        /// </summary>
         static AudioClip Tone(string name, float freq, float seconds, float decay, bool noise)
         {
             const int rate = 44100;

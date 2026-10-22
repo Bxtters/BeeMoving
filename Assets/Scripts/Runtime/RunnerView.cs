@@ -5,6 +5,11 @@ using UnityEngine.Rendering;
 
 namespace Handline
 {
+    /// <summary>
+    /// The 3D lane, the block runner, and the obstacles.
+    /// Added so the sim stays numbers-only and this class is the only thing that creates meshes.
+    /// The camera stage does not start this view while OpenInsteadOfLane is true.
+    /// </summary>
     public sealed class RunnerView : MonoBehaviour
     {
         static readonly Color Sky = new Color(0.09f, 0.075f, 0.06f);
@@ -45,6 +50,7 @@ namespace Handline
         float phase;
         float duck;
 
+        /// <summary>Builds the track, the runner, and the lights. Added once when the lane boots.</summary>
         public static RunnerView Create()
         {
             GameObject root = new GameObject("World");
@@ -53,6 +59,7 @@ namespace Handline
             return view;
         }
 
+        /// <summary>Moves the runner and the props to match the sim. Added every frame.</summary>
         public void Apply(RunnerSim sim, float dt)
         {
             if (dt < 0f) dt = 0f;
@@ -296,6 +303,7 @@ namespace Handline
             return root.transform;
         }
 
+        /// <summary>One limb hanging from a pivot. Added as the runner's arms and legs.</summary>
         static Transform Limb(Transform parent, string name, Vector3 pivot, Material material)
         {
             GameObject joint = new GameObject(name);
@@ -317,6 +325,7 @@ namespace Handline
             return light;
         }
 
+        /// <summary>A colored material. emission adds a slight glow on the yellow pieces.</summary>
         static Material Make(Color color, float emission)
         {
             Shader shader = Shader.Find("Standard");
@@ -339,6 +348,7 @@ namespace Handline
             return material;
         }
 
+        /// <summary>A cube with no collider. Added so props do not fight the physics step.</summary>
         static Transform Cube(Transform parent, string name, Vector3 position, Vector3 scale, Material material)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -351,6 +361,7 @@ namespace Handline
             return go.transform;
         }
 
+        /// <summary>Removes the primitive collider. Added because the sim, not physics, decides hits.</summary>
         static void Strip(GameObject go)
         {
             Collider collider = go.GetComponent<Collider>();

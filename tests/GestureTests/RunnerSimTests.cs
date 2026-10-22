@@ -2,6 +2,10 @@ using Xunit;
 
 namespace Handline.Tests
 {
+    /// <summary>
+    /// Checks crates, beams, blockers, and coins with no scene.
+    /// Added so the lane rules stay testable from dotnet test.
+    /// </summary>
     public class RunnerSimTests
     {
         [Fact]

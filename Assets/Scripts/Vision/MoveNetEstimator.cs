@@ -19,10 +19,20 @@ namespace Handline
         bool multi;
         bool broken;
 
+        /// <summary>Edge length of the model input. 192 for one person, 256 for six.</summary>
         public int InputSize { get { return inputSize; } }
+
+        /// <summary>Short description written after the tensors are checked.</summary>
         public string Summary { get; private set; }
+
+        /// <summary>Set when inference throws. The stage prints this and stops calling the model.</summary>
         public string Failure { get; private set; }
 
+        /// <summary>
+        /// Loads the TFLite file and checks that the tensors match MoveNet.
+        /// Added so a wrong file fails at startup instead of on the first camera frame.
+        /// rank is reused when sorting six people, which avoids an allocation every frame.
+        /// </summary>
         public MoveNetEstimator(byte[] modelBytes)
         {
             if (modelBytes == null || modelBytes.Length < 16)
@@ -52,6 +62,7 @@ namespace Handline
                     throw new InvalidOperationException("MoveNet Lightning expects a uint8 RGB image, got " + inputInfo.type + ".");
                 }
 
+                // 6 people times 56 floats is MultiPose. 17 joints times 3 values is Lightning.
                 int outputCount = Count(outputInfo.shape);
                 multi = outputCount == 6 * 56;
                 if (!multi && !IsSinglePose(outputInfo.shape))
@@ -80,12 +91,18 @@ namespace Handline
             }
         }
 
+        /// <summary>One person. Added as a thin wrapper over the multi-person call.</summary>
         public bool TryInfer(Color32[] upright, int size, PoseFrame pose)
         {
             PoseFrame[] one = new PoseFrame[] { pose };
             return TryInferPeople(upright, size, one, 1) > 0;
         }
 
+        /// <summary>
+        /// Fills the model, runs it, and copies joints out.
+        /// Added as the per-frame path. WipeFrame then clears the image so it is not kept.
+        /// A thrown error sets broken, which adds a permanent stop until Play is pressed again.
+        /// </summary>
         public int TryInferPeople(Color32[] upright, int size, PoseFrame[] poses, int maxPeople)
         {
             if (broken || upright == null || poses == null || size <= 0 || maxPeople <= 0)
@@ -128,6 +145,10 @@ namespace Handline
             if (output != null) Array.Clear(output, 0, output.Length);
         }
 
+        /// <summary>
+        /// Copies 17 joints. The file stores (y, x, score), so X is the second value.
+        /// Added so the rest of the project can index joints as x then y.
+        /// </summary>
         int ReadSingle(PoseFrame[] poses)
         {
             if (poses[0] == null) poses[0] = new PoseFrame();
@@ -139,6 +160,10 @@ namespace Handline
             return 1;
         }
 
+        /// <summary>
+        /// Writes the highest-scoring people first, up to maxPeople.
+        /// A person under 0.2 is skipped, which drops empty slots from the six-person output.
+        /// </summary>
         int ReadPeople(PoseFrame[] poses, int maxPeople)
         {
             if (maxPeople > 6) maxPeople = 6;
@@ -175,11 +200,13 @@ namespace Handline
             return written;
         }
 
+        /// <summary>The model's own person score, stored at the end of that person's 56 floats.</summary>
         float PersonScore(int person)
         {
             return output[person * 56 + 55];
         }
 
+        /// <summary>Releases the native interpreter. Added when the camera stage is destroyed.</summary>
         public void Dispose()
         {
             if (interpreter != null)
@@ -188,6 +215,11 @@ namespace Handline
             }
         }
 
+        /// <summary>
+        /// Scales the upright crop into the model square.
+        /// A clean multiple uses a box average, which adds a softer image than point sampling.
+        /// Any other size picks the nearest pixel so a mismatched crop still runs.
+        /// </summary>
         void Fill(Color32[] upright, int size)
         {
             int block = size / inputSize;
@@ -235,6 +267,7 @@ namespace Handline
             }
         }
 
+        /// <summary>Writes one RGB pixel into the uint8 tensor. Added because the model expects channels packed as R, G, B.</summary>
         void WritePixel(int y, int x, byte r, byte g, byte b)
         {
             int index = (y * inputSize + x) * 3;
@@ -243,6 +276,7 @@ namespace Handline
             input[index + 2] = b;
         }
 
+        /// <summary>Multiplies a tensor shape into one length. A non-positive axis means the shape is unusable.</summary>
         static int Count(int[] shape)
         {
             if (shape == null || shape.Length == 0) return 0;
@@ -256,6 +290,7 @@ namespace Handline
             return count;
         }
 
+        /// <summary>True when the output is 17 joints by 3 values. Added to accept Lightning and reject an unknown file.</summary>
         static bool IsSinglePose(int[] shape)
         {
             if (shape == null) return false;
@@ -272,6 +307,7 @@ namespace Handline
             return joints >= 1 && dims >= 1 && count == 51;
         }
 
+        /// <summary>Formats a shape for the console when the file does not match.</summary>
         static string Join(int[] shape)
         {
             if (shape == null) return "(none)";

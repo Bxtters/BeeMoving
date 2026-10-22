@@ -1,5 +1,10 @@
 namespace Handline
 {
+    /// <summary>
+    /// MoveNet's 17 body points, in the order the model publishes them.
+    /// Added so every file uses the same joint index. Count is not a point; it is the array length.
+    /// Nose through RightEar are facial points. The camera stage erases those before drawing.
+    /// </summary>
     public enum JointId
     {
         Nose = 0,
@@ -22,12 +27,17 @@ namespace Handline
         Count = 17
     }
 
+    /// <summary>
+    /// One measured point. X and Y are 0-1 in the upright crop, Y growing downward.
+    /// Score is the model's confidence. Added so a weak point can be ignored.
+    /// </summary>
     public struct Joint
     {
         public float X;
         public float Y;
         public float Score;
 
+        /// <summary>Stores one sample. Added so inference can fill a pose without a builder.</summary>
         public Joint(float x, float y, float score)
         {
             X = x;
@@ -37,17 +47,22 @@ namespace Handline
     }
 
     /// <summary>
-    /// One MoveNet pose. X increases to the right, Y increases downward, both 0-1.
+    /// One person's 17 points. Added as the shared pose the camera stage, the overlay, and the lane all read.
     /// </summary>
     public sealed class PoseFrame
     {
         public Joint[] Joints;
 
+        /// <summary>Allocates an empty pose. Added so a missing person still has a slot to clear.</summary>
         public PoseFrame()
         {
             Joints = new Joint[(int)JointId.Count];
         }
 
+        /// <summary>
+        /// Returns one joint, or an empty joint when the index is missing.
+        /// Added so a short array cannot throw while a pose is still loading.
+        /// </summary>
         public Joint Get(JointId id)
         {
             int index = (int)id;
@@ -60,6 +75,10 @@ namespace Handline
         }
     }
 
+    /// <summary>
+    /// The lane's reading of a pose: jump, slide, one lane step, and a sprint amount.
+    /// Added so the gesture rules can be tested without a camera or a scene.
+    /// </summary>
     public struct GestureSignal
     {
         public bool Tracking;

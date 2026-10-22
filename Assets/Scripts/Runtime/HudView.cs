@@ -7,6 +7,7 @@ using UnityEngine.UI;
 
 namespace Handline
 {
+    /// <summary>Which screen the lane HUD is showing. Added so attract, play, pause, and game over can share one view.</summary>
     public enum HudMode
     {
         Attract,
@@ -15,6 +16,10 @@ namespace Handline
         Over
     }
 
+    /// <summary>
+    /// Score, lives, camera picker, and the preview card for the lane.
+    /// Added as the runner's on-screen controls. The camera stage builds its own UI and does not use this.
+    /// </summary>
     public sealed class HudView : MonoBehaviour
     {
         static readonly Color Cream = new Color(0.96f, 0.93f, 0.86f);
@@ -45,6 +50,7 @@ namespace Handline
         bool jumpWas;
         float punch = 1f;
 
+        /// <summary>Builds the HUD and returns it. Added so the runner does not need a prefab.</summary>
         public static HudView Create()
         {
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -72,6 +78,7 @@ namespace Handline
             return hud;
         }
 
+        /// <summary>Fills the camera dropdown. Added when the operating system list changes.</summary>
         public void SetCameras(IList<string> names, int index)
         {
             suppressCameras = true;
@@ -90,6 +97,7 @@ namespace Handline
             suppressCameras = false;
         }
 
+        /// <summary>Connects the camera dropdown to the app. Added so picking a row opens that camera.</summary>
         public void Bind(UnityAction<int> cameraChanged)
         {
             Cameras.onValueChanged.AddListener(delegate(int value)
@@ -98,6 +106,7 @@ namespace Handline
             });
         }
 
+        /// <summary>Writes score, coins, lives, and the gesture word. Added every frame the lane is running.</summary>
         public void SetBoard(int score, int coins, int lives, HudMode mode, GestureSignal signal, string status)
         {
             scoreText.text = score.ToString("N0");
@@ -122,6 +131,7 @@ namespace Handline
             }
         }
 
+        /// <summary>Fades a red flash after a hit. hurt01 is 1 at the impact and 0 when it has faded.</summary>
         public void SetHurt(float hurt01)
         {
             Vignette.color = new Color(0.55f, 0.08f, 0.05f, Mathf.Clamp01(hurt01) * 0.45f);
