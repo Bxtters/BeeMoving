@@ -1,0 +1,1160 @@
+using System;
+using System.Collections;
+using System.IO;
+using System.Reflection;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.Networking;
+using UnityEngine.UI;
+
+namespace Handline
+{
+    /// <summary>
+    /// Motion-capture stage for the Handline project in Unity 6000.0.82f1.
+    /// A local camera feeds MoveNet MultiPose Lightning, which returns up to six
+    /// people. The stage draws the body from the shoulders to the ankles.
+    /// MoveNet measures each hand at the wrist and has no finger joints, so the
+    /// hand marker is that wrist and no fingers are invented.
+    /// Nose, eye, and ear points are erased before drawing. The camera picture
+    /// is never shown, never written to disk, and never sent off the device.
+    /// Place this file at Assets/Scripts/Runtime/Camera_MoCap.cs.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class Camera_MoCap : MonoBehaviour
+    {
+        /// <summary>
+        /// Play opens this stage instead of the lane while this is true.
+        /// Set it to false to boot the runner again. The two displays are not
+        /// meant to share one camera.
+        /// </summary>
+        public const bool OpenInsteadOfLane = true;
+
+        /// <summary>MoveNet MultiPose Lightning publishes at most six people.</summary>
+        public const int MaxPeople = 6;
+
+        const int CropSize = 384;
+        const float JointThreshold = 0.3f;
+        const int MinBodyPoints = 3;
+        const float SlotMatchDistance = 0.35f;
+        const string MultiModelFile = "movenet_multipose.tflite";
+        const string SingleModelFile = "movenet_lightning.tflite";
+        const string PrivacyNotice = "On this device only. The camera picture is not shown or saved. Faces are not kept.";
+        const string HandNotice = "Each hand is the wrist. MoveNet Lightning has no finger joints, so none are drawn.";
+
+        static readonly int[] Bones =
+        {
+            (int)JointId.LeftShoulder, (int)JointId.RightShoulder,
+            (int)JointId.LeftShoulder, (int)JointId.LeftElbow,
+            (int)JointId.LeftElbow, (int)JointId.LeftWrist,
+            (int)JointId.RightShoulder, (int)JointId.RightElbow,
+            (int)JointId.RightElbow, (int)JointId.RightWrist,
+            (int)JointId.LeftShoulder, (int)JointId.LeftHip,
+            (int)JointId.RightShoulder, (int)JointId.RightHip,
+            (int)JointId.LeftHip, (int)JointId.RightHip,
+            (int)JointId.LeftHip, (int)JointId.LeftKnee,
+            (int)JointId.LeftKnee, (int)JointId.LeftAnkle,
+            (int)JointId.RightHip, (int)JointId.RightKnee,
+            (int)JointId.RightKnee, (int)JointId.RightAnkle
+        };
+
+        static readonly Color[] PersonColors =
+        {
+            new Color(0.98f, 0.74f, 0.28f, 1f),
+            new Color(0.45f, 0.82f, 0.78f, 1f),
+            new Color(0.95f, 0.45f, 0.34f, 1f),
+            new Color(0.72f, 0.62f, 0.95f, 1f),
+            new Color(0.62f, 0.82f, 0.42f, 1f),
+            new Color(0.45f, 0.66f, 0.95f, 1f)
+        };
+
+        static readonly Color Ink = new Color(0.07f, 0.06f, 0.05f, 1f);
+        static readonly Color StageColor = new Color(0.13f, 0.11f, 0.09f, 1f);
+        static readonly Color Cream = new Color(0.96f, 0.93f, 0.86f, 1f);
+        static readonly Color Muted = new Color(0.72f, 0.66f, 0.56f, 1f);
+
+        readonly PoseFrame[] crowd = new PoseFrame[MaxPeople];
+        readonly PoseFrame[] stable = new PoseFrame[MaxPeople];
+        readonly bool[] slotUsed = new bool[MaxPeople];
+        readonly float[] slotX = new float[MaxPeople];
+        readonly float[] slotY = new float[MaxPeople];
+
+        PoseEngine engine;
+        WebCamTexture webcam;
+        RectTransform canvasRect;
+        RectTransform stage;
+        Image[][] lines;
+        Image[][] dots;
+        Text countText;
+        Text statusText;
+        Texture2D whiteTex;
+        Sprite whiteSprite;
+        Color32[] sensorPixels;
+        Color32[] crop;
+        byte[] loadedBytes;
+
+        string modelLabel = "";
+        string modelError;
+        string loadError;
+        string setupError;
+        bool loadingModel;
+        int cameraIndex;
+        int knownDeviceCount = -1;
+        int crowdCount;
+        int extraRotation;
+        float nextDeviceScan;
+        float poseUntil;
+        float cameraOpenedAt;
+        bool mirror = true;
+        bool ready;
+        bool cameraHeldOff;
+        bool resuming;
+
+        /// <summary>
+        /// Creates the stage after the scene loads when this display is the one Play should open.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Boot()
+        {
+            if (!OpenInsteadOfLane) return;
+            if (UnityEngine.Object.FindAnyObjectByType<Camera_MoCap>() != null) return;
+            GameObject stageObject = new GameObject("Camera_MoCap");
+            stageObject.AddComponent<Camera_MoCap>();
+        }
+
+        /// <summary>
+        /// Allocates the six pose slots and builds the skeleton canvas.
+        /// </summary>
+        void Awake()
+        {
+            try
+            {
+                for (int i = 0; i < MaxPeople; i++)
+                {
+                    crowd[i] = new PoseFrame();
+                    stable[i] = new PoseFrame();
+                }
+
+                BuildStage();
+                ready = true;
+            }
+            catch (Exception ex)
+            {
+                setupError = ex.Message;
+                Debug.LogException(ex);
+            }
+        }
+
+        /// <summary>
+        /// Loads the local MoveNet file, then opens a camera only if that load succeeded.
+        /// </summary>
+        IEnumerator Start()
+        {
+            if (!ready) yield break;
+            yield return LoadModel();
+            if (engine == null || cameraHeldOff) yield break;
+            OpenCamera(PreferredCamera());
+        }
+
+        /// <summary>
+        /// Polls keys, estimates the current frame, and redraws body skeletons.
+        /// </summary>
+        void Update()
+        {
+            if (!ready) return;
+            LayoutStage();
+            PollKeys();
+            if (!cameraHeldOff && engine != null) ScanDevices();
+
+            if (webcam != null && webcam.isPlaying && webcam.didUpdateThisFrame && webcam.width > 16)
+            {
+                CaptureAndEstimate();
+            }
+            else if (!cameraHeldOff && webcam != null && webcam.isPlaying && webcam.width <= 16 && Time.unscaledTime > cameraOpenedAt + 3f)
+            {
+                SetStatus("The camera did not start. Allow the camera for Unity, then press C.");
+            }
+            else if (Time.unscaledTime > poseUntil)
+            {
+                ClearCrowd();
+                ShowCount(0);
+            }
+
+            Redraw();
+        }
+
+        /// <summary>
+        /// Stops the camera when the app pauses so it does not keep capturing in the background.
+        /// </summary>
+        void OnApplicationPause(bool paused)
+        {
+            if (!paused || !ready) return;
+            StopCapture("Camera off while the app is paused. Press Enter to start it again.");
+        }
+
+        /// <summary>
+        /// Releases the camera, the interpreter, and every pixel buffer this stage allocated.
+        /// </summary>
+        void OnDestroy()
+        {
+            StopAllCoroutines();
+            ReleaseCamera();
+            ReleaseEngine();
+            ClearCrowd();
+            WipePixels();
+            if (whiteSprite != null) Destroy(whiteSprite);
+            if (whiteTex != null) Destroy(whiteTex);
+        }
+
+        /// <summary>
+        /// Shows a setup failure if the canvas could not be built.
+        /// </summary>
+        void OnGUI()
+        {
+            if (string.IsNullOrEmpty(setupError)) return;
+            GUI.Label(new Rect(16f, 16f, Screen.width - 32f, 140f), setupError);
+        }
+
+        /// <summary>
+        /// Handles mirror, rotate, camera cycle, and the keys that start or stop capture.
+        /// </summary>
+        void PollKeys()
+        {
+            if (Keys.Pressed(Key.Escape))
+            {
+                StopCapture("Camera off. Press Enter to start it again.");
+                return;
+            }
+
+            if (Keys.Pressed(Key.Enter) || Keys.Pressed(Key.Space))
+            {
+                if (!resuming) StartCoroutine(Resume());
+                return;
+            }
+
+            if (cameraHeldOff || webcam == null) return;
+            if (Keys.Pressed(Key.F))
+            {
+                mirror = !mirror;
+                RefreshStatus();
+            }
+
+            if (Keys.Pressed(Key.Q))
+            {
+                extraRotation = (extraRotation + 90) % 360;
+                RefreshStatus();
+            }
+
+            if (Keys.Pressed(Key.C))
+            {
+                int count = WebCamTexture.devices.Length;
+                if (count > 0) OpenCamera((cameraIndex + 1) % count);
+            }
+        }
+
+        /// <summary>
+        /// Loads MoveNet again if it was released, then starts the camera.
+        /// </summary>
+        IEnumerator Resume()
+        {
+            resuming = true;
+            cameraHeldOff = false;
+            if (engine == null) yield return LoadModel();
+            resuming = false;
+            if (engine == null || cameraHeldOff) yield break;
+            OpenCamera(PreferredCamera());
+        }
+
+        /// <summary>
+        /// Turns capture off, drops the current poses, and disposes the interpreter.
+        /// </summary>
+        void StopCapture(string message)
+        {
+            cameraHeldOff = true;
+            ReleaseCamera();
+            ReleaseEngine();
+            ClearCrowd();
+            WipePixels();
+            ShowCount(0);
+            SetStatus(message);
+        }
+
+        /// <summary>
+        /// Reads the multi-person Lightning model, then the single-person model if that file is missing.
+        /// </summary>
+        IEnumerator LoadModel()
+        {
+            if (loadingModel) yield break;
+            loadingModel = true;
+            try
+            {
+                yield return LoadModelFiles();
+            }
+            finally
+            {
+                loadingModel = false;
+            }
+        }
+
+        /// <summary>
+        /// Tries the six-person model first and keeps the single-person Lightning file as the fallback.
+        /// </summary>
+        IEnumerator LoadModelFiles()
+        {
+            SetStatus("Loading MoveNet Lightning…");
+            modelError = null;
+            yield return ReadModelFile(MultiModelFile);
+            if (loadedBytes != null)
+            {
+                string error;
+                engine = TryCreateEngine(loadedBytes, out error);
+                loadedBytes = null;
+                if (engine != null)
+                {
+                    modelLabel = "MoveNet MultiPose Lightning · up to 6 people";
+                    if (!string.IsNullOrEmpty(engine.Summary)) modelLabel += "  ·  " + engine.Summary;
+                    SetStatus(modelLabel);
+                    yield break;
+                }
+
+                modelError = error;
+            }
+            else if (!string.IsNullOrEmpty(loadError))
+            {
+                modelError = loadError;
+            }
+
+            yield return ReadModelFile(SingleModelFile);
+            if (loadedBytes == null)
+            {
+                if (string.IsNullOrEmpty(modelError)) modelError = loadError;
+                if (string.IsNullOrEmpty(modelError)) modelError = "MoveNet Lightning did not load.";
+                SetStatus(modelError);
+                yield break;
+            }
+
+            string singleError;
+            engine = TryCreateEngine(loadedBytes, out singleError);
+            loadedBytes = null;
+            if (engine == null)
+            {
+                modelError = string.IsNullOrEmpty(singleError) ? modelError : singleError;
+                SetStatus(modelError);
+                yield break;
+            }
+
+            modelLabel = "MoveNet Lightning · 1 person";
+            if (!string.IsNullOrEmpty(engine.Summary)) modelLabel += "  ·  " + engine.Summary;
+            if (!string.IsNullOrEmpty(modelError)) Debug.LogWarning("Multi-person MoveNet did not start. " + modelError);
+            SetStatus(modelLabel);
+        }
+
+        /// <summary>
+        /// Reads one model file from StreamingAssets into memory. The bytes are the published model, not a camera frame.
+        /// </summary>
+        IEnumerator ReadModelFile(string fileName)
+        {
+            loadedBytes = null;
+            loadError = null;
+            string path = Path.Combine(Application.streamingAssetsPath, fileName);
+            if (path.Contains("://") || path.Contains("jar:"))
+            {
+                using (UnityWebRequest request = UnityWebRequest.Get(path))
+                {
+                    yield return request.SendWebRequest();
+                    if (request.result != UnityWebRequest.Result.Success)
+                    {
+                        loadError = "Could not read " + fileName + ".";
+                        yield break;
+                    }
+
+                    loadedBytes = request.downloadHandler.data;
+                }
+
+                yield break;
+            }
+
+            if (!File.Exists(path))
+            {
+                loadError = "Missing " + fileName + " in StreamingAssets.";
+                yield break;
+            }
+
+            try
+            {
+                loadedBytes = File.ReadAllBytes(path);
+            }
+            catch (Exception ex)
+            {
+                loadError = "Could not read " + fileName + ". " + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// Starts the local TensorFlow Lite interpreter for one MoveNet file.
+        /// </summary>
+        static PoseEngine TryCreateEngine(byte[] bytes, out string error)
+        {
+            error = null;
+            if (bytes == null || bytes.Length < 16)
+            {
+                error = "The MoveNet file was empty.";
+                return null;
+            }
+
+            try
+            {
+                PoseEngine created = PoseEngine.Create(bytes);
+                if (created == null)
+                {
+                    error = "TensorFlow Lite is not imported yet. Let Package Manager finish, then press Play again.";
+                    return null;
+                }
+
+                return created;
+            }
+            catch (Exception ex)
+            {
+                Exception root = ex;
+                TargetInvocationException wrapped = ex as TargetInvocationException;
+                if (wrapped != null && wrapped.InnerException != null) root = wrapped.InnerException;
+                if (root is DllNotFoundException)
+                {
+                    error = "TensorFlow Lite did not load. Finish importing com.github.asus4.tflite, then press Play again.";
+                }
+                else
+                {
+                    error = "MoveNet did not start. " + root.Message;
+                }
+
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Disposes the interpreter so its copy of the last frame can be freed.
+        /// </summary>
+        void ReleaseEngine()
+        {
+            if (engine == null) return;
+            engine.Dispose();
+            engine = null;
+        }
+
+        /// <summary>
+        /// Copies one camera frame into a square, estimates poses, then clears the pixels.
+        /// </summary>
+        void CaptureAndEstimate()
+        {
+            int sw = webcam.width;
+            int sh = webcam.height;
+            if (sw <= 16 || sh <= 16) return;
+
+            try
+            {
+                EnsureSensorBuffer(sw, sh);
+                Color32[] filled = webcam.GetPixels32(sensorPixels);
+                if (filled == null) return;
+                if (filled != sensorPixels) sensorPixels = filled;
+                FillCrop(sensorPixels, sw, sh);
+                if (engine != null)
+                {
+                    crowdCount = engine.TryRead(crop, CropSize, crowd, MaxPeople);
+                    if (crowdCount < 0) crowdCount = 0;
+                    if (crowdCount > MaxPeople) crowdCount = MaxPeople;
+                }
+                else
+                {
+                    crowdCount = 0;
+                }
+
+                for (int i = 0; i < MaxPeople; i++)
+                {
+                    if (i < crowdCount) DropFace(crowd[i]);
+                    else Blank(crowd[i]);
+                }
+
+                Stabilize();
+                for (int i = 0; i < MaxPeople; i++) Blank(crowd[i]);
+                crowdCount = 0;
+                poseUntil = Time.unscaledTime + 0.4f;
+                ShowCount(VisiblePeople());
+                if (engine != null && !string.IsNullOrEmpty(engine.Failure)) NoteModelFailure();
+                else RefreshStatus();
+            }
+            catch (Exception ex)
+            {
+                crowdCount = 0;
+                ClearCrowd();
+                SetStatus("Pose tracking stopped. " + ex.Message);
+            }
+            finally
+            {
+                WipePixels();
+            }
+        }
+
+        /// <summary>
+        /// Grows the reusable camera buffer when the device changes resolution.
+        /// </summary>
+        void EnsureSensorBuffer(int width, int height)
+        {
+            int needed = width * height;
+            if (sensorPixels != null && sensorPixels.Length == needed) return;
+            sensorPixels = new Color32[needed];
+        }
+
+        /// <summary>
+        /// Center-crops the sensor image into the upright square MoveNet reads.
+        /// The square is the model input. It is not copied onto a texture.
+        /// </summary>
+        void FillCrop(Color32[] source, int srcWidth, int srcHeight)
+        {
+            if (crop == null || crop.Length != CropSize * CropSize)
+            {
+                crop = new Color32[CropSize * CropSize];
+            }
+
+            int rotation = webcam.videoRotationAngle + extraRotation;
+            bool vertical = webcam.videoVerticallyMirrored;
+            for (int y = 0; y < CropSize; y++)
+            {
+                int row = y * CropSize;
+                for (int x = 0; x < CropSize; x++)
+                {
+                    int bx;
+                    int by;
+                    FrameOrient.Map(x, y, CropSize, srcWidth, srcHeight, rotation, vertical, mirror, out bx, out by);
+                    int index = by * srcWidth + bx;
+                    crop[row + x] = index >= 0 && index < source.Length ? source[index] : default(Color32);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Overwrites nose, eye, and ear points so this pose cannot be turned back into a face.
+        /// </summary>
+        static void DropFace(PoseFrame pose)
+        {
+            if (pose == null || pose.Joints == null) return;
+            int lastFace = (int)JointId.RightEar;
+            for (int i = 0; i <= lastFace && i < pose.Joints.Length; i++)
+            {
+                pose.Joints[i] = default(Joint);
+            }
+        }
+
+        /// <summary>
+        /// Sets every joint on a pose back to empty.
+        /// </summary>
+        static void Blank(PoseFrame pose)
+        {
+            if (pose == null || pose.Joints == null) return;
+            for (int i = 0; i < pose.Joints.Length; i++)
+            {
+                pose.Joints[i] = default(Joint);
+            }
+        }
+
+        /// <summary>
+        /// Copies shoulder-to-ankle joints and leaves the face slots empty.
+        /// </summary>
+        static void CopyBody(PoseFrame source, PoseFrame dest)
+        {
+            Blank(dest);
+            if (source == null || source.Joints == null || dest == null || dest.Joints == null) return;
+            int start = (int)JointId.LeftShoulder;
+            int end = source.Joints.Length;
+            if (end > dest.Joints.Length) end = dest.Joints.Length;
+            if (end > (int)JointId.Count) end = (int)JointId.Count;
+            for (int i = start; i < end; i++) dest.Joints[i] = source.Joints[i];
+        }
+
+        /// <summary>
+        /// Counts body joints that cleared the drawing threshold.
+        /// </summary>
+        static int BodyPoints(PoseFrame pose)
+        {
+            if (pose == null || pose.Joints == null) return 0;
+            int count = 0;
+            int start = (int)JointId.LeftShoulder;
+            int end = pose.Joints.Length;
+            if (end > (int)JointId.Count) end = (int)JointId.Count;
+            for (int i = start; i < end; i++)
+            {
+                if (pose.Joints[i].Score >= JointThreshold) count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// True when enough of the torso and limbs are visible to draw a person.
+        /// </summary>
+        static bool HasBody(PoseFrame pose)
+        {
+            return BodyPoints(pose) >= MinBodyPoints;
+        }
+
+        /// <summary>
+        /// Averages the visible shoulders and hips. If those are hidden, it uses the visible limbs.
+        /// Facial points are not part of the average.
+        /// </summary>
+        static bool Torso(PoseFrame pose, out float x, out float y)
+        {
+            x = 0f;
+            y = 0f;
+            if (pose == null || pose.Joints == null) return false;
+            int[] ids =
+            {
+                (int)JointId.LeftShoulder,
+                (int)JointId.RightShoulder,
+                (int)JointId.LeftHip,
+                (int)JointId.RightHip
+            };
+
+            int count = 0;
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (ids[i] >= pose.Joints.Length) continue;
+                Joint joint = pose.Joints[ids[i]];
+                if (joint.Score < JointThreshold) continue;
+                x += joint.X;
+                y += joint.Y;
+                count++;
+            }
+
+            if (count == 0)
+            {
+                int start = (int)JointId.LeftShoulder;
+                int end = pose.Joints.Length;
+                if (end > (int)JointId.Count) end = (int)JointId.Count;
+                for (int i = start; i < end; i++)
+                {
+                    Joint joint = pose.Joints[i];
+                    if (joint.Score < JointThreshold) continue;
+                    x += joint.X;
+                    y += joint.Y;
+                    count++;
+                }
+            }
+
+            if (count == 0) return false;
+            x /= count;
+            y /= count;
+            return true;
+        }
+
+        /// <summary>
+        /// Keeps each skeleton in the same color while that person stays in frame.
+        /// Matching uses the torso center for this camera session only. The centers
+        /// are cleared when the camera stops. They are not names and they are not saved.
+        /// </summary>
+        void Stabilize()
+        {
+            bool[] taken = new bool[MaxPeople];
+            int[] assigned = new int[MaxPeople];
+            for (int i = 0; i < MaxPeople; i++) assigned[i] = -1;
+
+            for (int slot = 0; slot < MaxPeople; slot++)
+            {
+                if (!slotUsed[slot]) continue;
+                int best = -1;
+                float bestDist = SlotMatchDistance;
+                for (int n = 0; n < crowdCount && n < MaxPeople; n++)
+                {
+                    if (taken[n] || !HasBody(crowd[n])) continue;
+                    float x;
+                    float y;
+                    if (!Torso(crowd[n], out x, out y)) continue;
+                    float dx = x - slotX[slot];
+                    float dy = y - slotY[slot];
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (dist >= bestDist) continue;
+                    bestDist = dist;
+                    best = n;
+                }
+
+                if (best >= 0)
+                {
+                    taken[best] = true;
+                    assigned[slot] = best;
+                }
+            }
+
+            for (int n = 0; n < crowdCount && n < MaxPeople; n++)
+            {
+                if (taken[n] || !HasBody(crowd[n])) continue;
+                for (int slot = 0; slot < MaxPeople; slot++)
+                {
+                    if (assigned[slot] >= 0) continue;
+                    assigned[slot] = n;
+                    taken[n] = true;
+                    break;
+                }
+            }
+
+            for (int slot = 0; slot < MaxPeople; slot++)
+            {
+                int source = assigned[slot];
+                if (source < 0)
+                {
+                    Blank(stable[slot]);
+                    slotUsed[slot] = false;
+                    slotX[slot] = 0f;
+                    slotY[slot] = 0f;
+                    continue;
+                }
+
+                CopyBody(crowd[source], stable[slot]);
+                float x;
+                float y;
+                slotUsed[slot] = Torso(stable[slot], out x, out y);
+                slotX[slot] = x;
+                slotY[slot] = y;
+            }
+        }
+
+        /// <summary>
+        /// Counts skeletons that currently have a body on screen.
+        /// </summary>
+        int VisiblePeople()
+        {
+            int count = 0;
+            for (int i = 0; i < MaxPeople; i++)
+            {
+                if (slotUsed[i] && HasBody(stable[i])) count++;
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Clears poses and the in-memory torso match from the current session.
+        /// </summary>
+        void ClearCrowd()
+        {
+            crowdCount = 0;
+            for (int i = 0; i < MaxPeople; i++)
+            {
+                Blank(crowd[i]);
+                Blank(stable[i]);
+                slotUsed[i] = false;
+                slotX[i] = 0f;
+                slotY[i] = 0f;
+            }
+        }
+
+        /// <summary>
+        /// Fills the camera buffers with empty pixels after each estimate.
+        /// </summary>
+        void WipePixels()
+        {
+            if (sensorPixels != null) Array.Clear(sensorPixels, 0, sensorPixels.Length);
+            if (crop != null) Array.Clear(crop, 0, crop.Length);
+        }
+
+        /// <summary>
+        /// Surfaces a model failure on the status line. The line does not include the picture.
+        /// </summary>
+        void NoteModelFailure()
+        {
+            if (engine == null || string.IsNullOrEmpty(engine.Failure)) return;
+            SetStatus("Pose tracking stopped. " + engine.Failure);
+        }
+
+        /// <summary>
+        /// Opens one camera at a modest size. The picture is read for MoveNet and is not assigned to a view.
+        /// </summary>
+        void OpenCamera(int index)
+        {
+            WebCamDevice[] devices = WebCamTexture.devices;
+            if (devices == null || devices.Length == 0)
+            {
+                knownDeviceCount = 0;
+                ReleaseCamera();
+                SetStatus("No camera detected.");
+                return;
+            }
+
+            if (index < 0 || index >= devices.Length) index = 0;
+            cameraIndex = index;
+            knownDeviceCount = devices.Length;
+            ReleaseCamera();
+            try
+            {
+                // The device name is only passed to Unity. It is not drawn or stored.
+                webcam = new WebCamTexture(devices[index].name, 640, 480, 30);
+                webcam.Play();
+            }
+            catch (Exception)
+            {
+                ReleaseCamera();
+                SetStatus("The camera did not start. Allow the camera for Unity, then press C.");
+                return;
+            }
+
+            cameraOpenedAt = Time.unscaledTime;
+            RefreshStatus();
+        }
+
+        /// <summary>
+        /// Stops the camera device and drops Unity's handle to it.
+        /// </summary>
+        void ReleaseCamera()
+        {
+            if (webcam == null) return;
+            if (webcam.isPlaying) webcam.Stop();
+            Destroy(webcam);
+            webcam = null;
+        }
+
+        /// <summary>
+        /// Picks a front-facing camera when the device reports one.
+        /// </summary>
+        static int PreferredCamera()
+        {
+            WebCamDevice[] devices = WebCamTexture.devices;
+            if (devices == null) return 0;
+            for (int i = 0; i < devices.Length; i++)
+            {
+                if (devices[i].isFrontFacing) return i;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Notices a newly plugged-in camera without printing the device name.
+        /// </summary>
+        void ScanDevices()
+        {
+            if (Time.unscaledTime < nextDeviceScan) return;
+            nextDeviceScan = Time.unscaledTime + 1.2f;
+            WebCamDevice[] devices = WebCamTexture.devices;
+            int count = devices == null ? 0 : devices.Length;
+            if (count == knownDeviceCount) return;
+            knownDeviceCount = count;
+            if (webcam == null && count > 0 && !cameraHeldOff) OpenCamera(PreferredCamera());
+            if (count == 0) ReleaseCamera();
+        }
+
+        /// <summary>
+        /// Builds the full-screen canvas, the six skeleton layers, and the privacy text.
+        /// </summary>
+        void BuildStage()
+        {
+            Font font = BuiltinFont();
+            Sprite sprite = WhiteSprite();
+
+            GameObject canvasObject = new GameObject("Camera_MoCap Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            canvasObject.transform.SetParent(transform, false);
+            Canvas canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1600f, 900f);
+            scaler.matchWidthOrHeight = 0.5f;
+            canvasRect = canvasObject.GetComponent<RectTransform>();
+
+            Image background = MakeImage("Background", canvasRect, sprite, Ink);
+            Stretch(background.rectTransform);
+
+            GameObject stageObject = new GameObject("Stage", typeof(RectTransform), typeof(Image));
+            stageObject.transform.SetParent(canvasRect, false);
+            stage = stageObject.GetComponent<RectTransform>();
+            stage.anchorMin = new Vector2(0.5f, 0.5f);
+            stage.anchorMax = new Vector2(0.5f, 0.5f);
+            stage.pivot = new Vector2(0.5f, 0.5f);
+            stage.anchoredPosition = new Vector2(0f, -12f);
+            Image stageImage = stageObject.GetComponent<Image>();
+            stageImage.sprite = sprite;
+            stageImage.color = StageColor;
+            stageImage.raycastTarget = false;
+
+            int boneCount = Bones.Length / 2;
+            int bodyCount = (int)JointId.Count - (int)JointId.LeftShoulder;
+            lines = new Image[MaxPeople][];
+            dots = new Image[MaxPeople][];
+            for (int person = 0; person < MaxPeople; person++)
+            {
+                Color color = PersonColors[person];
+                lines[person] = new Image[boneCount];
+                for (int i = 0; i < boneCount; i++)
+                {
+                    lines[person][i] = MakeImage("Bone", stage, sprite, color);
+                    lines[person][i].rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                    lines[person][i].enabled = false;
+                }
+
+                dots[person] = new Image[bodyCount];
+                Color jointColor = Color.Lerp(color, Color.white, 0.35f);
+                for (int i = 0; i < bodyCount; i++)
+                {
+                    dots[person][i] = MakeImage("Joint", stage, sprite, jointColor);
+                    dots[person][i].rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                    dots[person][i].enabled = false;
+                }
+            }
+
+            Text title = MakeText("Title", canvasRect, font, "Motion capture", 28, TextAnchor.UpperLeft, Cream);
+            Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -28f), new Vector2(520f, 36f));
+            Text privacy = MakeText("Privacy", canvasRect, font, PrivacyNotice, 16, TextAnchor.UpperLeft, Muted);
+            privacy.horizontalOverflow = HorizontalWrapMode.Wrap;
+            privacy.verticalOverflow = VerticalWrapMode.Overflow;
+            Place(privacy.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -68f), new Vector2(760f, 24f));
+            Text hands = MakeText("Hands", canvasRect, font, HandNotice, 16, TextAnchor.UpperLeft, Muted);
+            hands.horizontalOverflow = HorizontalWrapMode.Wrap;
+            Place(hands.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -96f), new Vector2(860f, 24f));
+
+            countText = MakeText("Count", canvasRect, font, "No one in frame", 28, TextAnchor.UpperRight, Cream);
+            Place(countText.rectTransform, new Vector2(1f, 1f), new Vector2(-36f, -28f), new Vector2(360f, 36f));
+
+            statusText = MakeText("Status", canvasRect, font, "Starting…", 18, TextAnchor.LowerLeft, Cream);
+            statusText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            statusText.verticalOverflow = VerticalWrapMode.Overflow;
+            Place(statusText.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 58f), new Vector2(1100f, 28f));
+            Text help = MakeText("Help", canvasRect, font, "C next camera    F mirror    Q rotate    Esc stop    Enter start", 16, TextAnchor.LowerLeft, Muted);
+            Place(help.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 28f), new Vector2(1100f, 24f));
+        }
+
+        /// <summary>
+        /// Sizes the square stage inside the screen margins.
+        /// </summary>
+        void LayoutStage()
+        {
+            if (stage == null || canvasRect == null) return;
+            Rect area = canvasRect.rect;
+            float side = Mathf.Min(area.width - 64f, area.height - 280f);
+            if (side < 64f) side = 64f;
+            if (Mathf.Abs(stage.sizeDelta.x - side) < 0.5f) return;
+            stage.sizeDelta = new Vector2(side, side);
+        }
+
+        /// <summary>
+        /// Draws every occupied body slot and hides the empty ones.
+        /// </summary>
+        void Redraw()
+        {
+            if (lines == null || stage == null) return;
+            float width = stage.sizeDelta.x;
+            float height = stage.sizeDelta.y;
+            for (int person = 0; person < MaxPeople; person++)
+            {
+                bool show = slotUsed[person] && HasBody(stable[person]) && width > 2f && height > 2f;
+                DrawPerson(person, show ? stable[person] : null, show, width, height);
+            }
+        }
+
+        /// <summary>
+        /// Draws one person's limbs. A bone that touches a facial index is skipped.
+        /// </summary>
+        void DrawPerson(int person, PoseFrame pose, bool show, float width, float height)
+        {
+            Image[] bones = lines[person];
+            for (int i = 0; i < bones.Length; i++)
+            {
+                int aId = Bones[i * 2];
+                int bId = Bones[i * 2 + 1];
+                if (!show || aId <= (int)JointId.RightEar || bId <= (int)JointId.RightEar)
+                {
+                    bones[i].enabled = false;
+                    continue;
+                }
+
+                Joint a = pose.Joints[aId];
+                Joint b = pose.Joints[bId];
+                if (a.Score < JointThreshold || b.Score < JointThreshold)
+                {
+                    bones[i].enabled = false;
+                    continue;
+                }
+
+                Vector2 pa = ToPoint(a, width, height);
+                Vector2 pb = ToPoint(b, width, height);
+                Vector2 delta = pb - pa;
+                float length = delta.magnitude;
+                if (length < 2f)
+                {
+                    bones[i].enabled = false;
+                    continue;
+                }
+
+                RectTransform boneRect = bones[i].rectTransform;
+                boneRect.anchoredPosition = (pa + pb) * 0.5f;
+                boneRect.sizeDelta = new Vector2(length, 4f);
+                boneRect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+                bones[i].enabled = true;
+            }
+
+            Image[] joints = dots[person];
+            int start = (int)JointId.LeftShoulder;
+            for (int i = 0; i < joints.Length; i++)
+            {
+                int jointId = start + i;
+                if (!show || jointId >= pose.Joints.Length || pose.Joints[jointId].Score < JointThreshold)
+                {
+                    joints[i].enabled = false;
+                    continue;
+                }
+
+                bool hand = IsMeasuredHand(jointId);
+                float size = hand ? 16f : 9f;
+                RectTransform jointRect = joints[i].rectTransform;
+                jointRect.sizeDelta = new Vector2(size, size);
+                Vector2 point = ToPoint(pose.Joints[jointId], width, height);
+                jointRect.anchoredPosition = point;
+                joints[i].enabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Maps a normalized joint into the stage, measured from the stage's lower left.
+        /// </summary>
+        static Vector2 ToPoint(Joint joint, float width, float height)
+        {
+            float x = Mathf.Clamp01(joint.X) * width;
+            float y = (1f - Mathf.Clamp01(joint.Y)) * height;
+            return new Vector2(x, y);
+        }
+
+        /// <summary>
+        /// True for the wrist joints. Those are the hand positions MoveNet Lightning actually measures.
+        /// </summary>
+        static bool IsMeasuredHand(int jointId)
+        {
+            return jointId == (int)JointId.LeftWrist || jointId == (int)JointId.RightWrist;
+        }
+
+        /// <summary>
+        /// Writes the status line under the stage.
+        /// </summary>
+        void SetStatus(string message)
+        {
+            if (statusText == null) return;
+            statusText.text = message ?? "";
+        }
+
+        /// <summary>
+        /// Writes how many bodies are on screen. The number is a count, not a name.
+        /// </summary>
+        void ShowCount(int visible)
+        {
+            if (countText == null) return;
+            if (visible <= 0)
+            {
+                countText.text = "No one in frame";
+                return;
+            }
+
+            countText.text = visible == 1 ? "1 person" : visible + " people";
+        }
+
+        /// <summary>
+        /// Refreshes the model and camera state without including a device name.
+        /// </summary>
+        void RefreshStatus()
+        {
+            if (cameraHeldOff) return;
+            if (engine == null)
+            {
+                if (!string.IsNullOrEmpty(modelError)) SetStatus(modelError);
+                return;
+            }
+
+            if (webcam == null)
+            {
+                SetStatus("No camera detected.");
+                return;
+            }
+
+            string line = modelLabel;
+            if (knownDeviceCount > 0) line += "  ·  camera " + (cameraIndex + 1) + " of " + knownDeviceCount;
+            if (!mirror) line += "  ·  mirror off";
+            if (extraRotation != 0) line += "  ·  rotated " + extraRotation + "°";
+            SetStatus(line);
+        }
+
+        /// <summary>
+        /// Returns Unity's built-in UI font.
+        /// </summary>
+        static Font BuiltinFont()
+        {
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            return font;
+        }
+
+        /// <summary>
+        /// Creates the small white sprite used by the skeleton bars and the stage background.
+        /// </summary>
+        Sprite WhiteSprite()
+        {
+            whiteTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            whiteTex.SetPixels(new Color[] { Color.white, Color.white, Color.white, Color.white });
+            whiteTex.Apply();
+            whiteSprite = Sprite.Create(whiteTex, new Rect(0f, 0f, 2f, 2f), new Vector2(0.5f, 0.5f), 100f);
+            return whiteSprite;
+        }
+
+        /// <summary>
+        /// Creates a non-interactive image parented to the stage or the canvas.
+        /// </summary>
+        static Image MakeImage(string name, Transform parent, Sprite sprite, Color color)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            Image image = go.GetComponent<Image>();
+            image.sprite = sprite;
+            image.color = color;
+            image.raycastTarget = false;
+            RectTransform rect = image.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.zero;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            return image;
+        }
+
+        /// <summary>
+        /// Creates a non-interactive text label.
+        /// </summary>
+        static Text MakeText(string name, Transform parent, Font font, string message, int size, TextAnchor anchor, Color color)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(Text));
+            go.transform.SetParent(parent, false);
+            Text text = go.GetComponent<Text>();
+            text.font = font;
+            text.text = message;
+            text.fontSize = size;
+            text.alignment = anchor;
+            text.color = color;
+            text.raycastTarget = false;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            return text;
+        }
+
+        /// <summary>
+        /// Stretches a rect over its parent.
+        /// </summary>
+        static void Stretch(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>
+        /// Places a label by a single anchor, a pixel position, and a size.
+        /// </summary>
+        static void Place(RectTransform rect, Vector2 anchor, Vector2 position, Vector2 size)
+        {
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.pivot = anchor;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+        }
+    }
+}
