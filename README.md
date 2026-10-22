@@ -44,13 +44,19 @@ Open http://localhost:8741/skeleton.html and allow the camera. On a Chromebook, 
 
 ## LOOK — face attractiveness rater
 
-`face-rate.html` is a browser web app. It uses [MediaPipe Face Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js) (478-point face mocap + blendshapes) to score how attractive your face reads on a **1–10** scale from live geometry: symmetry, golden-ratio proportions, and feature harmony. The camera stays on the device; frames are not uploaded.
+`face-rate.html` (and the portable `look/` folder) is a mobile-ready browser app. It uses [MediaPipe Face Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js) (478-point face mocap + blendshapes) to score how attractive your face reads on a **1–10** scale. Camera stays on-device.
 
-Serve the folder the same way as the skeleton page, then open:
+Serve the folder:
 
-http://localhost:8741/face-rate.html
+```bash
+python3 -m http.server 8741
+```
 
-Allow the camera, face the lens, and the score updates live. **Hold score** freezes the number; **Flip** switches front/back cameras when available. **Try sample face** rates the bundled portrait in `samples/demo-face.jpg` without a webcam.
+Open http://localhost:8741/face-rate.html (or `/look/` once hosted). On a phone, use **HTTPS** (GitHub Pages) so the camera is allowed. Add to Home Screen for the PWA shell.
+
+**Allow camera** for live scoring, **Try sample face** for `samples/demo-face.jpg`, **Hold score** / **Flip** as needed.
+
+The canonical home for LOOK is intended to be the `Bxtters/look` repository with GitHub Pages at `https://bxtters.github.io/look/`.
 
 ## The game
 
