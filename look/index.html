@@ -48,7 +48,8 @@
 
     body { position: relative; }
     body.mode-scan { overflow: hidden; height: 100dvh; }
-    body.mode-home { overflow-x: hidden; overflow-y: auto; }
+    body.mode-home,
+    body.mode-results { overflow-x: hidden; overflow-y: auto; }
 
     .atmosphere {
       position: fixed;
@@ -121,6 +122,429 @@
       flex-wrap: wrap;
       gap: 10px;
       margin-top: 6px;
+    }
+
+    .build-stamp {
+      margin: 4px 0 0;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(232, 245, 239, 0.35);
+    }
+
+    .personal-banner {
+      margin: 0 0 18px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .personal-banner .score-line {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      margin: 0 0 6px;
+    }
+
+    .personal-banner .score-line em {
+      font-style: normal;
+      color: var(--mint);
+    }
+
+    .personal-banner p {
+      margin: 0;
+      color: rgba(232, 245, 239, 0.65);
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+
+    .focus-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 0;
+    }
+
+    .focus-chips span {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+      background: var(--mint);
+      padding: 6px 10px;
+      font-weight: 700;
+      font-family: Syne, sans-serif;
+    }
+
+    .focus-chips span.dim {
+      background: transparent;
+      color: rgba(232, 245, 239, 0.55);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .tip.priority h3::before {
+      content: "For you · ";
+      color: var(--mint);
+      font-weight: 700;
+    }
+
+    .empty-plan {
+      color: rgba(232, 245, 239, 0.62);
+      line-height: 1.45;
+      margin: 0 0 12px;
+    }
+
+    /* —— Results —— */
+    #results {
+      padding:
+        calc(14px + var(--safe-t))
+        calc(18px + var(--safe-r))
+        calc(36px + var(--safe-b))
+        calc(18px + var(--safe-l));
+      max-width: 40rem;
+      margin: 0 auto;
+    }
+
+    .results-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .results-bar .brand { font-size: clamp(1.8rem, 7vw, 2.6rem); }
+
+    .results-hero {
+      text-align: center;
+      padding: 8px 0 20px;
+      animation: brandIn 0.7s var(--ease) both;
+    }
+
+    .results-hero .score-label {
+      margin: 0 0 4px;
+      font-size: 0.72rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(232, 245, 239, 0.55);
+    }
+
+    .results-hero .score-value {
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: clamp(4.5rem, 20vw, 7rem);
+      letter-spacing: -0.06em;
+      line-height: 0.85;
+      margin: 0;
+      color: var(--mint);
+      text-shadow: 0 0 40px rgba(94, 240, 168, 0.35);
+    }
+
+    .results-hero .score-meta {
+      margin: 12px 0 0;
+      color: rgba(232, 245, 239, 0.7);
+    }
+
+    .results-bars {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .graph-block {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      animation: brandIn 0.85s var(--ease) 0.06s both;
+    }
+
+    .graph-block h2 {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.25rem, 4vw, 1.55rem);
+      letter-spacing: -0.03em;
+      margin: 0 0 6px;
+    }
+
+    .graph-block > p {
+      margin: 0 0 14px;
+      color: rgba(232, 245, 239, 0.62);
+      line-height: 1.4;
+      font-size: 0.92rem;
+    }
+
+    .period-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .period-tabs button {
+      min-height: 40px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      background: transparent;
+      color: var(--foam);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .period-tabs button[aria-selected="true"] {
+      background: var(--mint);
+      color: #042016;
+      box-shadow: none;
+    }
+
+    .graph-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      max-height: 240px;
+      background: rgba(13, 28, 24, 0.65);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .graph-wrap canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .graph-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: rgba(232, 245, 239, 0.55);
+    }
+
+    .graph-legend i {
+      display: inline-block;
+      width: 18px;
+      height: 3px;
+      margin-right: 6px;
+      vertical-align: middle;
+      background: var(--mint);
+    }
+
+    .graph-legend i.base {
+      background: rgba(232, 245, 239, 0.35);
+    }
+
+    .delta-callout {
+      margin: 14px 0 0;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .delta-callout em {
+      font-style: normal;
+      color: var(--mint);
+    }
+
+    .delta-note {
+      margin: 6px 0 0;
+      font-size: 0.8rem;
+      color: rgba(232, 245, 239, 0.45);
+      line-height: 1.4;
+    }
+
+    .narrative {
+      margin: 0 0 18px;
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--line);
+      color: rgba(232, 245, 239, 0.78);
+      line-height: 1.55;
+      font-size: 0.98rem;
+    }
+
+    .narrative strong { color: var(--foam); }
+
+    /* Accordion */
+    details.acc {
+      border-top: 1px solid var(--line);
+      margin: 0;
+    }
+
+    details.acc:last-child { border-bottom: 1px solid var(--line); }
+
+    details.acc > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 0;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    details.acc > summary::-webkit-details-marker { display: none; }
+
+    details.acc > summary .chev {
+      flex-shrink: 0;
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid var(--mint);
+      border-bottom: 2px solid var(--mint);
+      transform: rotate(-45deg);
+      transition: transform 0.25s var(--ease);
+      margin-right: 4px;
+    }
+
+    details.acc[open] > summary .chev {
+      transform: rotate(45deg);
+      margin-top: -4px;
+    }
+
+    details.acc .acc-body {
+      padding: 0 0 16px;
+      color: rgba(232, 245, 239, 0.72);
+      line-height: 1.5;
+      font-size: 0.92rem;
+    }
+
+    details.acc .acc-body p { margin: 0 0 10px; }
+
+    .product-list {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .product-list li {
+      padding: 10px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .product-list li:first-child { border-top: 0; }
+
+    .product-list strong {
+      display: block;
+      font-family: Syne, sans-serif;
+      color: var(--foam);
+      margin-bottom: 3px;
+    }
+
+    .ing {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+      color: var(--mint-dim);
+    }
+
+    .cite {
+      display: block;
+      margin-top: 8px;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      color: rgba(232, 245, 239, 0.38);
+    }
+
+    /* Account */
+    .account-chip {
+      margin: 0 0 0 auto;
+      min-height: 40px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(7, 17, 15, 0.82);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop[hidden] { display: none !important; }
+
+    .modal {
+      width: min(100%, 26rem);
+      background: var(--ink-2);
+      box-shadow: inset 0 0 0 1px var(--line);
+      padding: 22px 20px;
+      animation: brandIn 0.45s var(--ease) both;
+    }
+
+    .modal h2 {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+    }
+
+    .modal .privacy {
+      margin: 0 0 16px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: rgba(232, 245, 239, 0.55);
+    }
+
+    .modal label {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(232, 245, 239, 0.45);
+      margin: 12px 0 6px;
+    }
+
+    .modal input {
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 14px;
+      border: 0;
+      background: var(--ink);
+      color: var(--foam);
+      font: 500 1rem Figtree, sans-serif;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .modal .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .modal .err {
+      margin: 10px 0 0;
+      color: var(--warn);
+      font-size: 0.85rem;
+    }
+
+    .history-list {
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .history-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+      cursor: pointer;
+    }
+
+    .history-list li:hover { color: var(--mint); }
+
+    .history-list .h-score {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      color: var(--mint);
     }
 
     button {
@@ -511,87 +935,59 @@
 
   <main id="home" class="view" aria-label="Home">
     <div class="home-hero">
-      <h1 class="brand">LOOK</h1>
-      <p class="home-lead">Rate your face with on-device mocap — then use what research says actually moves the needle.</p>
+      <div style="display:flex;align-items:flex-start;gap:12px;width:100%">
+        <h1 class="brand">LOOK</h1>
+        <button type="button" class="ghost account-chip" id="accountBtn">Account</button>
+      </div>
+      <p class="home-lead">Scan → score → improvement graph → a day-by-day plan with products and ingredients matched to your read.</p>
       <div class="home-cta">
         <button type="button" id="goScanBtn">Scan my face</button>
-        <button type="button" class="ghost" id="goTipsBtn">Tips &amp; routines</button>
+        <button type="button" class="ghost" id="goTipsBtn">Last results</button>
       </div>
+      <p class="build-stamp" id="buildStamp">On-device vault · no face uploads</p>
+      <p id="accountStatus" class="build-stamp" style="text-transform:none;letter-spacing:0.02em"></p>
     </div>
 
+    <section class="section" id="historySection" hidden aria-labelledby="history-title">
+      <h2 id="history-title">Previous results</h2>
+      <p>Encrypted on this device only. Tap a row to reopen that plan.</p>
+      <ul class="history-list" id="historyList"></ul>
+    </section>
+
     <section class="section" id="tips" aria-labelledby="tips-title">
-      <h2 id="tips-title">What research supports</h2>
-      <p>Bone structure is mostly fixed. Appearance ratings still shift with sleep, skin health, grooming, expression, and body composition — factors studied in psychology and dermatology.</p>
-
-      <article class="tip">
-        <h3>Sleep shows on your face</h3>
-        <p>Observers rate well-rested faces as more attractive and healthier. Short sleep increases under-eye puffiness, dullness, and droop that read as fatigue within hours.</p>
-        <span class="cite">Axelsson et al., Royal Society Open Science / sleep &amp; facial attractiveness literature</span>
-      </article>
-
-      <article class="tip">
-        <h3>Skin clarity beats contour myths</h3>
-        <p>Even skin tone and low inflammation are strong attractiveness cues across cultures. Daily broad-spectrum sunscreen, gentle cleansing, and treating acne/eczema with evidence-based care outperform unproven “face exercises.”</p>
-        <span class="cite">Dermatology consensus; Fink / Jones facial skin homogeneity studies</span>
-      </article>
-
-      <article class="tip">
-        <h3>Smile and warmth score high</h3>
-        <p>Genuine smiles raise attractiveness and approachability ratings more than a neutral face with “ideal” proportions. LOOK’s scorer already boosts mild smile blendshapes for this reason.</p>
-        <span class="cite">O’Doherty / social perception research on positive expression</span>
-      </article>
-
-      <article class="tip">
-        <h3>Grooming is high leverage</h3>
-        <p>A haircut that fits your face shape, managed brows, clean facial hair lines, and whitened/healthy teeth change ratings without changing bone. These are among the largest controllable deltas in appearance studies and consumer trials.</p>
-        <span class="cite">Grooming &amp; dental aesthetics literature; dental smile attractiveness reviews</span>
-      </article>
-
-      <article class="tip">
-        <h3>Body fat and fitness reshape the face</h3>
-        <p>Lower body fat and higher fitness often sharpen jaw/cheek definition. Resistance training plus a sustainable calorie plan affects facial adiposity more reliably than viral “mewing” claims, which lack strong clinical evidence.</p>
-        <span class="cite">Body composition &amp; facial adiposity; clinical skepticism of mewing RCTs</span>
-      </article>
-
-      <article class="tip">
-        <h3>Skip smoke, cut heavy alcohol</h3>
-        <p>Smoking accelerates skin aging (wrinkles, sallowness). Heavy alcohol dehydrates and inflames skin. Quitting is one of the best long-term face investments.</p>
-        <span class="cite">Dermatologic aging / tobacco literature</span>
-      </article>
+      <h2 id="tips-title">Your plan</h2>
+      <div id="personalBanner" class="personal-banner">
+        <p class="empty-plan" id="planEmpty">No scan yet. Hit <strong>Scan my face</strong>, then <strong>Lock score</strong> for your graph, daily plan, and product guide.</p>
+      </div>
+      <div id="focusChips" class="focus-chips" hidden></div>
+      <div id="personalTips"></div>
     </section>
 
     <section class="section" id="routines" aria-labelledby="routines-title">
-      <h2 id="routines-title">Routines that compound</h2>
-      <p>Small daily habits beat one-off products. Adapt to your skin type and talk to a clinician before prescriptions (retinoids, acne meds).</p>
+      <h2 id="routines-title">Your 7-day plan</h2>
+      <p id="routineLead">After a scan, each day expands with AM/PM steps, products, and ingredients.</p>
+      <div id="personalRoutine"></div>
+      <p class="disclaimer">LOOK personalizes from on-device landmark geometry (symmetry / proportion / harmony / smile). It is not a medical or beauty diagnosis. Research citations describe general evidence; adapt care to your skin and clinician advice.</p>
+    </section>
 
-      <ol class="routine">
-        <li>
-          <strong>Morning — protect</strong>
-          <span>Rinse or gentle cleanse → moisturizer → SPF 30+ every day, including cloudy days. UV is the main preventable driver of visible skin aging.</span>
-        </li>
-        <li>
-          <strong>Night — repair</strong>
-          <span>Cleanse → treatment (adapalene/retinol if tolerated, or prescribed acne care) → moisturizer. Start slow to avoid irritation that worsens redness.</span>
-        </li>
-        <li>
-          <strong>Sleep — 7–9 hours</strong>
-          <span>Fixed wake time, dim screens late, cool dark room. Re-rate your LOOK score after a week of consistent sleep — fatigue drops fast when rest returns.</span>
-        </li>
-        <li>
-          <strong>Train — 3× strength / week</strong>
-          <span>Full-body lifts plus daily walking. Face definition often follows overall fat loss and posture more than isolated facial workouts.</span>
-        </li>
-        <li>
-          <strong>Groom — weekly reset</strong>
-          <span>Trim/shape facial hair, tidy brows, clean glasses frames, fresh haircut every 3–6 weeks. Keep nails and collar lines sharp — framing matters in real photos.</span>
-        </li>
-        <li>
-          <strong>Smile practice — natural, not forced</strong>
-          <span>In photos and first meetings, a relaxed Duchenne-style smile (eyes involved) consistently outperforms a blank stare in attractiveness ratings.</span>
-        </li>
-      </ol>
-
-      <p class="disclaimer">LOOK’s 1–10 score is a geometry toy from facial landmarks — not a medical or beauty diagnosis. Tips summarize general research themes; they are not personalized medical advice.</p>
+    <section class="section" id="foundation" aria-labelledby="foundation-title">
+      <h2 id="foundation-title">Why these levers</h2>
+      <p>Bone structure is mostly fixed. Ratings still move with sleep, skin, grooming, expression, and body composition.</p>
+      <article class="tip">
+        <h3>Sleep &amp; recovery</h3>
+        <p>Well-rested faces are rated more attractive and healthier; fatigue shows in under-eyes and droop within hours.</p>
+        <span class="cite">Axelsson et al. / sleep &amp; facial attractiveness</span>
+      </article>
+      <article class="tip">
+        <h3>Skin clarity</h3>
+        <p>Even tone and low inflammation are strong cross-cultural cues — SPF and gentle care beat unproven face exercises.</p>
+        <span class="cite">Dermatology; Fink / Jones skin homogeneity</span>
+      </article>
+      <article class="tip">
+        <h3>Expression &amp; grooming</h3>
+        <p>Genuine smiles and sharp grooming change ratings without changing bone — often the largest controllable deltas.</p>
+        <span class="cite">Social perception &amp; dental aesthetics reviews</span>
+      </article>
     </section>
   </main>
 
@@ -634,9 +1030,96 @@
       <p id="status">Ready when you are.</p>
       <div class="actions">
         <button type="button" class="ghost" id="flipBtn" disabled>Flip</button>
-        <button type="button" class="ghost" id="holdBtn" disabled>Hold score</button>
+        <button type="button" id="lockScoreBtn" disabled>Lock score</button>
       </div>
     </footer>
+  </div>
+
+  <div id="results" class="view" hidden aria-label="Results">
+    <div class="results-bar">
+      <button type="button" class="ghost back-btn" id="resultsBackBtn">← Back</button>
+      <h1 class="brand">LOOK</h1>
+      <button type="button" class="ghost account-chip" id="accountBtnResults">Account</button>
+    </div>
+
+    <div class="results-hero">
+      <p class="score-label">Your score</p>
+      <p class="score-value" id="resultsScore">—</p>
+      <p class="score-meta" id="resultsMeta">From your face scan</p>
+      <p class="narrative" id="resultsNarrative" hidden></p>
+      <div class="results-bars" aria-hidden="true">
+        <div class="bar"><span>Symmetry</span><i id="resBarSym"></i></div>
+        <div class="bar"><span>Proportion</span><i id="resBarProp"></i></div>
+        <div class="bar"><span>Harmony</span><i id="resBarHarm"></i></div>
+      </div>
+    </div>
+
+    <section class="graph-block" aria-labelledby="graph-title">
+      <h2 id="graph-title">Projected improvement</h2>
+      <p>If you follow your personalized routine, here’s a modeled climb from today’s read. Estimates assume sleep, grooming, expression, skin care, and training — not surgery or filters.</p>
+      <div class="period-tabs" role="tablist" aria-label="Time period">
+        <button type="button" data-weeks="2" aria-selected="false">2 weeks</button>
+        <button type="button" data-weeks="4" aria-selected="true">4 weeks</button>
+        <button type="button" data-weeks="12" aria-selected="false">12 weeks</button>
+      </div>
+      <div class="graph-wrap">
+        <canvas id="improveChart" width="640" height="400" aria-label="Score over time chart"></canvas>
+      </div>
+      <div class="graph-legend">
+        <span><i class="base"></i>Hold steady</span>
+        <span><i></i>With your plan</span>
+      </div>
+      <p class="delta-callout" id="deltaCallout">Potential: <em>—</em></p>
+      <p class="delta-note" id="deltaNote">Model estimate from your weakest bars — not a guarantee.</p>
+    </section>
+
+    <section class="section" id="resultsTips" aria-labelledby="results-tips-title">
+      <h2 id="results-tips-title">Your focus areas</h2>
+      <p style="margin:0 0 8px;color:rgba(232,245,239,0.62);font-size:0.92rem">Tap a row for the full why, products to look for, and key ingredients.</p>
+      <div id="resultsTipList"></div>
+    </section>
+
+    <section class="section" id="resultsRoutine" aria-labelledby="results-routine-title">
+      <h2 id="results-routine-title">Your 7-day plan</h2>
+      <p id="resultsRoutineLead">Each day expands with steps, product types, and ingredients.</p>
+      <div id="resultsRoutineList"></div>
+      <p class="disclaimer">Projections and product ideas are educational, not medical advice or prescriptions. Patch-test actives; ask a clinician before retinoids/acids if you are pregnant, on meds, or have reactive skin. LOOK never uploads your face or scores — vault data stays encrypted on this device.</p>
+      <div class="home-cta" style="margin-top:18px">
+        <button type="button" id="rescanBtn">Scan again</button>
+        <button type="button" class="ghost" id="saveVaultBtn">Save to vault</button>
+        <button type="button" class="ghost" id="resultsHomeBtn">Home</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="accountModal" hidden>
+    <div class="modal" role="dialog" aria-labelledby="accountModalTitle">
+      <h2 id="accountModalTitle">On-device account</h2>
+      <p class="privacy">
+        LOOK uses a <strong>local vault</strong>: display name + passphrase stay on this browser.
+        Scores are encrypted with a key derived from your passphrase (PBKDF2 + AES-GCM).
+        <strong>No email, no cloud login, no face images stored or uploaded</strong> — designed to avoid shipping biometric-adjacent data to a server.
+      </p>
+      <div id="accountCreate">
+        <label for="accName">Display name</label>
+        <input id="accName" autocomplete="nickname" maxlength="40" placeholder="e.g. Alex">
+        <label for="accPass">Passphrase (min 8)</label>
+        <input id="accPass" type="password" autocomplete="new-password" placeholder="••••••••">
+        <label for="accPass2">Confirm passphrase</label>
+        <input id="accPass2" type="password" autocomplete="new-password" placeholder="••••••••">
+      </div>
+      <div id="accountUnlock" hidden>
+        <label for="accUnlock">Passphrase for <span id="accUnlockName">your vault</span></label>
+        <input id="accUnlock" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <p class="err" id="accountErr" hidden></p>
+      <div class="modal-actions">
+        <button type="button" id="accountSubmit">Create vault</button>
+        <button type="button" class="ghost" id="accountCancel">Cancel</button>
+        <button type="button" class="ghost" id="accountExport" hidden>Export backup</button>
+        <button type="button" class="ghost" id="accountLock" hidden>Lock vault</button>
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -644,6 +1127,7 @@
       FaceLandmarker,
       FilesetResolver
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/+esm";
+    import * as Vault from "./vault.js";
 
     const MP_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm";
     const MODEL =
@@ -665,9 +1149,32 @@
 
     const home = document.getElementById("home");
     const scan = document.getElementById("scan");
+    const results = document.getElementById("results");
     const goScanBtn = document.getElementById("goScanBtn");
     const goTipsBtn = document.getElementById("goTipsBtn");
     const backBtn = document.getElementById("backBtn");
+    const lockScoreBtn = document.getElementById("lockScoreBtn");
+    const resultsBackBtn = document.getElementById("resultsBackBtn");
+    const rescanBtn = document.getElementById("rescanBtn");
+    const resultsHomeBtn = document.getElementById("resultsHomeBtn");
+    const personalBanner = document.getElementById("personalBanner");
+    const personalTips = document.getElementById("personalTips");
+    const personalRoutine = document.getElementById("personalRoutine");
+    const routineLead = document.getElementById("routineLead");
+    const focusChips = document.getElementById("focusChips");
+    const resultsScore = document.getElementById("resultsScore");
+    const resultsMeta = document.getElementById("resultsMeta");
+    const resultsTipList = document.getElementById("resultsTipList");
+    const resultsRoutineList = document.getElementById("resultsRoutineList");
+    const resultsRoutineLead = document.getElementById("resultsRoutineLead");
+    const improveChart = document.getElementById("improveChart");
+    const deltaCallout = document.getElementById("deltaCallout");
+    const deltaNote = document.getElementById("deltaNote");
+    const resBarSym = document.getElementById("resBarSym");
+    const resBarProp = document.getElementById("resBarProp");
+    const resBarHarm = document.getElementById("resBarHarm");
+    const PLAN_KEY = "look.personalPlan.v3";
+    let vaultSession = null; // { displayName, key }
 
     const video = document.getElementById("cam");
     const canvas = document.getElementById("mesh");
@@ -681,7 +1188,6 @@
     const demoBtn = document.getElementById("demoBtn");
     const demoImg = document.getElementById("demoImg");
     const flipBtn = document.getElementById("flipBtn");
-    const holdBtn = document.getElementById("holdBtn");
     const barSym = document.getElementById("barSym");
     const barProp = document.getElementById("barProp");
     const barHarm = document.getElementById("barHarm");
@@ -693,10 +1199,169 @@
     let lastVideoTime = -1;
     let holdScore = false;
     let held = null;
-    let smooth = { score: 5, sym: 0.5, prop: 0.5, harm: 0.5 };
+    let smooth = { score: 5, sym: 0.5, prop: 0.5, harm: 0.5, smile: 0 };
     let mode = "live";
     let runningMode = "VIDEO";
     let view = "home";
+    let chartWeeks = 4;
+    let activePlan = null;
+
+    const TIP_BANK = {
+      sleep: {
+        id: "sleep",
+        title: "Rebuild symmetry cues with sleep debt payoff",
+        body: "Your symmetry bar is underperforming relative to the rest of your read. Short sleep drives uneven under-eye fluid, dull tone, and micro-asymmetry that both humans and landmark models punish. A fixed wake time for 7 nights is the highest-ROI move before you chase products.",
+        cite: "Axelsson et al. — sleep & facial attractiveness",
+        products: [
+          {
+            name: "Blue-light dimmer / night mode after sunset",
+            why: "Helps melatonin onset so sleep is easier to hit.",
+            ingredients: "Habit tool — not topical; pair with cool dark room"
+          },
+          {
+            name: "Magnesium glycinate (if your clinician okays it)",
+            why: "Some people find evening magnesium supports wind-down; not a beauty drug.",
+            ingredients: "Magnesium glycinate (avoid oxide if it upsets your stomach)"
+          }
+        ]
+      },
+      lighting: {
+        id: "lighting",
+        title: "Standardize light so your score is about you",
+        body: "Side lighting exaggerates landmark asymmetry. For every re-scan, use the same front window or ring light at eye level. That way week-to-week changes reflect habits, not lamp position.",
+        cite: "Imaging / pose bias in face tracking",
+        products: [
+          {
+            name: "Ring light or clamp LED (3000–4000K)",
+            why: "Even fill reduces false asymmetry in mocap and selfies.",
+            ingredients: "Hardware — look for CRI 90+ if listed"
+          }
+        ]
+      },
+      smile: {
+        id: "smile",
+        title: "Unlock harmony with a genuine eye-smile",
+        body: "Your harmony / smile signal is the fastest controllable lever. Neutral faces under-rate even when bone ratios are fine. Practice a soft Duchenne smile (cheeks lift, eyes soften) before locking a score or taking photos.",
+        cite: "Social perception — positive expression & attractiveness",
+        products: [
+          {
+            name: "Lip balm with humectants",
+            why: "Comfortable lips make a natural smile easier on camera.",
+            ingredients: "Hyaluronic acid, glycerin, shea / squalane; avoid heavy fragrance if sensitive"
+          },
+          {
+            name: "Gentle whitening toothpaste (peroxide-based, enamel-safe)",
+            why: "Dental aesthetics strongly affect smile ratings.",
+            ingredients: "Hydrated silica + low-dose hydrogen peroxide; skip abrasive charcoal pastes"
+          }
+        ]
+      },
+      grooming: {
+        id: "grooming",
+        title: "Reframe proportion with a silhouette reset",
+        body: "Hair length, brow density, and facial-hair edges change how wide/long the face reads — without changing bone. A barber who understands your face shape plus tidy brows usually moves perceived proportion more than a new serum this month.",
+        cite: "Grooming & dental aesthetics literature",
+        products: [
+          {
+            name: "Brow gel or clear mascara",
+            why: "Lifts and sets brows so the upper third looks intentional.",
+            ingredients: "Film-formers + panthenol; fragrance-free preferred"
+          },
+          {
+            name: "Beard / edge trimmer + balm",
+            why: "Clean cheek and neck lines sharpen jaw framing.",
+            ingredients: "Plant oils + vitamin E balm after trimming"
+          }
+        ]
+      },
+      fitness: {
+        id: "fitness",
+        title: "Sharpen facial definition via body composition",
+        body: "Softer cheek/jaw balance in your proportion read often tracks facial adiposity. Progressive strength training and a slight calorie deficit (if appropriate for you) outperform viral “face yoga” for lasting contour changes.",
+        cite: "Body composition & facial adiposity",
+        products: [
+          {
+            name: "Protein-forward meals or powder",
+            why: "Supports training recovery while in a mild deficit.",
+            ingredients: "Whey or pea protein isolate; creatine monohydrate 3–5g if you train"
+          }
+        ]
+      },
+      skin: {
+        id: "skin",
+        title: "Raise clarity — the cue people rate as “healthy”",
+        body: "Even tone and low inflammation punch above raw geometry. Daily broad-spectrum SPF plus a short evening routine (barrier first, then one active) protects the traits both raters and cameras reward.",
+        cite: "Dermatology; skin homogeneity studies",
+        products: [
+          {
+            name: "Mineral or hybrid SPF 30–50",
+            why: "UV is the main preventable driver of uneven tone and aging.",
+            ingredients: "Zinc oxide and/or avobenzone + octocrylene; Tinosorb filters where available"
+          },
+          {
+            name: "Niacinamide serum 5%",
+            why: "Supports barrier and more even-looking tone with low irritation for most.",
+            ingredients: "Niacinamide (vitamin B3) 4–5%, glycerin"
+          },
+          {
+            name: "Night retinoid (start slow)",
+            why: "Evidence-backed for texture and photoaging — introduce 2–3 nights/week.",
+            ingredients: "Adapalene 0.1% (OTC) or retinol 0.2–0.3%; buffer with moisturizer"
+          }
+        ]
+      },
+      posture: {
+        id: "posture",
+        title: "Neutral head pose for honest proportions",
+        body: "Chin-down phone posture shortens the midface in captures. For scans and photos: camera at eye height, ears over shoulders, soft chin.",
+        cite: "Pose effects on facial metrics",
+        products: [
+          {
+            name: "Laptop riser or phone tripod",
+            why: "Keeps daily camera angle at eye level so you do not train a downward tilt.",
+            ingredients: "—"
+          }
+        ]
+      },
+      hydration: {
+        id: "hydration",
+        title: "Reduce overnight puff that blurs symmetry",
+        body: "Late alcohol and salty meals amplify asymmetric morning puff. Front-load water earlier, ease late drinks, and sleep slightly elevated if you are prone to under-eye fluid.",
+        cite: "Lifestyle / dermatologic aging",
+        products: [
+          {
+            name: "Caffeine eye gel (optional AM)",
+            why: "Temporary de-puff for scans/photos — cosmetic, not structural.",
+            ingredients: "Caffeine + glycerin or hyaluronic acid"
+          },
+          {
+            name: "Humectant moisturizer",
+            why: "Keeps barrier happy so skin does not look tight or dull.",
+            ingredients: "Hyaluronic acid, ceramides (NP/AP), cholesterol, glycerin"
+          }
+        ]
+      },
+      maintain: {
+        id: "maintain",
+        title: "Protect a strong baseline",
+        body: "Your geometry is already working. Consistency beats novelty: SPF, sleep schedule, and a monthly grooming appointment keep scores stable across lighting and days.",
+        cite: "Maintenance of appearance cues",
+        products: [
+          {
+            name: "Daily SPF you will actually reapply",
+            why: "The best sunscreen is the one that fits your texture preference.",
+            ingredients: "Zinc oxide and/or modern organic UV filters; PA+++ or equivalent"
+          },
+          {
+            name: "Azelaic acid 10% (optional)",
+            why: "Helps redness / uneven tone for many without heavy irritation.",
+            ingredients: "Azelaic acid 10%"
+          }
+        ]
+      }
+    };
+
+    const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
     function setStatus(text, tone) {
       statusEl.textContent = text || "";
@@ -704,15 +1369,517 @@
       else delete statusEl.dataset.tone;
     }
 
-    function showHome() {
+    function loadPlan() {
+      try {
+        return JSON.parse(localStorage.getItem(PLAN_KEY) || "null");
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function savePlan(plan) {
+      localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
+    }
+
+    function buildPersonalPlan(result) {
+      const score = result.score;
+      const sym = result.sym;
+      const prop = result.prop;
+      const harm = result.harm;
+      const smile = result.smile || 0;
+      const focuses = [];
+      const tipIds = [];
+
+      const pushFocus = (label, tipId, weak) => {
+        focuses.push({ label, weak: !!weak });
+        if (tipId && tipIds.indexOf(tipId) === -1) tipIds.push(tipId);
+      };
+
+      if (sym < 0.62) pushFocus("Symmetry", "sleep", true);
+      else pushFocus("Symmetry", null, false);
+      if (prop < 0.58) pushFocus("Proportion", "fitness", true);
+      else pushFocus("Proportion", null, false);
+      if (harm < 0.58 || smile < 0.25) pushFocus("Harmony", "smile", true);
+      else pushFocus("Harmony", null, false);
+
+      if (sym < 0.62) tipIds.push("lighting", "hydration");
+      if (prop < 0.58) tipIds.push("grooming", "posture");
+      if (harm < 0.58 || smile < 0.25) tipIds.push("smile", "grooming");
+      if (score < 6.5) tipIds.push("skin", "sleep");
+      if (score >= 7.5 && tipIds.length < 2) tipIds.push("maintain", "skin");
+
+      const seen = {};
+      const ordered = [];
+      tipIds.forEach((id) => {
+        if (TIP_BANK[id] && !seen[id]) {
+          seen[id] = true;
+          ordered.push(id);
+        }
+      });
+      while (ordered.length < 3) {
+        ["skin", "sleep", "grooming"].forEach((id) => {
+          if (ordered.length < 4 && !seen[id]) {
+            seen[id] = true;
+            ordered.push(id);
+          }
+        });
+      }
+
+      const tips = ordered.slice(0, 4).map((id) => TIP_BANK[id]);
+      const routine = [];
+      const weakSym = sym < 0.62;
+      const weakProp = prop < 0.58;
+      const weakHarm = harm < 0.58 || smile < 0.25;
+
+      routine.push({
+        title: "Morning — protect",
+        detail: weakSym
+          ? "Cool splash, caffeine sparingly, SPF 30+. Extra sleep last night pays off most in the symmetry bar."
+          : "Gentle cleanse → moisturizer → SPF 30+ every day, clouds included."
+      });
+      routine.push({
+        title: "Day — posture & light",
+        detail: weakProp
+          ? "Phone/camera at eye level; walk 8–10k steps. Framing and lower facial adiposity move proportion."
+          : "Two short outdoor walks; keep screens at eye height to avoid a constant downward tilt."
+      });
+      routine.push({
+        title: "Expression reps",
+        detail: weakHarm
+          ? "Before photos or a re-scan: one genuine smile in a mirror (eyes soft). Warmth is your fastest harmony lift."
+          : "Keep a natural smile in first-meet photos — don’t force a wide grin."
+      });
+      routine.push({
+        title: "Night — repair",
+        detail: score < 6.8
+          ? "Cleanse → simple treatment → moisturizer. Skip late alcohol; aim for 7–9 hours with a fixed wake time."
+          : "Cleanse → treatment if you use one → moisturizer. Protect the baseline with sleep."
+      });
+      routine.push({
+        title: weakProp ? "Train — 3× this week" : "Groom — this week",
+        detail: weakProp
+          ? "Full-body strength 3× and protein-forward meals. Recheck LOOK in 14 days for proportion drift."
+          : "Haircut/trim, brows, facial hair lines, clean glasses. Re-scan after the reset."
+      });
+      routine.push({
+        title: "Sunday — re-scan",
+        detail:
+          "Same room light, eye-level camera, soft smile. Compare symmetry / proportion / harmony bars — not just the headline number."
+      });
+
+      let summary =
+        "We ranked habits by your weakest bars. Stick to the routine, then re-scan in the same light.";
+      if (score >= 8) summary = "Strong baseline — your plan protects sleep, skin, and grooming so the curve stays high.";
+      else if (weakHarm && !weakSym && !weakProp) summary = "Geometry is decent; expression and polish move your score fastest.";
+      else if (weakSym && weakProp) summary = "Recovery + framing + body composition are your top levers.";
+
+      const narrative =
+        "Today’s locked read is <strong>" +
+        score.toFixed(1) +
+        "</strong> (" +
+        (result.label || "your look") +
+        "). Symmetry sits at <strong>" +
+        Math.round(sym * 100) +
+        "%</strong>, proportion <strong>" +
+        Math.round(prop * 100) +
+        "%</strong>, harmony <strong>" +
+        Math.round(harm * 100) +
+        "%</strong>" +
+        (smile < 0.25
+          ? ", with a low smile signal — meaning warmth is underused."
+          : smile > 0.45
+            ? ", and your smile is already helping harmony."
+            : ".") +
+        " " +
+        (weakSym
+          ? "Asymmetry-sensitive cues (sleep, puff, uneven light) are your first constraint. "
+          : "Symmetry is relatively stable, so we will not over-rotate on “fixing bone.” ") +
+        (weakProp
+          ? "Proportion has room: silhouette grooming and body-composition habits matter more than new contour gadgets. "
+          : "Proportion is holding — keep framing consistent when you re-scan. ") +
+        (weakHarm
+          ? "Harmony is the open door: expression, lips, and polish can move the number this week without changing structure."
+          : "Harmony is solid — protect it with SPF and a natural smile on lock-in.");
+
+      // Controllable headroom (honest caps — not surgery/filters)
+      const fast =
+        (weakHarm || smile < 0.3 ? 0.45 : 0.15) +
+        (weakSym ? 0.25 : 0.08) +
+        0.15;
+      const mid = (score < 7 ? 0.35 : 0.18) + (weakSym ? 0.12 : 0.05);
+      const slow = weakProp ? 0.55 : 0.2;
+      const totalLift = Math.min(2.2, Math.max(0.35, fast + mid + slow) * (score >= 8.5 ? 0.55 : 1));
+      const target = clamp(score + totalLift, score, 9.7);
+
+      const primary = tips[0] || TIP_BANK.skin;
+      const secondary = tips[1] || TIP_BANK.sleep;
+      const days = DAY_NAMES.map(function (name, idx) {
+        const focusTip = idx % 2 === 0 ? primary : secondary;
+        const products = (focusTip.products || []).slice(0, 2);
+        let am = "Cleanse gently → moisturizer → SPF 30+ (zinc oxide and/or avobenzone).";
+        let pm = "Cleanse → one active max → moisturizer with ceramides.";
+        let habit = "7–9 hours sleep; water earlier in the evening.";
+        if (idx === 0) {
+          habit = weakSym
+            ? "Set a fixed wake alarm for the next 7 days; cool dark room tonight."
+            : "Photo/scan baseline in even front light at eye level.";
+        } else if (idx === 1) {
+          am = weakHarm
+            ? "SPF, then lip balm (glycerin / HA). Practice one soft eye-smile in the mirror."
+            : am;
+          products.push({
+            name: "Niacinamide 5% (AM after water-based serum)",
+            why: "Tone evenness supports “healthy” ratings.",
+            ingredients: "Niacinamide 4–5%"
+          });
+        } else if (idx === 2) {
+          habit = weakProp
+            ? "Strength session (full body) + 8k steps. Protein at each meal."
+            : "Walk after lunch; check posture when on your phone.";
+          pm = "Skip new actives if you trained hard — barrier cream only (ceramides + cholesterol).";
+        } else if (idx === 3) {
+          habit = "Grooming pass: brows, hairline, facial hair edges, clean glasses.";
+          products.push({
+            name: "Brow gel + trimmer",
+            why: "Silhouette cleanup for proportion.",
+            ingredients: "Panthenol gel; wipe edges with fragrance-free balm"
+          });
+        } else if (idx === 4) {
+          pm = weakHarm || score < 7
+            ? "Introduce adapalene 0.1% or retinol on two pea-size dots (buffer with moisturizer). Not on broken skin."
+            : pm;
+          products.push({
+            name: "Adapalene 0.1% gel (OTC) — 2–3 nights/week",
+            why: "Texture / photoaging evidence; go slow.",
+            ingredients: "Adapalene 0.1%"
+          });
+        } else if (idx === 5) {
+          habit = "Social day: natural smile in photos; even window light. Optional caffeine eye gel if puffy.";
+          am = "SPF reapply if outdoors; mineral stick for easy touch-ups (zinc oxide).";
+        } else {
+          habit = "Re-scan LOOK in the same room light. Compare bars, not just the headline score.";
+          pm = "Recovery: no new acids. Ceramide moisturizer + early night.";
+        }
+        // dedupe products by name
+        const seenP = {};
+        const uniq = [];
+        products.forEach((p) => {
+          if (p && p.name && !seenP[p.name]) {
+            seenP[p.name] = true;
+            uniq.push(p);
+          }
+        });
+        return {
+          name,
+          title: name + " — " + focusTip.title.split(" ").slice(0, 4).join(" "),
+          focus: focusTip.title,
+          am,
+          pm,
+          habit,
+          products: uniq.slice(0, 3),
+          why: focusTip.body
+        };
+      });
+
+      return {
+        score,
+        sym,
+        prop,
+        harm,
+        smile,
+        label: result.label,
+        focuses,
+        tips,
+        routine,
+        days,
+        narrative,
+        summary,
+        lift: { fast, mid, slow, total: totalLift, target },
+        at: Date.now()
+      };
+    }
+
+    /** Series of weekly scores for baseline + with-plan curves */
+    function projectionSeries(plan, weeks) {
+      const start = plan.score;
+      const target = plan.lift.target;
+      const room = target - start;
+      const baseline = [];
+      const improved = [];
+      for (let w = 0; w <= weeks; w++) {
+        baseline.push(start);
+        // Ease-out: fast early (smile/sleep/groom), slower later (fitness)
+        const t = w / weeks;
+        const eased = 1 - Math.pow(1 - t, 1.65);
+        // Front-load ~55% of lift in first third of the window
+        const front = Math.min(1, t / 0.34);
+        const mix = eased * 0.55 + front * 0.45;
+        improved.push(clamp(start + room * mix, start, target));
+      }
+      return { baseline, improved, weeks };
+    }
+
+    function paintResBars(sym, prop, harm) {
+      const apply = (el, v) => {
+        el.replaceChildren();
+        const fill = document.createElement("b");
+        fill.style.cssText =
+          "display:block;height:100%;width:" +
+          (v * 100).toFixed(1) +
+          "%;background:linear-gradient(90deg, rgba(94,240,168,0.55), #5ef0a8)";
+        el.appendChild(fill);
+      };
+      apply(resBarSym, sym);
+      apply(resBarProp, prop);
+      apply(resBarHarm, harm);
+    }
+
+    function drawImproveChart(plan, weeks) {
+      const canvasEl = improveChart;
+      const rect = canvasEl.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(280, Math.round(rect.width * dpr));
+      const h = Math.max(160, Math.round(rect.height * dpr));
+      canvasEl.width = w;
+      canvasEl.height = h;
+      const g = canvasEl.getContext("2d");
+      const pad = { l: 36 * dpr, r: 16 * dpr, t: 16 * dpr, b: 28 * dpr };
+      const series = projectionSeries(plan, weeks);
+      const minY = Math.max(1, Math.floor(plan.score) - 1);
+      const maxY = Math.min(10, Math.ceil(plan.lift.target) + 0.5);
+      const plotW = w - pad.l - pad.r;
+      const plotH = h - pad.t - pad.b;
+
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = "rgba(232,245,239,0.08)";
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + (plotH * i) / 4;
+        g.fillRect(pad.l, y, plotW, 1 * dpr);
+      }
+
+      g.fillStyle = "rgba(232,245,239,0.45)";
+      g.font = 11 * dpr + "px Figtree, sans-serif";
+      g.textAlign = "right";
+      g.fillText(maxY.toFixed(1), pad.l - 6 * dpr, pad.t + 4 * dpr);
+      g.fillText(minY.toFixed(1), pad.l - 6 * dpr, pad.t + plotH);
+      g.textAlign = "center";
+      g.fillText("Now", pad.l, h - 8 * dpr);
+      g.fillText("Week " + weeks, pad.l + plotW, h - 8 * dpr);
+
+      function xAt(i) {
+        return pad.l + (plotW * i) / weeks;
+      }
+      function yAt(v) {
+        return pad.t + plotH * (1 - (v - minY) / (maxY - minY));
+      }
+
+      function strokeSeries(arr, color, width) {
+        g.strokeStyle = color;
+        g.lineWidth = width;
+        g.lineJoin = "round";
+        g.beginPath();
+        arr.forEach((v, i) => {
+          const x = xAt(i);
+          const y = yAt(v);
+          if (i === 0) g.moveTo(x, y);
+          else g.lineTo(x, y);
+        });
+        g.stroke();
+      }
+
+      strokeSeries(series.baseline, "rgba(232,245,239,0.35)", 2 * dpr);
+      strokeSeries(series.improved, "#5ef0a8", 3 * dpr);
+
+      // End dot
+      const last = series.improved[series.improved.length - 1];
+      g.fillStyle = "#5ef0a8";
+      g.beginPath();
+      g.arc(xAt(weeks), yAt(last), 5 * dpr, 0, Math.PI * 2);
+      g.fill();
+
+      const delta = last - plan.score;
+      deltaCallout.innerHTML =
+        "In " +
+        weeks +
+        " weeks: <em>" +
+        plan.score.toFixed(1) +
+        " → " +
+        last.toFixed(1) +
+        "</em> (+" +
+        delta.toFixed(1) +
+        ")";
+      deltaNote.textContent =
+        "Modeled from your gaps — smile/sleep/grooming early, skin mid-way, fitness later. Re-scan to measure the real curve.";
+    }
+
+    function chevron() {
+      return '<span class="chev" aria-hidden="true"></span>';
+    }
+
+    function renderProducts(products) {
+      if (!products || !products.length) return "";
+      return (
+        '<ul class="product-list">' +
+        products
+          .map(function (p) {
+            return (
+              "<li><strong>" +
+              p.name +
+              "</strong>" +
+              (p.why ? "<span>" + p.why + "</span>" : "") +
+              (p.ingredients ? '<span class="ing">Look for: ' + p.ingredients + "</span>" : "") +
+              "</li>"
+            );
+          })
+          .join("") +
+        "</ul>"
+      );
+    }
+
+    function renderTipsInto(el, plan) {
+      el.innerHTML = plan.tips
+        .map(function (t, i) {
+          return (
+            '<details class="acc"' +
+            (i === 0 ? " open" : "") +
+            "><summary><span>" +
+            t.title +
+            "</span>" +
+            chevron() +
+            '</summary><div class="acc-body"><p>' +
+            t.body +
+            "</p>" +
+            renderProducts(t.products) +
+            '<span class="cite">' +
+            t.cite +
+            "</span></div></details>"
+          );
+        })
+        .join("");
+    }
+
+    function renderRoutineInto(el, plan) {
+      const days = plan.days || [];
+      if (!days.length && plan.routine) {
+        el.innerHTML =
+          '<ol class="routine">' +
+          plan.routine
+            .map(function (step) {
+              return "<li><strong>" + step.title + "</strong><span>" + step.detail + "</span></li>";
+            })
+            .join("") +
+          "</ol>";
+        return;
+      }
+      el.innerHTML = days
+        .map(function (d, i) {
+          return (
+            '<details class="acc"' +
+            (i === 0 ? " open" : "") +
+            "><summary><span>" +
+            d.name +
+            "</span>" +
+            chevron() +
+            '</summary><div class="acc-body">' +
+            "<p><strong>Focus:</strong> " +
+            d.focus +
+            "</p>" +
+            "<p>" +
+            d.why +
+            "</p>" +
+            "<p><strong>AM:</strong> " +
+            d.am +
+            "</p>" +
+            "<p><strong>PM:</strong> " +
+            d.pm +
+            "</p>" +
+            "<p><strong>Habit:</strong> " +
+            d.habit +
+            "</p>" +
+            "<p><strong>Products &amp; ingredients</strong></p>" +
+            renderProducts(d.products) +
+            "</div></details>"
+          );
+        })
+        .join("");
+    }
+
+    function renderPlan(plan) {
+      if (!plan) {
+        personalBanner.innerHTML =
+          '<p class="empty-plan">No scan yet. Tap <strong>Scan my face</strong>, lock your score, then see your graph and plan.</p>';
+        personalTips.innerHTML = "";
+        personalRoutine.innerHTML = "";
+        focusChips.hidden = true;
+        focusChips.innerHTML = "";
+        routineLead.textContent = "After a scan, this becomes a checklist tuned to your weakest scores.";
+        return;
+      }
+
+      const rounded = (Math.round(plan.score * 10) / 10).toFixed(1);
+      const target = plan.lift.target.toFixed(1);
+      personalBanner.innerHTML =
+        '<p class="score-line">Last score <em>' +
+        rounded +
+        "</em> · plan targets <em>" +
+        target +
+        "</em></p><p>" +
+        plan.summary +
+        ' <button type="button" class="ghost" id="openLastResults" style="margin-top:10px;min-height:40px;padding:8px 12px;font-size:0.85rem">Open full results</button></p>';
+
+      focusChips.hidden = false;
+      focusChips.innerHTML = plan.focuses
+        .map(function (f) {
+          return '<span class="' + (f.weak ? "" : "dim") + '">' + f.label + (f.weak ? " focus" : " ok") + "</span>";
+        })
+        .join("");
+
+      renderTipsInto(personalTips, plan);
+      routineLead.textContent =
+        "Symmetry " +
+        Math.round(plan.sym * 100) +
+        "% · Proportion " +
+        Math.round(plan.prop * 100) +
+        "% · Harmony " +
+        Math.round(plan.harm * 100) +
+        "%";
+      renderRoutineInto(personalRoutine, plan);
+
+      const openBtn = document.getElementById("openLastResults");
+      if (openBtn) openBtn.addEventListener("click", () => showResults(plan));
+    }
+
+    function fillResults(plan) {
+      activePlan = plan;
+      resultsScore.textContent = (Math.round(plan.score * 10) / 10).toFixed(1);
+      resultsMeta.textContent = (plan.label || "Your look") + " · locked from scan";
+      const narr = document.getElementById("resultsNarrative");
+      if (narr) {
+        narr.hidden = !plan.narrative;
+        narr.innerHTML = plan.narrative || "";
+      }
+      paintResBars(plan.sym, plan.prop, plan.harm);
+      renderTipsInto(resultsTipList, plan);
+      resultsRoutineLead.textContent =
+        "Day-by-day plan aimed at about +" +
+        plan.lift.total.toFixed(1) +
+        " over the coming weeks if you stay consistent.";
+      renderRoutineInto(resultsRoutineList, plan);
+      document.querySelectorAll(".period-tabs button").forEach((btn) => {
+        btn.setAttribute("aria-selected", String(Number(btn.dataset.weeks) === chartWeeks));
+      });
+      requestAnimationFrame(() => drawImproveChart(plan, chartWeeks));
+      refreshAccountChrome();
+    }
+
+    function showHome(opts) {
       view = "home";
       cancelAnimationFrame(raf);
       raf = 0;
       stopCamera();
       holdScore = false;
-      holdBtn.textContent = "Hold score";
-      holdBtn.disabled = true;
       flipBtn.disabled = true;
+      lockScoreBtn.disabled = true;
       scorePanel.hidden = true;
       gate.hidden = false;
       demoImg.hidden = true;
@@ -721,29 +1888,282 @@
       setStatus("Ready when you are.");
       home.hidden = false;
       scan.hidden = true;
-      document.body.classList.remove("mode-scan");
+      results.hidden = true;
+      document.body.classList.remove("mode-scan", "mode-results");
       document.body.classList.add("mode-home");
       history.replaceState({ view: "home" }, "", "#home");
+      renderPlan(loadPlan());
+      if (opts && opts.scrollToPlan) {
+        setTimeout(function () {
+          document.getElementById("tips").scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 50);
+      }
     }
 
     function showScan() {
       view = "scan";
       home.hidden = true;
       scan.hidden = false;
-      document.body.classList.remove("mode-home");
+      results.hidden = true;
+      document.body.classList.remove("mode-home", "mode-results");
       document.body.classList.add("mode-scan");
       history.replaceState({ view: "scan" }, "", "#scan");
-      setStatus("Allow the camera or try the sample face.");
+      setStatus("Allow the camera, center your face, then Lock score.");
     }
+
+    function showResults(plan) {
+      if (!plan) {
+        plan = loadPlan();
+      }
+      if (!plan) {
+        showScan();
+        setStatus("Scan first to unlock results.", "warn");
+        return;
+      }
+      view = "results";
+      cancelAnimationFrame(raf);
+      raf = 0;
+      stopCamera();
+      home.hidden = true;
+      scan.hidden = true;
+      results.hidden = false;
+      document.body.classList.remove("mode-home", "mode-scan");
+      document.body.classList.add("mode-results");
+      history.replaceState({ view: "results" }, "", "#results");
+      fillResults(plan);
+      window.scrollTo(0, 0);
+    }
+
+    function lockAndShowResults() {
+      const src =
+        held || {
+          score: smooth.score,
+          sym: smooth.sym,
+          prop: smooth.prop,
+          harm: smooth.harm,
+          smile: smooth.smile,
+          label: scoreMeta.textContent
+        };
+      if (!src || !src.score || scorePanel.hidden) {
+        setStatus("Keep your face in frame until a score appears, then Lock score.", "warn");
+        return;
+      }
+      holdScore = true;
+      held = { ...src };
+      const plan = buildPersonalPlan(src);
+      savePlan(plan);
+      showResults(plan);
+    }
+
+    const accountModal = document.getElementById("accountModal");
+    const accountBtn = document.getElementById("accountBtn");
+    const accountBtnResults = document.getElementById("accountBtnResults");
+    const accountStatus = document.getElementById("accountStatus");
+    const accountCreate = document.getElementById("accountCreate");
+    const accountUnlock = document.getElementById("accountUnlock");
+    const accountSubmit = document.getElementById("accountSubmit");
+    const accountCancel = document.getElementById("accountCancel");
+    const accountExport = document.getElementById("accountExport");
+    const accountLock = document.getElementById("accountLock");
+    const accountErr = document.getElementById("accountErr");
+    const historySection = document.getElementById("historySection");
+    const historyList = document.getElementById("historyList");
+    const saveVaultBtn = document.getElementById("saveVaultBtn");
+
+    function showAccountErr(msg) {
+      if (!msg) {
+        accountErr.hidden = true;
+        accountErr.textContent = "";
+        return;
+      }
+      accountErr.hidden = false;
+      accountErr.textContent = msg;
+    }
+
+    async function refreshAccountChrome() {
+      const exists = await Vault.vaultExists();
+      if (vaultSession) {
+        accountStatus.textContent = "Vault unlocked · " + vaultSession.displayName + " (on-device)";
+        accountBtn.textContent = vaultSession.displayName;
+        if (accountBtnResults) accountBtnResults.textContent = vaultSession.displayName;
+        await renderHistory();
+      } else if (exists) {
+        accountStatus.textContent = "Vault locked — unlock to sync history on this device";
+        accountBtn.textContent = "Unlock";
+        if (accountBtnResults) accountBtnResults.textContent = "Unlock";
+        historySection.hidden = true;
+      } else {
+        accountStatus.textContent = "Optional on-device vault · no email · no face uploads";
+        accountBtn.textContent = "Account";
+        if (accountBtnResults) accountBtnResults.textContent = "Account";
+        historySection.hidden = true;
+      }
+    }
+
+    async function renderHistory() {
+      if (!vaultSession) {
+        historySection.hidden = true;
+        return;
+      }
+      const rows = await Vault.listScans(vaultSession.key);
+      if (!rows.length) {
+        historySection.hidden = false;
+        historyList.innerHTML = "<li>No saved scans yet — lock a score and tap Save to vault.</li>";
+        return;
+      }
+      historySection.hidden = false;
+      historyList.innerHTML = rows
+        .slice(0, 12)
+        .map(function (r) {
+          const d = new Date(r.at);
+          return (
+            '<li data-id="' +
+            r.id +
+            '"><span>' +
+            d.toLocaleString() +
+            " · " +
+            (r.label || "Scan") +
+            '</span><span class="h-score">' +
+            Number(r.score).toFixed(1) +
+            "</span></li>"
+          );
+        })
+        .join("");
+      historyList.querySelectorAll("li[data-id]").forEach(function (li) {
+        li.addEventListener("click", function () {
+          const id = Number(li.getAttribute("data-id"));
+          const hit = rows.find((x) => x.id === id);
+          if (hit) {
+            savePlan(hit);
+            showResults(hit);
+          }
+        });
+      });
+    }
+
+    async function openAccountModal() {
+      showAccountErr("");
+      const exists = await Vault.vaultExists();
+      if (vaultSession) {
+        document.getElementById("accountModalTitle").textContent = "Vault unlocked";
+        accountCreate.hidden = true;
+        accountUnlock.hidden = true;
+        accountSubmit.hidden = true;
+        accountExport.hidden = false;
+        accountLock.hidden = false;
+      } else if (exists) {
+        document.getElementById("accountModalTitle").textContent = "Unlock on-device vault";
+        accountCreate.hidden = true;
+        accountUnlock.hidden = false;
+        accountSubmit.hidden = false;
+        accountSubmit.textContent = "Unlock";
+        accountExport.hidden = true;
+        accountLock.hidden = true;
+        const meta = await Vault.getVaultMeta();
+        document.getElementById("accUnlockName").textContent =
+          (meta && meta.displayName) || "your vault";
+      } else {
+        document.getElementById("accountModalTitle").textContent = "Create on-device vault";
+        accountCreate.hidden = false;
+        accountUnlock.hidden = true;
+        accountSubmit.hidden = false;
+        accountSubmit.textContent = "Create vault";
+        accountExport.hidden = true;
+        accountLock.hidden = true;
+      }
+      accountModal.hidden = false;
+    }
+
+    accountBtn.addEventListener("click", openAccountModal);
+    if (accountBtnResults) accountBtnResults.addEventListener("click", openAccountModal);
+    accountCancel.addEventListener("click", () => {
+      accountModal.hidden = true;
+    });
+    accountLock.addEventListener("click", () => {
+      vaultSession = null;
+      accountModal.hidden = true;
+      refreshAccountChrome();
+    });
+    accountExport.addEventListener("click", async () => {
+      try {
+        const blob = new Blob([JSON.stringify(await Vault.exportEncryptedBackup(), null, 2)], {
+          type: "application/json"
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "look-vault-backup.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        showAccountErr((e && e.message) || "Export failed");
+      }
+    });
+    accountSubmit.addEventListener("click", async () => {
+      showAccountErr("");
+      try {
+        const exists = await Vault.vaultExists();
+        if (!exists) {
+          const name = document.getElementById("accName").value;
+          const p1 = document.getElementById("accPass").value;
+          const p2 = document.getElementById("accPass2").value;
+          if (p1 !== p2) throw new Error("Passphrases do not match.");
+          vaultSession = await Vault.createVault(name, p1);
+        } else {
+          const p = document.getElementById("accUnlock").value;
+          vaultSession = await Vault.unlockVault(p);
+        }
+        accountModal.hidden = true;
+        await refreshAccountChrome();
+      } catch (e) {
+        showAccountErr((e && e.message) || "Could not open vault");
+      }
+    });
+
+    saveVaultBtn.addEventListener("click", async () => {
+      if (!activePlan) return;
+      if (!vaultSession) {
+        openAccountModal();
+        showAccountErr("Unlock or create a vault to save this result on-device.");
+        return;
+      }
+      try {
+        await Vault.saveScan(vaultSession.key, activePlan);
+        await renderHistory();
+        saveVaultBtn.textContent = "Saved";
+        setTimeout(() => {
+          saveVaultBtn.textContent = "Save to vault";
+        }, 1600);
+      } catch (e) {
+        alert((e && e.message) || "Could not save");
+      }
+    });
 
     goScanBtn.addEventListener("click", showScan);
     goTipsBtn.addEventListener("click", () => {
-      showHome();
-      document.getElementById("tips").scrollIntoView({ behavior: "smooth", block: "start" });
+      const plan = loadPlan();
+      if (plan) showResults(plan);
+      else showHome({ scrollToPlan: true });
     });
-    backBtn.addEventListener("click", showHome);
+    backBtn.addEventListener("click", () => showHome());
+    resultsBackBtn.addEventListener("click", () => showHome());
+    resultsHomeBtn.addEventListener("click", () => showHome());
+    rescanBtn.addEventListener("click", showScan);
+    lockScoreBtn.addEventListener("click", lockAndShowResults);
+
+    document.querySelectorAll(".period-tabs button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        chartWeeks = Number(btn.dataset.weeks) || 4;
+        document.querySelectorAll(".period-tabs button").forEach((b) => {
+          b.setAttribute("aria-selected", String(b === btn));
+        });
+        if (activePlan) drawImproveChart(activePlan, chartWeeks);
+      });
+    });
+
     window.addEventListener("popstate", () => {
       if (location.hash === "#scan") showScan();
+      else if (location.hash === "#results") showResults(loadPlan());
       else showHome();
     });
 
@@ -847,7 +2267,7 @@
       else label = "Keep facing the lens";
       if (smile > 0.45) label = "Warm smile helps";
 
-      return { score, sym: symmetry, prop: proportion, harm: harmony, label };
+      return { score, sym: symmetry, prop: proportion, harm: harmony, smile, label };
     }
 
     function paintBars(sym, prop, harm) {
@@ -871,6 +2291,7 @@
       smooth.sym = lerp(smooth.sym, result.sym, t);
       smooth.prop = lerp(smooth.prop, result.prop, t);
       smooth.harm = lerp(smooth.harm, result.harm, t);
+      smooth.smile = lerp(smooth.smile || 0, result.smile || 0, t);
       const display = holdScore && held ? held : smooth;
       const rounded = Math.round(display.score * 10) / 10;
       scoreValue.textContent = rounded.toFixed(1);
@@ -878,6 +2299,7 @@
       scorePanel.hidden = false;
       scoreValue.classList.toggle("is-hot", rounded >= 8);
       paintBars(display.sym, display.prop, display.harm);
+      lockScoreBtn.disabled = false;
     }
 
     function resizeCanvas(w, h) {
@@ -1012,8 +2434,8 @@
       await video.play();
       gate.hidden = true;
       flipBtn.disabled = false;
-      holdBtn.disabled = false;
-      setStatus("Face the camera — scoring live face mocap.");
+      lockScoreBtn.disabled = true;
+      setStatus("Face the camera — when the score settles, tap Lock score.");
     }
 
     function loop() {
@@ -1059,7 +2481,6 @@
         const faces = result.faceLandmarks || [];
         gate.hidden = true;
         flipBtn.disabled = true;
-        holdBtn.disabled = false;
         if (!faces.length) {
           setStatus("Sample loaded, but no face was found.", "warn");
           return;
@@ -1071,7 +2492,13 @@
         }
         const rated = rateFace(faces[0], result.faceBlendshapes);
         held = { ...rated };
-        smooth = { score: rated.score, sym: rated.sym, prop: rated.prop, harm: rated.harm };
+        smooth = {
+          score: rated.score,
+          sym: rated.sym,
+          prop: rated.prop,
+          harm: rated.harm,
+          smile: rated.smile
+        };
         showScore(rated);
         setStatus("Sample face · MediaPipe Face Landmarker (IMAGE mode)");
       } catch (err) {
@@ -1112,14 +2539,10 @@
       facingMode = facingMode === "user" ? "environment" : "user";
       try { await startCamera(); } catch (_) { facingMode = "user"; }
     });
-    holdBtn.addEventListener("click", () => {
-      holdScore = !holdScore;
-      holdBtn.textContent = holdScore ? "Resume" : "Hold score";
-      if (holdScore && held) showScore(held);
-      setStatus(holdScore ? "Score held." : "Live scoring.");
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      if (view === "results" && activePlan) drawImproveChart(activePlan, chartWeeks);
     });
-
-    window.addEventListener("resize", () => resizeCanvas());
     window.addEventListener("orientationchange", () => setTimeout(() => resizeCanvas(), 250));
     window.addEventListener("error", (e) => setStatus(e.message || "Something went wrong.", "warn"));
     window.addEventListener("unhandledrejection", (e) => {
@@ -1128,10 +2551,19 @@
     });
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.update().catch(() => {}));
+      });
+      navigator.serviceWorker
+        .register("./sw.js?v=6")
+        .then((reg) => reg.update().catch(() => {}))
+        .catch(() => {});
     }
 
+    refreshAccountChrome();
+    renderPlan(loadPlan());
     if (location.hash === "#scan") showScan();
+    else if (location.hash === "#results") showResults(loadPlan());
     else showHome();
   </script>
 </body>
