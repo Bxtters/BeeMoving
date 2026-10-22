@@ -388,9 +388,13 @@ namespace Handline
             JointId elbowId = left ? JointId.LeftElbow : JointId.RightElbow;
             JointId wristId = left ? JointId.LeftWrist : JointId.RightWrist;
             int shoulder = left ? (int)JointId.LeftShoulder : (int)JointId.RightShoulder;
+            int otherShoulder = left ? (int)JointId.RightShoulder : (int)JointId.LeftShoulder;
+            int hip = left ? (int)JointId.LeftHip : (int)JointId.RightHip;
             int elbow = (int)elbowId;
             int wrist = (int)wristId;
             Vector3 origin = figure.Pos[shoulder];
+            Vector3 across = figure.Pos[otherShoulder];
+            Vector3 hipPoint = figure.Pos[hip];
             bool seeElbow = ready && Accept(figure, elbowId, pose, score);
             bool seeWrist = ready && Accept(figure, wristId, pose, score);
 
@@ -398,7 +402,9 @@ namespace Handline
             Vector3 desiredWrist;
             if (seeElbow)
             {
-                desiredElbow = SoftBone(origin, Map(figure, pose.Joints[elbow]), UpperArm);
+                Vector3 elbowImage = Map(figure, pose.Joints[elbow]);
+                desiredElbow = SoftBone(origin, elbowImage, UpperArm);
+                BringInFront(ref desiredElbow, elbowImage, origin, across, hipPoint);
             }
             else
             {
@@ -420,6 +426,12 @@ namespace Handline
                 }
 
                 desiredWrist = SoftBone(desiredElbow, wristImage, ForeArm);
+                float before = desiredWrist.z;
+                BringInFront(ref desiredWrist, wristImage, origin, across, hipPoint);
+                if (desiredWrist.z < before - 0.04f)
+                {
+                    desiredElbow.z = Mathf.Min(desiredElbow.z, desiredWrist.z + 0.1f);
+                }
             }
             else
             {
@@ -431,6 +443,51 @@ namespace Handline
             figure.Pos[elbow] = Project(origin, nextElbow, UpperArm);
             Vector3 nextWrist = Glide(figure, wrist, desiredWrist, GlideWrist, seeWrist, dt);
             figure.Pos[wrist] = Project(figure.Pos[elbow], nextWrist, ForeArm);
+        }
+
+        /// <summary>
+        /// Moves a hand or elbow toward the camera when it sits over the chest or the face.
+        /// Reaching behind the body is left as it is.
+        /// </summary>
+        static void BringInFront(ref Vector3 joint, Vector3 image, Vector3 shoulder, Vector3 otherShoulder, Vector3 hip)
+        {
+            float amount;
+            bool byHead;
+            if (!InFrontOfBody(image, shoulder, otherShoulder, hip, out amount, out byHead)) return;
+            Vector3 crown = (shoulder + otherShoulder) * 0.5f;
+            crown.y += 0.24f;
+            crown.z -= 0.04f;
+            float ahead = byHead ? crown.z - 0.26f : shoulder.z - 0.32f;
+            joint.z = Mathf.Lerp(joint.z, Mathf.Min(joint.z, ahead), amount);
+        }
+
+        /// <summary>
+        /// How far a camera point lies over the torso or the face. One means it is in front of the body.
+        /// </summary>
+        static bool InFrontOfBody(Vector3 image, Vector3 shoulder, Vector3 otherShoulder, Vector3 hip, out float amount, out bool byHead)
+        {
+            amount = 0f;
+            byHead = false;
+            float midX = (shoulder.x + otherShoulder.x) * 0.5f;
+            float torsoHalf = Mathf.Abs(otherShoulder.x - shoulder.x) * 0.5f + 0.06f;
+            if (torsoHalf < 0.16f) torsoHalf = 0.16f;
+            float dx = Mathf.Abs(image.x - midX);
+
+            if (image.y > shoulder.y - 0.04f)
+            {
+                const float faceHalf = 0.22f;
+                float across = 1f - Mathf.InverseLerp(faceHalf * 0.3f, faceHalf, dx);
+                if (across <= 0f) return false;
+                byHead = true;
+                amount = across;
+                return true;
+            }
+
+            if (image.y < hip.y - 0.06f) return false;
+            float overChest = 1f - Mathf.InverseLerp(torsoHalf * 0.4f, torsoHalf, dx);
+            if (overChest <= 0f) return false;
+            amount = overChest;
+            return true;
         }
 
         /// <summary>
