@@ -3,6 +3,10 @@ using Xunit;
 
 namespace Handline.Tests
 {
+    /// <summary>
+    /// Checks that an upright crop pixel maps back to the webcam buffer.
+    /// Added so rotation, mirror, and the center crop cannot drift from FrameOrient.Map.
+    /// </summary>
     public class FrameOrientTests
     {
         [Fact]
@@ -68,6 +72,30 @@ namespace Handline.Tests
             }
 
             Assert.Equal(n * n, seen.Count);
+        }
+
+        [Theory]
+        [InlineData(0, false, false)]
+        [InlineData(90, false, true)]
+        [InlineData(180, true, false)]
+        [InlineData(270, true, true)]
+        public void FillIndices_MatchesMap(int rotation, bool vertical, bool mirror)
+        {
+            const int width = 10;
+            const int height = 6;
+            const int size = 4;
+            int[] table = new int[size * size];
+            FrameOrient.FillIndices(table, size, width, height, rotation, vertical, mirror);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int bx;
+                    int by;
+                    FrameOrient.Map(x, y, size, width, height, rotation, vertical, mirror, out bx, out by);
+                    Assert.Equal(by * width + bx, table[y * size + x]);
+                }
+            }
         }
     }
 }
