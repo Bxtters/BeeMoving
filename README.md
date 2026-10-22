@@ -16,7 +16,16 @@ The window is a light camera stage with yellow as the main color. Press the yell
 
 `Camera_MoCap` tracks one person with the same MoveNet Lightning file Handline uses, at the same 384-pixel crop, on every new camera frame. Choose 2–6 people in the People dropdown to switch to MultiPose. A covered joint stays where it was for a short hold instead of vanishing. Settings for the camera, resolution, frame rate, mirror, rotation, people, and tracking are dropdowns.
 
-The camera stays on this machine. The picture is shown in the window and it is not saved. Nose, eye, and ear points are thrown away before anything is drawn. MoveNet Lightning measures a hand at the wrist. It does not output finger joints, so the display does not invent any.
+The camera stays on this machine. The picture is shown in the window and it is not saved. Nose, eye, and ear points are thrown away before anything is drawn. Each visible wrist is sent to a hand-landmark model, which returns 21 points for that hand. Fingers are drawn only when that model sees a hand. They are not invented from the wrist, and they are not saved.
+
+Gesture code can read them while Play is running:
+
+```csharp
+HandPose hand = Camera_MoCap.Current.GetHand(0, true);
+HandGesture.Kind gesture = Camera_MoCap.Current.GetGesture(0, true);
+```
+
+`GetHand` returns 21 points in the same 0-1 space as the body. `GetGesture` returns open, fist, or point. `true` is the left wrist.
 
 The settings card is a light yellow sheet, closer to a Google web app: a pale yellow surface, a thin gold edge, warm type, and yellow for the main actions. It stays inside the window and scrolls when the list is taller than the screen.
 

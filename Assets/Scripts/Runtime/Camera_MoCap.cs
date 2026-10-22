@@ -17,14 +17,14 @@ namespace Handline
     /// Camera stage for Unity 6000.0.82f1. Play opens this display.
     /// A local camera feeds MoveNet MultiPose Lightning, which returns up to six
     /// people. The stage draws the body from the shoulders to the ankles.
-    /// MoveNet measures each hand at the wrist and has no finger joints, so the
-    /// hand marker is that wrist and no fingers are invented.
+    /// MoveNet measures each hand at the wrist. A second model then measures
+    /// 21 points on that hand, including the fingers, when the wrist is visible.
     /// Nose, eye, and ear points are erased before drawing. The camera picture
     /// is shown in this window only. It is never written to disk and never sent off the device.
     /// The Unity scene is Assets/Scenes/Camera_MoCap.unity.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class Camera_MoCap : MonoBehaviour
+    public sealed partial class Camera_MoCap : MonoBehaviour
     {
         /// <summary>
         /// Play opens this stage instead of the lane while this is true.
@@ -43,7 +43,7 @@ namespace Handline
         const string MultiModelFile = "movenet_multipose.tflite";
         const string SingleModelFile = "movenet_lightning.tflite";
         const string PrivacyNotice = "Shown in this window only. The picture is not saved or uploaded. Faces are not drawn.";
-        const string HandNotice = "Each hand is the wrist. MoveNet Lightning has no finger joints, so none are drawn.";
+        const string HandNotice = "Fingers are measured on each visible wrist. They stay on this device and are not saved.";
         const string PairingGuide =
             "IPHONE ON A MAC\n\n" +
             "1. On the iPhone, open Settings, then General, then AirPlay & Continuity.\n" +
@@ -250,6 +250,8 @@ namespace Handline
                     track[i] = new TrackPoint[(int)JointId.Count];
                 }
 
+                Current = this;
+                InitHands();
                 LoadSettings();
                 BuildStage();
                 ready = true;
@@ -321,6 +323,7 @@ namespace Handline
         /// </summary>
         void OnDestroy()
         {
+            if (Current == this) Current = null;
             StopAllCoroutines();
             ReleaseCamera();
             ReleaseEngine();
@@ -467,6 +470,21 @@ namespace Handline
                 yield break;
             }
 
+            yield return ReadModelFile(HandModelFile);
+            if (loadedBytes != null)
+            {
+                try
+                {
+                    handsEngine = HandEngine.Create(loadedBytes);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("Hand landmarks did not start. " + ex.Message);
+                }
+
+                loadedBytes = null;
+            }
+
             ApplyModelLabel();
             SetStatus(modelLabel);
         }
@@ -499,6 +517,7 @@ namespace Handline
             bool handline = active == engine;
             modelLabel = handline ? "MoveNet Lightning" : "MoveNet MultiPose Lightning";
             if (!string.IsNullOrEmpty(active.Summary)) modelLabel += "  ·  " + active.Summary;
+            if (handsEngine != null) modelLabel += "  ·  hands";
         }
 
         /// <summary>
@@ -592,6 +611,7 @@ namespace Handline
             if (multiEngine != null) multiEngine.Dispose();
             engine = null;
             multiEngine = null;
+            ReleaseHands();
         }
 
         /// <summary>
@@ -628,6 +648,7 @@ namespace Handline
                 }
 
                 Stabilize();
+                ReadHands(filled, sw, sh);
                 for (int i = 0; i < MaxPeople; i++) Blank(crowd[i]);
                 crowdCount = 0;
                 poseUntil = Time.unscaledTime + 0.4f;
@@ -858,6 +879,7 @@ namespace Handline
 
                     Blank(stable[slot]);
                     ClearTrack(slot);
+                    ClearHand(slot);
                     slotUsed[slot] = false;
                     slotX[slot] = 0f;
                     slotY[slot] = 0f;
@@ -999,6 +1021,7 @@ namespace Handline
                 Blank(crowd[i]);
                 Blank(stable[i]);
                 ClearTrack(i);
+                ClearHand(i);
                 slotUsed[i] = false;
                 slotX[i] = 0f;
                 slotY[i] = 0f;
@@ -1335,6 +1358,8 @@ namespace Handline
                 }
             }
 
+            BuildHandGraphics(sprite);
+
             Text title = MakeText("Title", canvasRect, font, "Camera", 32, TextAnchor.UpperLeft, Ink);
             title.fontStyle = FontStyle.Bold;
             Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -24f), new Vector2(520f, 40f));
@@ -1472,6 +1497,8 @@ namespace Handline
                 bool show = slotUsed[person] && HasBody(stable[person]) && width > 2f && height > 2f;
                 DrawPerson(person, show ? stable[person] : null, show, width, height);
             }
+
+            DrawHands(width, height);
         }
 
         /// <summary>
@@ -2619,6 +2646,7 @@ namespace Handline
             {
                 Blank(stable[i]);
                 ClearTrack(i);
+                ClearHand(i);
                 slotUsed[i] = false;
                 slotSeen[i] = 0f;
             }
