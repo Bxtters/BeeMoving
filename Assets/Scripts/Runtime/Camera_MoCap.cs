@@ -19,7 +19,7 @@ namespace Handline
     /// MoveNet measures each hand at the wrist and has no finger joints, so the
     /// hand marker is that wrist and no fingers are invented.
     /// Nose, eye, and ear points are erased before drawing. The camera picture
-    /// is never shown, never written to disk, and never sent off the device.
+    /// is shown in this window only. It is never written to disk and never sent off the device.
     /// The Unity scene is Assets/Scenes/Camera_MoCap.unity.
     /// </summary>
     [DisallowMultipleComponent]
@@ -41,7 +41,7 @@ namespace Handline
         const float SlotMatchDistance = 0.35f;
         const string MultiModelFile = "movenet_multipose.tflite";
         const string SingleModelFile = "movenet_lightning.tflite";
-        const string PrivacyNotice = "On this device only. The camera picture is not shown or saved. Faces are not kept.";
+        const string PrivacyNotice = "Shown in this window only. The picture is not saved or uploaded. Faces are not drawn.";
         const string HandNotice = "Each hand is the wrist. MoveNet Lightning has no finger joints, so none are drawn.";
         const string PairingGuide =
             "IPHONE ON A MAC\n\n" +
@@ -64,7 +64,7 @@ namespace Handline
             "3. Use the same Wi-Fi, or USB when the app offers it.\n" +
             "4. Press Refresh here and select that camera.\n\n" +
             "A plugged-in iPhone is a different setup. Press Back, then USB cable.\n\n" +
-            "This app only uses a webcam the computer already lists. It does not install a driver and it does not show the picture.";
+            "This app only uses a webcam the computer already lists. It does not install a driver. The picture stays in this window and is not saved.";
         const string CableGuide =
             "Use the charging cable that came with the iPhone, or another data cable. A charge-only cable powers the phone and never becomes a camera.\n\n" +
             "MAC\n\n" +
@@ -80,7 +80,7 @@ namespace Handline
             "4. Press Iriun and install Iriun Webcam on the PC. Open the PC app first and leave it open.\n" +
             "5. Install Iriun Webcam on the iPhone from the App Store. Open it, allow the camera, and leave the cable plugged in. Iriun uses the cable when it is connected.\n" +
             "6. Press Check cable. This page selects the camera named Iriun when Windows lists it.\n\n" +
-            "The picture stays on this computer. It is not shown and it is not saved.";
+            "The picture stays in this window. It is not saved.";
         const string AppleDriverUrl = "https://apps.microsoft.com/detail/9np83lwlpz9k";
         const string IriunUrl = "https://iriun.com/";
         const string PrefMirror = "CameraMoCap.Mirror";
@@ -147,6 +147,7 @@ namespace Handline
         RectTransform canvasRect;
         RectTransform stage;
         RectTransform stageFrame;
+        RawImage videoView;
         Image[][] lines;
         Image[][] dots;
         Text countText;
@@ -161,6 +162,15 @@ namespace Handline
         int settingsSeenW = -1;
         int settingsSeenH = -1;
         Color32[] crop;
+        Texture2D previewTex;
+        Color32[] previewPixels;
+        int[] previewIndex;
+        int previewWidth;
+        int previewHeight;
+        int previewRotation = int.MinValue;
+        int previewEdge;
+        bool previewMirror;
+        bool previewVertical;
         int[] sampleIndex;
         int sampleWidth;
         int sampleHeight;
@@ -191,7 +201,6 @@ namespace Handline
         float nextPose;
         bool mirror = true;
         bool cameraReady;
-        bool poseDirty = true;
         bool reportedGiveUp;
         int tryIndex;
         int tryCount;
@@ -281,7 +290,7 @@ namespace Handline
         void Update()
         {
             if (!ready) return;
-            if (LayoutStage()) poseDirty = true;
+            LayoutStage();
             LayoutSettingsCard();
             PollKeys();
             WatchCamera();
@@ -291,18 +300,14 @@ namespace Handline
             {
                 CaptureAndEstimate();
                 nextPose = Time.unscaledTime + PoseInterval;
-                poseDirty = true;
             }
             else if (webcam == null && poseUntil > 0f && Time.unscaledTime > poseUntil)
             {
                 poseUntil = 0f;
                 ClearCrowd();
                 ShowCount(0);
-                poseDirty = true;
             }
 
-            if (!poseDirty) return;
-            poseDirty = false;
             Redraw();
         }
 
@@ -588,6 +593,7 @@ namespace Handline
             {
                 Color32[] filled = webcam.GetPixels32();
                 if (filled == null || filled.Length == 0) return;
+                ShowFrame(filled, sw, sh);
                 int modelSize = ModelSize();
                 FillCrop(filled, sw, sh, modelSize);
                 if (engine != null)
@@ -1065,6 +1071,7 @@ namespace Handline
             if (webcam.isPlaying) webcam.Stop();
             Destroy(webcam);
             webcam = null;
+            HidePreview();
         }
 
         /// <summary>
@@ -1152,6 +1159,7 @@ namespace Handline
             scaler.referenceResolution = new Vector2(1600f, 900f);
             scaler.matchWidthOrHeight = 0.5f;
             scaler.referencePixelsPerUnit = 100f;
+            scaler.dynamicPixelsPerUnit = 4f;
             canvasRect = canvasObject.GetComponent<RectTransform>();
 
             Image background = MakeImage("Background", canvasRect, sprite, Paper);
@@ -1178,6 +1186,15 @@ namespace Handline
             stageImage.color = StageColor;
             stageImage.raycastTarget = false;
 
+            GameObject videoObject = new GameObject("Video", typeof(RectTransform), typeof(RawImage));
+            videoObject.transform.SetParent(stage, false);
+            Stretch(videoObject.GetComponent<RectTransform>());
+            videoView = videoObject.GetComponent<RawImage>();
+            videoView.raycastTarget = false;
+            videoView.color = Color.white;
+            videoView.uvRect = new Rect(0f, 1f, 1f, -1f);
+            videoView.enabled = false;
+
             int boneCount = Bones.Length / 2;
             int bodyCount = (int)JointId.Count - (int)JointId.LeftShoulder;
             lines = new Image[MaxPeople][];
@@ -1191,6 +1208,7 @@ namespace Handline
                     lines[person][i] = MakeImage("Bone", stage, sprite, color);
                     lines[person][i].rectTransform.pivot = new Vector2(0.5f, 0.5f);
                     lines[person][i].enabled = false;
+                    AddInkEdge(lines[person][i]);
                 }
 
                 dots[person] = new Image[bodyCount];
@@ -1200,33 +1218,101 @@ namespace Handline
                     dots[person][i] = MakeImage("Joint", stage, sprite, jointColor);
                     dots[person][i].rectTransform.pivot = new Vector2(0.5f, 0.5f);
                     dots[person][i].enabled = false;
+                    AddInkEdge(dots[person][i]);
                 }
             }
 
-            Text title = MakeText("Title", canvasRect, font, "Camera", 28, TextAnchor.UpperLeft, Ink);
-            Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -28f), new Vector2(520f, 36f));
-            Text privacy = MakeText("Privacy", canvasRect, font, PrivacyNotice, 16, TextAnchor.UpperLeft, Muted);
+            Text title = MakeText("Title", canvasRect, font, "Camera", 32, TextAnchor.UpperLeft, Ink);
+            title.fontStyle = FontStyle.Bold;
+            Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -24f), new Vector2(520f, 40f));
+            Text privacy = MakeText("Privacy", canvasRect, font, PrivacyNotice, 18, TextAnchor.UpperLeft, Ink);
             privacy.horizontalOverflow = HorizontalWrapMode.Wrap;
             privacy.verticalOverflow = VerticalWrapMode.Overflow;
-            Place(privacy.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -68f), new Vector2(760f, 24f));
-            Text hands = MakeText("Hands", canvasRect, font, HandNotice, 16, TextAnchor.UpperLeft, Muted);
+            Place(privacy.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -68f), new Vector2(900f, 28f));
+            Text hands = MakeText("Hands", canvasRect, font, HandNotice, 18, TextAnchor.UpperLeft, Ink);
             hands.horizontalOverflow = HorizontalWrapMode.Wrap;
-            Place(hands.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -96f), new Vector2(860f, 24f));
+            Place(hands.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -100f), new Vector2(980f, 28f));
 
-            countText = MakeText("Count", canvasRect, font, "No one in frame", 28, TextAnchor.UpperRight, Cream);
-            Place(countText.rectTransform, new Vector2(1f, 1f), new Vector2(-176f, -28f), new Vector2(360f, 36f));
+            countText = MakeText("Count", canvasRect, font, "No one in frame", 28, TextAnchor.UpperRight, Ink);
+            countText.fontStyle = FontStyle.Bold;
+            Place(countText.rectTransform, new Vector2(1f, 1f), new Vector2(-176f, -24f), new Vector2(420f, 40f));
 
-            statusText = MakeText("Status", canvasRect, font, "Starting…", 18, TextAnchor.LowerLeft, Cream);
+            statusText = MakeText("Status", canvasRect, font, "Starting…", 20, TextAnchor.LowerLeft, Ink);
             statusText.horizontalOverflow = HorizontalWrapMode.Wrap;
             statusText.verticalOverflow = VerticalWrapMode.Overflow;
-            Place(statusText.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 58f), new Vector2(1100f, 28f));
-            Text help = MakeText("Help", canvasRect, font, "Tab settings    F mirror    Q rotate    Esc stop    Enter start", 16, TextAnchor.LowerLeft, Muted);
-            Place(help.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 28f), new Vector2(1100f, 24f));
+            Place(statusText.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 56f), new Vector2(1200f, 32f));
+            Text help = MakeText("Help", canvasRect, font, "Tab settings    F mirror    Q rotate    Esc stop    Enter start", 18, TextAnchor.LowerLeft, Muted);
+            Place(help.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 24f), new Vector2(1200f, 28f));
             BuildSettings(font, sprite);
         }
 
         /// <summary>
-        /// Gives the Game view a display to render. The camera clears to black and never receives the webcam picture.
+        /// Draws the same upright center crop MoveNet reads, so the skeleton sits on the picture.
+        /// The texture lives on the GPU for this window. It is not written to a file.
+        /// </summary>
+        void ShowFrame(Color32[] source, int srcWidth, int srcHeight)
+        {
+            if (videoView == null || source == null) return;
+            const int size = 512;
+            if (previewTex == null)
+            {
+                previewTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                previewTex.wrapMode = TextureWrapMode.Clamp;
+                previewTex.filterMode = FilterMode.Bilinear;
+                previewTex.name = "Camera preview";
+            }
+
+            if (previewPixels == null || previewPixels.Length != size * size) previewPixels = new Color32[size * size];
+            int rotation = webcam.videoRotationAngle + extraRotation;
+            bool vertical = webcam.videoVerticallyMirrored;
+            if (previewIndex == null || previewEdge != size || previewWidth != srcWidth || previewHeight != srcHeight
+                || previewRotation != rotation || previewMirror != mirror || previewVertical != vertical)
+            {
+                previewIndex = new int[size * size];
+                FrameOrient.FillIndices(previewIndex, size, srcWidth, srcHeight, rotation, vertical, mirror);
+                previewEdge = size;
+                previewWidth = srcWidth;
+                previewHeight = srcHeight;
+                previewRotation = rotation;
+                previewMirror = mirror;
+                previewVertical = vertical;
+            }
+
+            int limit = source.Length;
+            for (int i = 0; i < previewPixels.Length; i++)
+            {
+                int index = previewIndex[i];
+                previewPixels[i] = (uint)index < (uint)limit ? source[index] : default(Color32);
+            }
+
+            previewTex.SetPixels32(previewPixels);
+            previewTex.Apply(false, false);
+            Array.Clear(previewPixels, 0, previewPixels.Length);
+            videoView.texture = previewTex;
+            videoView.enabled = true;
+        }
+
+        /// <summary>
+        /// Drops the on-screen picture when the camera stops.
+        /// </summary>
+        void HidePreview()
+        {
+            if (previewTex != null)
+            {
+                Destroy(previewTex);
+                previewTex = null;
+            }
+
+            previewPixels = null;
+            previewIndex = null;
+            previewEdge = 0;
+            if (videoView == null) return;
+            videoView.texture = null;
+            videoView.enabled = false;
+        }
+
+        /// <summary>
+        /// Gives the Game view a display to render. The webcam is drawn by the stage canvas, not by this camera.
         /// </summary>
         void EnsureStageCamera()
         {
@@ -1326,7 +1412,8 @@ namespace Handline
 
                 RectTransform boneRect = bones[i].rectTransform;
                 boneRect.anchoredPosition = (pa + pb) * 0.5f;
-                boneRect.sizeDelta = new Vector2(length, 4f);
+                boneRect.SetAsLastSibling();
+                boneRect.sizeDelta = new Vector2(length, 8f);
                 boneRect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
                 bones[i].enabled = true;
             }
@@ -1343,8 +1430,9 @@ namespace Handline
                 }
 
                 bool hand = IsMeasuredHand(jointId);
-                float size = hand ? 16f : 9f;
+                float size = hand ? 22f : 14f;
                 RectTransform jointRect = joints[i].rectTransform;
+                jointRect.SetAsLastSibling();
                 jointRect.sizeDelta = new Vector2(size, size);
                 Vector2 point = ToPoint(pose.Joints[jointId], width, height);
                 jointRect.anchoredPosition = point;
@@ -1630,7 +1718,7 @@ namespace Handline
             settingsMain = new GameObject("Main", typeof(RectTransform));
             settingsMain.transform.SetParent(panel.transform, false);
             Stretch(settingsMain.GetComponent<RectTransform>());
-            Text heading = MakeText("Heading", settingsMain.transform, font, "Settings", 22 * u, TextAnchor.MiddleLeft, Ink);
+            Text heading = MakeText("Heading", settingsMain.transform, font, "Settings", 26 * u, TextAnchor.MiddleLeft, Ink);
             heading.fontStyle = FontStyle.Bold;
             RectTransform headingRect = heading.rectTransform;
             headingRect.anchorMin = new Vector2(0f, 1f);
@@ -1744,15 +1832,13 @@ namespace Handline
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 24f * u;
 
-            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
             viewport.transform.SetParent(scrollObject.transform, false);
             Stretch(viewport.GetComponent<RectTransform>());
             Image viewportImage = viewport.GetComponent<Image>();
             viewportImage.sprite = sprite;
             viewportImage.color = Card;
             viewportImage.raycastTarget = true;
-            viewport.GetComponent<Mask>().showMaskGraphic = false;
-
             GameObject content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             content.transform.SetParent(viewport.transform, false);
             RectTransform contentRect = content.GetComponent<RectTransform>();
@@ -1786,15 +1872,15 @@ namespace Handline
             settingsPairing.transform.SetParent(panel, false);
             Stretch(settingsPairing.GetComponent<RectTransform>());
 
-            AddTextButton(settingsPairing.transform, roundSprite, font, "Back", 20f * u, 16f * u, 72f * u, 36f * u, 15 * u, HidePairing);
-            Text title = MakeText("Pair Title", settingsPairing.transform, font, "Pair phone", 22 * u, TextAnchor.MiddleLeft, Ink);
+            PlaceCenteredBack(settingsPairing.transform, roundSprite, font, HidePairing);
+            Text title = MakeText("Pair Title", settingsPairing.transform, font, "Pair phone", 24 * u, TextAnchor.MiddleCenter, Ink);
             title.fontStyle = FontStyle.Bold;
-            PlaceTop(title.rectTransform, 112f * u, 18f * u, 240f * u, 32f * u);
-            pairingStatus = MakeText("Pair Status", settingsPairing.transform, font, "", 14 * u, TextAnchor.UpperLeft, Muted);
+            PlaceHeaderLine(title.rectTransform, 72f * u, 36f * u);
+            pairingStatus = MakeText("Pair Status", settingsPairing.transform, font, "", 18 * u, TextAnchor.MiddleCenter, Ink);
             pairingStatus.horizontalOverflow = HorizontalWrapMode.Wrap;
             pairingStatus.verticalOverflow = VerticalWrapMode.Overflow;
-            PlaceTop(pairingStatus.rectTransform, 28f * u, 58f * u, 404f * u, 36f * u);
-            AddTextButton(settingsPairing.transform, roundSprite, font, "Refresh", 20f * u, 98f * u, 120f * u, 36f * u, 15 * u, RefreshCameras);
+            PlaceHeaderLine(pairingStatus.rectTransform, 114f * u, 40f * u);
+            AddTextButton(settingsPairing.transform, roundSprite, font, "Refresh", 20f * u, 162f * u, 140f * u, 40f * u, 18 * u, RefreshCameras);
 
             GameObject scrollObject = new GameObject("Steps", typeof(RectTransform), typeof(ScrollRect));
             scrollObject.transform.SetParent(settingsPairing.transform, false);
@@ -1802,22 +1888,20 @@ namespace Handline
             stepsRect.anchorMin = Vector2.zero;
             stepsRect.anchorMax = Vector2.one;
             stepsRect.offsetMin = new Vector2(20f * u, 16f * u);
-            stepsRect.offsetMax = new Vector2(-16f * u, -142f * u);
+            stepsRect.offsetMax = new Vector2(-16f * u, -214f * u);
             ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 28f * u;
 
-            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
             viewport.transform.SetParent(scrollObject.transform, false);
             Stretch(viewport.GetComponent<RectTransform>());
             Image viewportImage = viewport.GetComponent<Image>();
             viewportImage.sprite = sprite;
             viewportImage.color = Card;
             viewportImage.raycastTarget = true;
-            viewport.GetComponent<Mask>().showMaskGraphic = false;
-
             GameObject content = new GameObject("Content", typeof(RectTransform));
             content.transform.SetParent(viewport.transform, false);
             RectTransform contentRect = content.GetComponent<RectTransform>();
@@ -1827,7 +1911,7 @@ namespace Handline
             contentRect.anchoredPosition = Vector2.zero;
             contentRect.sizeDelta = new Vector2(0f, 0f);
 
-            Text guide = MakeText("Guide", content.transform, font, PairingGuide, 15 * u, TextAnchor.UpperLeft, Cream);
+            Text guide = MakeText("Guide", content.transform, font, PairingGuide, 18 * u, TextAnchor.UpperLeft, Ink);
             guide.horizontalOverflow = HorizontalWrapMode.Wrap;
             guide.verticalOverflow = VerticalWrapMode.Overflow;
             guide.lineSpacing = 1.08f;
@@ -1855,20 +1939,20 @@ namespace Handline
             settingsCable.transform.SetParent(panel, false);
             Stretch(settingsCable.GetComponent<RectTransform>());
 
-            AddTextButton(settingsCable.transform, roundSprite, font, "Back", 20f * u, 16f * u, 72f * u, 36f * u, 15 * u, HideCable);
-            Text title = MakeText("Cable Title", settingsCable.transform, font, "USB cable", 22 * u, TextAnchor.MiddleLeft, Ink);
+            PlaceCenteredBack(settingsCable.transform, roundSprite, font, HideCable);
+            Text title = MakeText("Cable Title", settingsCable.transform, font, "USB cable", 24 * u, TextAnchor.MiddleCenter, Ink);
             title.fontStyle = FontStyle.Bold;
-            PlaceTop(title.rectTransform, 112f * u, 18f * u, 240f * u, 32f * u);
-            cableStatus = MakeText("Cable Status", settingsCable.transform, font, "", 14 * u, TextAnchor.UpperLeft, Muted);
+            PlaceHeaderLine(title.rectTransform, 72f * u, 36f * u);
+            cableStatus = MakeText("Cable Status", settingsCable.transform, font, "", 18 * u, TextAnchor.MiddleCenter, Ink);
             cableStatus.horizontalOverflow = HorizontalWrapMode.Wrap;
             cableStatus.verticalOverflow = VerticalWrapMode.Overflow;
-            PlaceTop(cableStatus.rectTransform, 28f * u, 58f * u, 404f * u, 36f * u);
+            PlaceHeaderLine(cableStatus.rectTransform, 114f * u, 40f * u);
             Transform cableActions = ActionRow(settingsCable.transform, 40f * u);
             RectTransform cableRow = cableActions.GetComponent<RectTransform>();
             cableRow.anchorMin = new Vector2(0f, 1f);
             cableRow.anchorMax = new Vector2(1f, 1f);
             cableRow.pivot = new Vector2(0.5f, 1f);
-            cableRow.anchoredPosition = new Vector2(0f, -96f * u);
+            cableRow.anchoredPosition = new Vector2(0f, -162f * u);
             cableRow.sizeDelta = new Vector2(0f, 40f * u);
             HorizontalLayoutGroup cableLayout = cableActions.GetComponent<HorizontalLayoutGroup>();
             cableLayout.padding = new RectOffset(16 * u, 16 * u, 0, 0);
@@ -1876,7 +1960,7 @@ namespace Handline
             FlexButton(cableActions, roundSprite, font, "Check cable", 0f, 36f * u, 13 * u, Btn.Text, RefreshCameras);
             FlexButton(cableActions, roundSprite, font, "Apple driver", 0f, 36f * u, 13 * u, Btn.Filled, OpenAppleDriver);
             FlexButton(cableActions, roundSprite, font, "Iriun", 0f, 36f * u, 13 * u, Btn.Text, OpenIriun);
-            BuildGuideScroll(settingsCable.transform, font, sprite, u, CableGuide, 148f * u);
+            BuildGuideScroll(settingsCable.transform, font, sprite, u, CableGuide, 214f * u);
             settingsCable.SetActive(false);
         }
 
@@ -1898,15 +1982,13 @@ namespace Handline
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 28f * u;
 
-            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
             viewport.transform.SetParent(scrollObject.transform, false);
             Stretch(viewport.GetComponent<RectTransform>());
             Image viewportImage = viewport.GetComponent<Image>();
             viewportImage.sprite = sprite;
             viewportImage.color = Card;
             viewportImage.raycastTarget = true;
-            viewport.GetComponent<Mask>().showMaskGraphic = false;
-
             GameObject content = new GameObject("Content", typeof(RectTransform));
             content.transform.SetParent(viewport.transform, false);
             RectTransform contentRect = content.GetComponent<RectTransform>();
@@ -1916,7 +1998,7 @@ namespace Handline
             contentRect.anchoredPosition = Vector2.zero;
             contentRect.sizeDelta = new Vector2(0f, 0f);
 
-            Text guide = MakeText("Guide", content.transform, font, body, 15 * u, TextAnchor.UpperLeft, Cream);
+            Text guide = MakeText("Guide", content.transform, font, body, 18 * u, TextAnchor.UpperLeft, Ink);
             guide.horizontalOverflow = HorizontalWrapMode.Wrap;
             guide.verticalOverflow = VerticalWrapMode.Overflow;
             guide.lineSpacing = 1.08f;
@@ -1944,15 +2026,47 @@ namespace Handline
         }
 
         /// <summary>
-        /// Adds a text button with no filled background.
+        /// Puts Back in the middle of the top of a settings page, with the label centered in the button.
+        /// </summary>
+        void PlaceCenteredBack(Transform parent, Sprite sprite, Font font, UnityAction action)
+        {
+            Button button = MakeButton("Back", parent, sprite, font, "Back", action, Btn.Filled);
+            Text text = button.GetComponentInChildren<Text>();
+            text.fontSize = 18;
+            text.fontStyle = FontStyle.Bold;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Ink;
+            RectTransform rect = button.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(0f, -16f);
+            rect.sizeDelta = new Vector2(160f, 44f);
+        }
+
+        /// <summary>
+        /// Stretches a header line across the card, measured down from the top.
+        /// </summary>
+        static void PlaceHeaderLine(RectTransform rect, float down, float height)
+        {
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(0f, -down);
+            rect.sizeDelta = new Vector2(-48f, height);
+        }
+
+        /// <summary>
+        /// Adds a text button with the label centered in its box.
         /// </summary>
         static void AddTextButton(Transform parent, Sprite sprite, Font font, string label, float x, float y, float width, float height, int fontSize, UnityAction action)
         {
             Button button = MakeButton(label, parent, sprite, font, label, action, Btn.Text);
             Text text = button.GetComponentInChildren<Text>();
             text.fontSize = fontSize;
-            text.color = YellowDeep;
-            text.alignment = TextAnchor.MiddleLeft;
+            text.fontStyle = FontStyle.Bold;
+            text.color = Ink;
+            text.alignment = TextAnchor.MiddleCenter;
             PlaceTop(button.GetComponent<RectTransform>(), x, y, width, height);
         }
 
@@ -1965,9 +2079,9 @@ namespace Handline
             LayoutElement element = button.gameObject.AddComponent<LayoutElement>();
             element.minHeight = 48f * u;
             element.preferredHeight = 48f * u;
-            Text name = MakeText("Name", button.transform, font, caption, 15 * u, TextAnchor.MiddleLeft, Ink);
+            Text name = MakeText("Name", button.transform, font, caption, 17 * u, TextAnchor.MiddleLeft, Ink);
             PlaceTop(name.rectTransform, 12f * u, 0f, 150f * u, 48f * u);
-            Text value = MakeText("Value", button.transform, font, "", 15 * u, TextAnchor.MiddleRight, YellowDeep);
+            Text value = MakeText("Value", button.transform, font, "", 17 * u, TextAnchor.MiddleRight, YellowDeep);
             RectTransform valueRect = value.rectTransform;
             valueRect.anchorMin = new Vector2(1f, 0.5f);
             valueRect.anchorMax = new Vector2(1f, 0.5f);
@@ -2478,7 +2592,7 @@ namespace Handline
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(x, y);
+            rect.anchoredPosition = new Vector2(x, -y);
             rect.sizeDelta = new Vector2(width, height);
         }
 
@@ -2531,9 +2645,21 @@ namespace Handline
             colors.fadeDuration = 0.08f;
             button.colors = colors;
             if (action != null) button.onClick.AddListener(action);
-            Text text = MakeText("Label", go.transform, font, label, 16, TextAnchor.MiddleCenter, labelColor);
+            Text text = MakeText("Label", go.transform, font, label, 17, TextAnchor.MiddleCenter, labelColor);
+            text.fontStyle = FontStyle.Bold;
             Stretch(text.rectTransform);
             return button;
+        }
+
+        /// <summary>
+        /// Adds a dark rim so a joint or bone stays visible on the camera picture.
+        /// </summary>
+        static void AddInkEdge(Image image)
+        {
+            Outline edge = image.gameObject.AddComponent<Outline>();
+            edge.effectColor = new Color(0.1f, 0.07f, 0.02f, 0.92f);
+            edge.effectDistance = new Vector2(1.5f, -1.5f);
+            edge.useGraphicAlpha = true;
         }
 
         /// <summary>
@@ -2566,8 +2692,10 @@ namespace Handline
             text.text = message;
             text.fontSize = size;
             text.alignment = anchor;
+            text.alignByGeometry = true;
             text.color = color;
             text.raycastTarget = false;
+            text.supportRichText = false;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
             text.verticalOverflow = VerticalWrapMode.Overflow;
             return text;

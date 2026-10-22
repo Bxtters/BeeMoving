@@ -44,7 +44,7 @@ namespace Handline.EditorTools
             }
 
             EditorSceneManager.OpenScene(ScenePath);
-            Debug.Log("Camera_MoCap is ready. Press Play. The stage draws skeletons and does not show the camera picture.");
+            Debug.Log("Camera_MoCap is ready. Press Play. The stage shows the camera with the skeleton on top.");
         }
     }
 }
