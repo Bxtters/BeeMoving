@@ -1,0 +1,25 @@
+{
+  "name": "Handline.Vision",
+  "rootNamespace": "Handline",
+  "references": [
+    "Handline.Core",
+    "TensorFlowLite"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "HANDLINE_TFLITE"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.github.asus4.tflite",
+      "expression": "2.0.0",
+      "define": "HANDLINE_TFLITE"
+    }
+  ],
+  "noEngineReferences": false
+}
