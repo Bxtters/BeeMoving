@@ -42,6 +42,22 @@ python3 -m http.server 8741
 
 Open http://localhost:8741/skeleton.html and allow the camera. On a Chromebook, turn on Linux under Settings → Advanced → Developers if `python3` is not there yet, copy the file into the Linux files folder, and run that command in the Terminal app.
 
+## LOOK — face attractiveness rater
+
+`face-rate.html` (and the portable `look/` folder) is a mobile-ready browser app. It uses [MediaPipe Face Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js) (478-point face mocap + blendshapes) to score how attractive your face reads on a **1–10** scale. Camera stays on-device.
+
+Serve the folder:
+
+```bash
+python3 -m http.server 8741
+```
+
+Open http://localhost:8741/face-rate.html (or `/look/` once hosted). On a phone, use **HTTPS** (GitHub Pages) so the camera is allowed. Add to Home Screen for the PWA shell.
+
+**Allow camera** for live scoring, **Try sample face** for `samples/demo-face.jpg`, **Hold score** / **Flip** as needed.
+
+The canonical home for LOOK is intended to be the `Bxtters/look` repository with GitHub Pages at `https://bxtters.github.io/look/`.
+
 ## The game
 
 A three-lane runner controlled by a camera. MoveNet Lightning (TensorFlow Lite) reads the person in frame, and their hands become the controls: jump, sprint, slide, and lane changes.
