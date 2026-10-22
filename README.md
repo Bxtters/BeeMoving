@@ -10,7 +10,7 @@ This repository folder is that same Unity project if you already have it checked
 2. Leave the project alone until the first import finishes. It needs an internet connection once, so Package Manager can download TensorFlow Lite.
 3. `Assets/Scenes/Camera_MoCap.unity` opens by itself. Press Play.
 
-The window is the camera stage: a black field, yellow type, and the skeleton. Press **Settings** or **Tab**. **Pair phone** shows the wireless steps. **USB cable** is the plugged-in iPhone setup. If the skeleton is sideways, press **Q**. If your left and right feel swapped, press **F**. The stage does not show the camera picture.
+The window is a light camera stage with yellow as the main color. Press the yellow **Settings** button or **Tab**. **Pair phone** shows the wireless steps. **USB cable** is the plugged-in iPhone setup. If the skeleton is sideways, press **Q**. If your left and right feel swapped, press **F**. The stage does not show the camera picture.
 
 ## Camera
 
@@ -18,7 +18,7 @@ The window is the camera stage: a black field, yellow type, and the skeleton. Pr
 
 The camera stays on this machine. The picture is not shown and it is not saved. Nose, eye, and ear points are thrown away before anything is drawn. MoveNet Lightning measures a hand at the wrist. It does not output finger joints, so the display does not invent any.
 
-The settings card is drawn in screen pixels so the type stays sharp. Black is the ground and yellow is the accent.
+The settings card is a light rounded sheet, closer to a Google web app: white surface, gray type, and yellow for the main actions. It stays inside the window and scrolls when the list is taller than the screen.
 
 | Row | What it changes |
 |---|---|

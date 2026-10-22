@@ -109,19 +109,23 @@ namespace Handline
 
         static readonly Color[] PersonColors =
         {
-            new Color(1f, 0.84f, 0.12f, 1f),
-            new Color(1f, 0.93f, 0.55f, 1f),
-            new Color(0.86f, 0.68f, 0.04f, 1f),
-            new Color(1f, 0.78f, 0.20f, 1f),
-            new Color(0.96f, 0.90f, 0.62f, 1f),
-            new Color(0.72f, 0.58f, 0.06f, 1f)
+            new Color(0.89f, 0.45f, 0.00f, 1f),
+            new Color(0.76f, 0.52f, 0.04f, 1f),
+            new Color(0.58f, 0.38f, 0.02f, 1f),
+            new Color(0.93f, 0.60f, 0.10f, 1f),
+            new Color(0.50f, 0.36f, 0.06f, 1f),
+            new Color(0.78f, 0.34f, 0.04f, 1f)
         };
 
-        static readonly Color Ink = new Color(0f, 0f, 0f, 1f);
-        static readonly Color StageColor = new Color(0.05f, 0.05f, 0.05f, 1f);
-        static readonly Color Cream = new Color(0.96f, 0.96f, 0.94f, 1f);
-        static readonly Color Yellow = new Color(1f, 0.82f, 0.12f, 1f);
-        static readonly Color Muted = new Color(0.62f, 0.62f, 0.58f, 1f);
+        static readonly Color Paper = new Color(0.973f, 0.976f, 0.980f, 1f);
+        static readonly Color Ink = new Color(0.125f, 0.129f, 0.141f, 1f);
+        static readonly Color StageColor = new Color(1f, 1f, 1f, 1f);
+        static readonly Color Cream = new Color(0.125f, 0.129f, 0.141f, 1f);
+        static readonly Color Yellow = new Color(0.976f, 0.671f, 0.000f, 1f);
+        static readonly Color YellowDeep = new Color(0.722f, 0.408f, 0.000f, 1f);
+        static readonly Color Muted = new Color(0.373f, 0.388f, 0.408f, 1f);
+        static readonly Color Line = new Color(0.886f, 0.910f, 0.929f, 1f);
+        static readonly Color Hover = new Color(0.945f, 0.949f, 0.957f, 1f);
 
         readonly PoseFrame[] crowd = new PoseFrame[MaxPeople];
         readonly PoseFrame[] stable = new PoseFrame[MaxPeople];
@@ -139,6 +143,12 @@ namespace Handline
         Text statusText;
         Texture2D whiteTex;
         Sprite whiteSprite;
+        Texture2D roundTex;
+        Sprite roundSprite;
+        RectTransform settingsCard;
+        RectTransform settingsShadow;
+        int settingsSeenW = -1;
+        int settingsSeenH = -1;
         Color32[] sensorPixels;
         Color32[] crop;
         byte[] loadedBytes;
@@ -237,6 +247,7 @@ namespace Handline
         {
             if (!ready) return;
             LayoutStage();
+            LayoutSettingsCard();
             PollKeys();
             if (!cameraHeldOff && engine != null) ScanDevices();
 
@@ -278,6 +289,8 @@ namespace Handline
             WipePixels();
             if (whiteSprite != null) Destroy(whiteSprite);
             if (whiteTex != null) Destroy(whiteTex);
+            if (roundSprite != null) Destroy(roundSprite);
+            if (roundTex != null) Destroy(roundTex);
         }
 
         /// <summary>
@@ -967,6 +980,7 @@ namespace Handline
             EnsureStageCamera();
             Font font = BuiltinFont();
             Sprite sprite = WhiteSprite();
+            RoundedSprite();
 
             EnsureEventSystem();
             GameObject canvasObject = new GameObject("Camera_MoCap Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -980,9 +994,10 @@ namespace Handline
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1600f, 900f);
             scaler.matchWidthOrHeight = 0.5f;
+            scaler.referencePixelsPerUnit = 100f;
             canvasRect = canvasObject.GetComponent<RectTransform>();
 
-            Image background = MakeImage("Background", canvasRect, sprite, Ink);
+            Image background = MakeImage("Background", canvasRect, sprite, Paper);
             Stretch(background.rectTransform);
 
             GameObject stageObject = new GameObject("Stage", typeof(RectTransform), typeof(Image));
@@ -993,7 +1008,8 @@ namespace Handline
             stage.pivot = new Vector2(0.5f, 0.5f);
             stage.anchoredPosition = new Vector2(0f, -12f);
             Image stageImage = stageObject.GetComponent<Image>();
-            stageImage.sprite = sprite;
+            stageImage.sprite = roundSprite;
+            stageImage.type = Image.Type.Sliced;
             stageImage.color = StageColor;
             stageImage.raycastTarget = false;
 
@@ -1013,7 +1029,7 @@ namespace Handline
                 }
 
                 dots[person] = new Image[bodyCount];
-                Color jointColor = Color.Lerp(color, Color.white, 0.35f);
+                Color jointColor = Color.Lerp(color, Ink, 0.2f);
                 for (int i = 0; i < bodyCount; i++)
                 {
                     dots[person][i] = MakeImage("Joint", stage, sprite, jointColor);
@@ -1022,7 +1038,7 @@ namespace Handline
                 }
             }
 
-            Text title = MakeText("Title", canvasRect, font, "Camera", 28, TextAnchor.UpperLeft, Yellow);
+            Text title = MakeText("Title", canvasRect, font, "Camera", 28, TextAnchor.UpperLeft, Ink);
             Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -28f), new Vector2(520f, 36f));
             Text privacy = MakeText("Privacy", canvasRect, font, PrivacyNotice, 16, TextAnchor.UpperLeft, Muted);
             privacy.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -1033,7 +1049,7 @@ namespace Handline
             Place(hands.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -96f), new Vector2(860f, 24f));
 
             countText = MakeText("Count", canvasRect, font, "No one in frame", 28, TextAnchor.UpperRight, Cream);
-            Place(countText.rectTransform, new Vector2(1f, 1f), new Vector2(-36f, -28f), new Vector2(360f, 36f));
+            Place(countText.rectTransform, new Vector2(1f, 1f), new Vector2(-176f, -28f), new Vector2(360f, 36f));
 
             statusText = MakeText("Status", canvasRect, font, "Starting…", 18, TextAnchor.LowerLeft, Cream);
             statusText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -1062,7 +1078,7 @@ namespace Handline
             go.transform.localPosition = new Vector3(0f, 0f, -10f);
             Camera cam = go.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = Color.black;
+            cam.backgroundColor = Paper;
             cam.orthographic = true;
             cam.orthographicSize = 5f;
             cam.nearClipPlane = 0.3f;
@@ -1258,6 +1274,46 @@ namespace Handline
         }
 
         /// <summary>
+        /// Builds the rounded rectangle used by cards and buttons. The border keeps the corners even when the image is sliced.
+        /// </summary>
+        Sprite RoundedSprite()
+        {
+            const int size = 64;
+            const float radius = 18f;
+            roundTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            roundTex.filterMode = FilterMode.Bilinear;
+            roundTex.wrapMode = TextureWrapMode.Clamp;
+            Color32[] pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float alpha = RoundAlpha(x + 0.5f, y + 0.5f, size, radius);
+                    byte channel = (byte)Mathf.Clamp(Mathf.RoundToInt(alpha * 255f), 0, 255);
+                    pixels[(y * size) + x] = new Color32(255, 255, 255, channel);
+                }
+            }
+
+            roundTex.SetPixels32(pixels);
+            roundTex.Apply(false, false);
+            roundSprite = Sprite.Create(roundTex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
+            return roundSprite;
+        }
+
+        /// <summary>
+        /// Signed coverage of one pixel in a rounded rectangle, 1 inside and 0 outside.
+        /// </summary>
+        static float RoundAlpha(float x, float y, float size, float radius)
+        {
+            float half = size * 0.5f;
+            float dx = Mathf.Abs(x - half) - (half - radius);
+            float dy = Mathf.Abs(y - half) - (half - radius);
+            float outside = Mathf.Sqrt((Mathf.Max(dx, 0f) * Mathf.Max(dx, 0f)) + (Mathf.Max(dy, 0f) * Mathf.Max(dy, 0f)));
+            float inside = Mathf.Min(Mathf.Max(dx, dy), 0f);
+            return Mathf.Clamp01(0.5f - (outside + inside - radius));
+        }
+
+        /// <summary>
         /// Reads display choices saved on this machine. Nothing here is uploaded.
         /// </summary>
         void LoadSettings()
@@ -1307,120 +1363,227 @@ namespace Handline
 
         /// <summary>
         /// Creates the event system the settings buttons need.
+        /// A module created from code has no pointer actions until AssignDefaultActions runs, so clicks never reach the card.
         /// </summary>
         static void EnsureEventSystem()
         {
-            if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null) return;
+            EventSystem existing = UnityEngine.Object.FindAnyObjectByType<EventSystem>();
+            if (existing != null)
+            {
+                InputSystemUIInputModule current = existing.GetComponent<InputSystemUIInputModule>();
+                if (current == null)
+                {
+                    StandaloneInputModule legacy = existing.GetComponent<StandaloneInputModule>();
+                    if (legacy != null) Destroy(legacy);
+                    current = existing.gameObject.AddComponent<InputSystemUIInputModule>();
+                }
+
+                current.AssignDefaultActions();
+                return;
+            }
+
             GameObject events = new GameObject("EventSystem");
             events.AddComponent<EventSystem>();
-            events.AddComponent<InputSystemUIInputModule>();
+            InputSystemUIInputModule created = events.AddComponent<InputSystemUIInputModule>();
+            created.AssignDefaultActions();
         }
 
         /// <summary>
-        /// Builds a sharp black-and-yellow settings card on its own pixel-perfect canvas.
+        /// Builds the settings card on its own overlay so it stays above the stage.
+        /// The card is white, sized to the screen, and scrolled so every row can be reached.
         /// </summary>
         void BuildSettings(Font font, Sprite sprite)
         {
-            int u = Screen.height >= 1700 ? 2 : 1;
+            int u = Screen.height >= 1600 ? 2 : 1;
             GameObject canvasObject = new GameObject("Settings Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasObject.transform.SetParent(transform, false);
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = true;
-            canvas.sortingOrder = 200;
+            canvas.sortingOrder = 500;
             canvas.targetDisplay = 0;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = 1f;
+            scaler.referencePixelsPerUnit = 100f;
             RectTransform root = canvasObject.GetComponent<RectTransform>();
 
-            Button open = MakeButton("Open Settings", root, sprite, font, "Settings", delegate { SetSettingsOpen(true); });
+            Button open = MakeButton("Open Settings", root, roundSprite, font, "Settings", delegate { SetSettingsOpen(true); }, Btn.Filled);
             Text openLabel = open.GetComponentInChildren<Text>();
-            openLabel.fontSize = 16 * u;
-            openLabel.color = Yellow;
+            openLabel.fontSize = 14 * u;
+            openLabel.fontStyle = FontStyle.Bold;
             RectTransform openRect = open.GetComponent<RectTransform>();
             openRect.anchorMin = new Vector2(1f, 1f);
             openRect.anchorMax = new Vector2(1f, 1f);
             openRect.pivot = new Vector2(1f, 1f);
-            openRect.anchoredPosition = new Vector2(-28f * u, -28f * u);
-            openRect.sizeDelta = new Vector2(120f * u, 36f * u);
+            openRect.anchoredPosition = new Vector2(-24f * u, -20f * u);
+            openRect.sizeDelta = new Vector2(132f * u, 40f * u);
 
             settingsRoot = new GameObject("Settings", typeof(RectTransform));
             settingsRoot.transform.SetParent(root, false);
             Stretch(settingsRoot.GetComponent<RectTransform>());
 
-            Image dim = MakeImage("Dim", settingsRoot.transform, sprite, new Color(0f, 0f, 0f, 0.72f));
+            Image dim = MakeImage("Dim", settingsRoot.transform, sprite, new Color(0.125f, 0.129f, 0.141f, 0.32f));
             dim.raycastTarget = true;
             Stretch(dim.rectTransform);
             Button dimButton = dim.gameObject.AddComponent<Button>();
             dimButton.targetGraphic = dim;
+            dimButton.transition = Selectable.Transition.None;
             dimButton.onClick.AddListener(delegate { SetSettingsOpen(false); });
 
-            float panelW = 460f * u;
-            float panelH = 600f * u;
-            Image frame = MakeImage("Frame", settingsRoot.transform, sprite, Yellow);
-            frame.raycastTarget = false;
-            RectTransform frameRect = frame.rectTransform;
-            frameRect.anchorMin = new Vector2(0.5f, 0.5f);
-            frameRect.anchorMax = new Vector2(0.5f, 0.5f);
-            frameRect.pivot = new Vector2(0.5f, 0.5f);
-            frameRect.sizeDelta = new Vector2(panelW + (2f * u), panelH + (2f * u));
+            settingsShadow = MakeImage("Shadow", settingsRoot.transform, roundSprite, new Color(0.125f, 0.129f, 0.141f, 0.16f)).rectTransform;
+            settingsShadow.GetComponent<Image>().type = Image.Type.Sliced;
+            settingsShadow.anchorMin = new Vector2(0.5f, 0.5f);
+            settingsShadow.anchorMax = new Vector2(0.5f, 0.5f);
+            settingsShadow.pivot = new Vector2(0.5f, 0.5f);
 
-            Image panel = MakeImage("Panel", settingsRoot.transform, sprite, Ink);
+            Image panel = MakeImage("Panel", settingsRoot.transform, roundSprite, Color.white);
+            panel.type = Image.Type.Sliced;
             panel.raycastTarget = true;
-            RectTransform panelRect = panel.rectTransform;
-            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
-            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(panelW, panelH);
+            settingsCard = panel.rectTransform;
+            settingsCard.anchorMin = new Vector2(0.5f, 0.5f);
+            settingsCard.anchorMax = new Vector2(0.5f, 0.5f);
+            settingsCard.pivot = new Vector2(0.5f, 0.5f);
 
-            Button close = MakeButton("Close", panel.transform, sprite, font, "Close", delegate { SetSettingsOpen(false); });
+            Button close = MakeButton("Close", panel.transform, roundSprite, font, "Close", delegate { SetSettingsOpen(false); }, Btn.Text);
             Text closeLabel = close.GetComponentInChildren<Text>();
-            closeLabel.fontSize = 15 * u;
+            closeLabel.fontSize = 14 * u;
             closeLabel.color = Muted;
-            closeLabel.alignment = TextAnchor.MiddleRight;
-            PlaceTop(close.GetComponent<RectTransform>(), panelW - (108f * u), 16f * u, 84f * u, 32f * u);
+            closeLabel.alignment = TextAnchor.MiddleCenter;
+            RectTransform closeRect = close.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(1f, 1f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 1f);
+            closeRect.anchoredPosition = new Vector2(-12f * u, -12f * u);
+            closeRect.sizeDelta = new Vector2(72f * u, 36f * u);
 
             settingsMain = new GameObject("Main", typeof(RectTransform));
             settingsMain.transform.SetParent(panel.transform, false);
             Stretch(settingsMain.GetComponent<RectTransform>());
-            BuildSettingsMain(settingsMain.transform, font, sprite, u);
+            Text heading = MakeText("Heading", settingsMain.transform, font, "Settings", 22 * u, TextAnchor.MiddleLeft, Ink);
+            heading.fontStyle = FontStyle.Bold;
+            RectTransform headingRect = heading.rectTransform;
+            headingRect.anchorMin = new Vector2(0f, 1f);
+            headingRect.anchorMax = new Vector2(0f, 1f);
+            headingRect.pivot = new Vector2(0f, 1f);
+            headingRect.anchoredPosition = new Vector2(24f * u, -16f * u);
+            headingRect.sizeDelta = new Vector2(220f * u, 32f * u);
+
+            Transform content = MakeScroll(settingsMain.transform, sprite, u, 64f * u);
+            BuildSettingsMain(content, font, sprite, u);
             BuildPairingPage(panel.transform, font, sprite, u);
             BuildCablePage(panel.transform, font, sprite, u);
 
             settingsRoot.SetActive(false);
+            LayoutSettingsCard();
             RefreshSettingLabels();
         }
 
         /// <summary>
-        /// Lays out the camera and capture rows. Pairing steps are not on this page.
+        /// Keeps the settings card inside the window. A card taller than the view was drawing off screen.
+        /// </summary>
+        void LayoutSettingsCard()
+        {
+            if (settingsCard == null) return;
+            if (Screen.width < 16 || Screen.height < 16)
+            {
+                settingsCard.sizeDelta = new Vector2(400f, 560f);
+                if (settingsShadow != null)
+                {
+                    settingsShadow.sizeDelta = settingsCard.sizeDelta;
+                    settingsShadow.anchoredPosition = new Vector2(0f, -4f);
+                }
+
+                return;
+            }
+            if (Screen.width == settingsSeenW && Screen.height == settingsSeenH) return;
+            settingsSeenW = Screen.width;
+            settingsSeenH = Screen.height;
+            int u = Screen.height >= 1600 ? 2 : 1;
+            float w = Mathf.Clamp(Screen.width - (48f * u), 300f, 440f * u);
+            float h = Mathf.Clamp(Screen.height - (48f * u), 320f, 680f * u);
+            settingsCard.sizeDelta = new Vector2(w, h);
+            if (settingsShadow == null) return;
+            settingsShadow.sizeDelta = new Vector2(w, h);
+            settingsShadow.anchoredPosition = new Vector2(0f, -4f * u);
+        }
+
+        /// <summary>
+        /// Lays out the camera and capture rows inside the scrolling page.
         /// </summary>
         void BuildSettingsMain(Transform page, Font font, Sprite sprite, int u)
         {
-            Text heading = MakeText("Heading", page, font, "Settings", 22 * u, TextAnchor.MiddleLeft, Yellow);
-            PlaceTop(heading.rectTransform, 28f * u, 18f * u, 240f * u, 32f * u);
-            Rule(page, sprite, 28f * u, 58f * u, 404f * u);
+            SectionLabel(page, font, "Camera", 12 * u, 22 * u);
+            settingsCameraText = BlockLabel(page, font, "No camera yet", 16 * u, 28 * u, Ink);
 
-            Text cameraHeading = MakeText("Camera Heading", page, font, "CAMERA", 12 * u, TextAnchor.MiddleLeft, Muted);
-            PlaceTop(cameraHeading.rectTransform, 28f * u, 72f * u, 404f * u, 18f * u);
-            settingsCameraText = MakeText("Camera Value", page, font, "No camera yet", 18 * u, TextAnchor.MiddleLeft, Cream);
-            PlaceTop(settingsCameraText.rectTransform, 28f * u, 94f * u, 404f * u, 28f * u);
+            Transform actions = ActionRow(page, 40f * u);
+            FlexButton(actions, roundSprite, font, "Previous", 104f * u, 36f * u, 14 * u, Btn.Text, delegate { StepCamera(-1); });
+            FlexButton(actions, roundSprite, font, "Next", 72f * u, 36f * u, 14 * u, Btn.Text, delegate { StepCamera(1); });
+            FlexButton(actions, roundSprite, font, "Refresh", 96f * u, 36f * u, 14 * u, Btn.Text, RefreshCameras);
 
-            AddTextButton(page, sprite, font, "Previous", 28f * u, 136f * u, 110f * u, 32f * u, 15 * u, delegate { StepCamera(-1); });
-            AddTextButton(page, sprite, font, "Next", 150f * u, 136f * u, 80f * u, 32f * u, 15 * u, delegate { StepCamera(1); });
-            AddTextButton(page, sprite, font, "Refresh", 250f * u, 136f * u, 110f * u, 32f * u, 15 * u, RefreshCameras);
+            Transform links = ActionRow(page, 44f * u);
+            FlexButton(links, roundSprite, font, "Pair phone", 140f * u, 40f * u, 14 * u, Btn.Filled, ShowPairing);
+            FlexButton(links, roundSprite, font, "USB cable", 140f * u, 40f * u, 14 * u, Btn.Filled, ShowCable);
 
-            AddTextButton(page, sprite, font, "Pair phone", 28f * u, 180f * u, 150f * u, 32f * u, 16 * u, ShowPairing);
-            AddTextButton(page, sprite, font, "USB cable", 190f * u, 180f * u, 150f * u, 32f * u, 16 * u, ShowCable);
-            Rule(page, sprite, 28f * u, 224f * u, 404f * u);
+            Spacer(page, 8f * u);
+            settingsResolutionText = AddSettingRow(page, roundSprite, font, "Resolution", u, CycleResolution);
+            settingsFpsText = AddSettingRow(page, roundSprite, font, "Frame rate", u, CycleFrameRate);
+            settingsMirrorText = AddSettingRow(page, roundSprite, font, "Mirror", u, ToggleMirror);
+            settingsRotationText = AddSettingRow(page, roundSprite, font, "Rotate", u, CycleRotation);
+            settingsPeopleText = AddSettingRow(page, roundSprite, font, "People", u, CyclePeople);
+            settingsDetailText = AddSettingRow(page, roundSprite, font, "Tracking", u, CycleDetail);
+            settingsPowerText = AddSettingRow(page, roundSprite, font, "Camera", u, TogglePower);
+        }
 
-            settingsResolutionText = AddSettingRow(page, sprite, font, "Resolution", 240f * u, u, CycleResolution);
-            settingsFpsText = AddSettingRow(page, sprite, font, "Frame rate", 288f * u, u, CycleFrameRate);
-            settingsMirrorText = AddSettingRow(page, sprite, font, "Mirror", 336f * u, u, ToggleMirror);
-            settingsRotationText = AddSettingRow(page, sprite, font, "Rotate", 384f * u, u, CycleRotation);
-            settingsPeopleText = AddSettingRow(page, sprite, font, "People", 432f * u, u, CyclePeople);
-            settingsDetailText = AddSettingRow(page, sprite, font, "Tracking", 480f * u, u, CycleDetail);
-            settingsPowerText = AddSettingRow(page, sprite, font, "Camera", 528f * u, u, TogglePower);
+        /// <summary>
+        /// Adds a scroll view that fills the parent below a top inset, so the card can be shorter than its contents.
+        /// </summary>
+        static Transform MakeScroll(Transform parent, Sprite sprite, int u, float top)
+        {
+            GameObject scrollObject = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect));
+            scrollObject.transform.SetParent(parent, false);
+            RectTransform scrollRect = scrollObject.GetComponent<RectTransform>();
+            scrollRect.anchorMin = Vector2.zero;
+            scrollRect.anchorMax = Vector2.one;
+            scrollRect.offsetMin = new Vector2(12f * u, 12f * u);
+            scrollRect.offsetMax = new Vector2(-12f * u, -top);
+            ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f * u;
+
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollObject.transform, false);
+            Stretch(viewport.GetComponent<RectTransform>());
+            Image viewportImage = viewport.GetComponent<Image>();
+            viewportImage.sprite = sprite;
+            viewportImage.color = Color.white;
+            viewportImage.raycastTarget = true;
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            GameObject content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            RectTransform contentRect = content.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = new Vector2(0f, 0f);
+            VerticalLayoutGroup layout = content.GetComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(8 * u, 8 * u, 4 * u, 12 * u);
+            layout.spacing = 2f * u;
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            ContentSizeFitter fitter = content.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = contentRect;
+            return content.transform;
         }
 
         /// <summary>
@@ -1432,18 +1595,23 @@ namespace Handline
             settingsPairing.transform.SetParent(panel, false);
             Stretch(settingsPairing.GetComponent<RectTransform>());
 
-            AddTextButton(settingsPairing.transform, sprite, font, "Back", 28f * u, 18f * u, 72f * u, 32f * u, 15 * u, HidePairing);
-            Text title = MakeText("Pair Title", settingsPairing.transform, font, "Pair phone", 22 * u, TextAnchor.MiddleLeft, Yellow);
+            AddTextButton(settingsPairing.transform, roundSprite, font, "Back", 20f * u, 16f * u, 72f * u, 36f * u, 15 * u, HidePairing);
+            Text title = MakeText("Pair Title", settingsPairing.transform, font, "Pair phone", 22 * u, TextAnchor.MiddleLeft, Ink);
+            title.fontStyle = FontStyle.Bold;
             PlaceTop(title.rectTransform, 112f * u, 18f * u, 240f * u, 32f * u);
             pairingStatus = MakeText("Pair Status", settingsPairing.transform, font, "", 14 * u, TextAnchor.UpperLeft, Muted);
             pairingStatus.horizontalOverflow = HorizontalWrapMode.Wrap;
             pairingStatus.verticalOverflow = VerticalWrapMode.Overflow;
             PlaceTop(pairingStatus.rectTransform, 28f * u, 58f * u, 404f * u, 36f * u);
-            AddTextButton(settingsPairing.transform, sprite, font, "Refresh", 28f * u, 98f * u, 120f * u, 32f * u, 15 * u, RefreshCameras);
+            AddTextButton(settingsPairing.transform, roundSprite, font, "Refresh", 20f * u, 98f * u, 120f * u, 36f * u, 15 * u, RefreshCameras);
 
             GameObject scrollObject = new GameObject("Steps", typeof(RectTransform), typeof(ScrollRect));
             scrollObject.transform.SetParent(settingsPairing.transform, false);
-            PlaceTop(scrollObject.GetComponent<RectTransform>(), 28f * u, 142f * u, 404f * u, 420f * u);
+            RectTransform stepsRect = scrollObject.GetComponent<RectTransform>();
+            stepsRect.anchorMin = Vector2.zero;
+            stepsRect.anchorMax = Vector2.one;
+            stepsRect.offsetMin = new Vector2(20f * u, 16f * u);
+            stepsRect.offsetMax = new Vector2(-16f * u, -142f * u);
             ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.vertical = true;
@@ -1496,28 +1664,43 @@ namespace Handline
             settingsCable.transform.SetParent(panel, false);
             Stretch(settingsCable.GetComponent<RectTransform>());
 
-            AddTextButton(settingsCable.transform, sprite, font, "Back", 28f * u, 18f * u, 72f * u, 32f * u, 15 * u, HideCable);
-            Text title = MakeText("Cable Title", settingsCable.transform, font, "USB cable", 22 * u, TextAnchor.MiddleLeft, Yellow);
+            AddTextButton(settingsCable.transform, roundSprite, font, "Back", 20f * u, 16f * u, 72f * u, 36f * u, 15 * u, HideCable);
+            Text title = MakeText("Cable Title", settingsCable.transform, font, "USB cable", 22 * u, TextAnchor.MiddleLeft, Ink);
+            title.fontStyle = FontStyle.Bold;
             PlaceTop(title.rectTransform, 112f * u, 18f * u, 240f * u, 32f * u);
             cableStatus = MakeText("Cable Status", settingsCable.transform, font, "", 14 * u, TextAnchor.UpperLeft, Muted);
             cableStatus.horizontalOverflow = HorizontalWrapMode.Wrap;
             cableStatus.verticalOverflow = VerticalWrapMode.Overflow;
             PlaceTop(cableStatus.rectTransform, 28f * u, 58f * u, 404f * u, 36f * u);
-            AddTextButton(settingsCable.transform, sprite, font, "Check cable", 28f * u, 98f * u, 140f * u, 32f * u, 15 * u, RefreshCameras);
-            AddTextButton(settingsCable.transform, sprite, font, "Apple driver", 176f * u, 98f * u, 140f * u, 32f * u, 15 * u, OpenAppleDriver);
-            AddTextButton(settingsCable.transform, sprite, font, "Iriun", 324f * u, 98f * u, 90f * u, 32f * u, 15 * u, OpenIriun);
-            BuildGuideScroll(settingsCable.transform, font, sprite, u, CableGuide, 142f * u, 420f * u);
+            Transform cableActions = ActionRow(settingsCable.transform, 40f * u);
+            RectTransform cableRow = cableActions.GetComponent<RectTransform>();
+            cableRow.anchorMin = new Vector2(0f, 1f);
+            cableRow.anchorMax = new Vector2(1f, 1f);
+            cableRow.pivot = new Vector2(0.5f, 1f);
+            cableRow.anchoredPosition = new Vector2(0f, -96f * u);
+            cableRow.sizeDelta = new Vector2(0f, 40f * u);
+            HorizontalLayoutGroup cableLayout = cableActions.GetComponent<HorizontalLayoutGroup>();
+            cableLayout.padding = new RectOffset(16 * u, 16 * u, 0, 0);
+            cableLayout.childForceExpandWidth = true;
+            FlexButton(cableActions, roundSprite, font, "Check cable", 0f, 36f * u, 13 * u, Btn.Text, RefreshCameras);
+            FlexButton(cableActions, roundSprite, font, "Apple driver", 0f, 36f * u, 13 * u, Btn.Filled, OpenAppleDriver);
+            FlexButton(cableActions, roundSprite, font, "Iriun", 0f, 36f * u, 13 * u, Btn.Text, OpenIriun);
+            BuildGuideScroll(settingsCable.transform, font, sprite, u, CableGuide, 148f * u);
             settingsCable.SetActive(false);
         }
 
         /// <summary>
         /// Adds the scrolling steps used by the pairing and cable pages.
         /// </summary>
-        static void BuildGuideScroll(Transform parent, Font font, Sprite sprite, int u, string body, float y, float height)
+        static void BuildGuideScroll(Transform parent, Font font, Sprite sprite, int u, string body, float top)
         {
             GameObject scrollObject = new GameObject("Steps", typeof(RectTransform), typeof(ScrollRect));
             scrollObject.transform.SetParent(parent, false);
-            PlaceTop(scrollObject.GetComponent<RectTransform>(), 28f * u, y, 404f * u, height);
+            RectTransform scrollRect = scrollObject.GetComponent<RectTransform>();
+            scrollRect.anchorMin = Vector2.zero;
+            scrollRect.anchorMax = Vector2.one;
+            scrollRect.offsetMin = new Vector2(20f * u, 16f * u);
+            scrollRect.offsetMax = new Vector2(-16f * u, -top);
             ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.vertical = true;
@@ -1574,26 +1757,105 @@ namespace Handline
         /// </summary>
         static void AddTextButton(Transform parent, Sprite sprite, Font font, string label, float x, float y, float width, float height, int fontSize, UnityAction action)
         {
-            Button button = MakeButton(label, parent, sprite, font, label, action);
+            Button button = MakeButton(label, parent, sprite, font, label, action, Btn.Text);
             Text text = button.GetComponentInChildren<Text>();
             text.fontSize = fontSize;
-            text.color = Yellow;
+            text.color = YellowDeep;
             text.alignment = TextAnchor.MiddleLeft;
             PlaceTop(button.GetComponent<RectTransform>(), x, y, width, height);
         }
 
         /// <summary>
-        /// Adds one settings row and returns the yellow value label.
+        /// Adds one settings row and returns the value label.
         /// </summary>
-        static Text AddSettingRow(Transform parent, Sprite sprite, Font font, string caption, float y, int u, UnityAction action)
+        static Text AddSettingRow(Transform parent, Sprite sprite, Font font, string caption, int u, UnityAction action)
         {
-            Button button = MakeButton(caption, parent, sprite, font, "", action);
-            PlaceTop(button.GetComponent<RectTransform>(), 20f * u, y, 420f * u, 40f * u);
-            Text name = MakeText("Name", button.transform, font, caption, 16 * u, TextAnchor.MiddleLeft, Cream);
-            PlaceTop(name.rectTransform, 8f * u, 0f, 200f * u, 40f * u);
-            Text value = MakeText("Value", button.transform, font, "", 16 * u, TextAnchor.MiddleRight, Yellow);
-            PlaceTop(value.rectTransform, 180f * u, 0f, 228f * u, 40f * u);
+            Button button = MakeButton(caption, parent, sprite, font, "", action, Btn.Row);
+            LayoutElement element = button.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = 48f * u;
+            element.preferredHeight = 48f * u;
+            Text name = MakeText("Name", button.transform, font, caption, 15 * u, TextAnchor.MiddleLeft, Ink);
+            PlaceTop(name.rectTransform, 12f * u, 0f, 150f * u, 48f * u);
+            Text value = MakeText("Value", button.transform, font, "", 15 * u, TextAnchor.MiddleRight, YellowDeep);
+            RectTransform valueRect = value.rectTransform;
+            valueRect.anchorMin = new Vector2(1f, 0.5f);
+            valueRect.anchorMax = new Vector2(1f, 0.5f);
+            valueRect.pivot = new Vector2(1f, 0.5f);
+            valueRect.anchoredPosition = new Vector2(-12f * u, 0f);
+            valueRect.sizeDelta = new Vector2(140f * u, 40f * u);
             return value;
+        }
+
+        /// <summary>
+        /// A short gray section name inside the settings list.
+        /// </summary>
+        static void SectionLabel(Transform parent, Font font, string message, int size, float height)
+        {
+            Text text = MakeText("Section", parent, font, message, size, TextAnchor.MiddleLeft, Muted);
+            LayoutElement element = text.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = height;
+            element.preferredHeight = height;
+        }
+
+        /// <summary>
+        /// A single line of primary text inside the settings list.
+        /// </summary>
+        static Text BlockLabel(Transform parent, Font font, string message, int size, float height, Color color)
+        {
+            Text text = MakeText("Block", parent, font, message, size, TextAnchor.MiddleLeft, color);
+            LayoutElement element = text.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = height;
+            element.preferredHeight = height;
+            return text;
+        }
+
+        /// <summary>
+        /// A horizontal row of buttons inside the settings list.
+        /// </summary>
+        static Transform ActionRow(Transform parent, float height)
+        {
+            GameObject go = new GameObject("Actions", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            HorizontalLayoutGroup layout = go.GetComponent<HorizontalLayoutGroup>();
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            LayoutElement element = go.GetComponent<LayoutElement>();
+            element.minHeight = height;
+            element.preferredHeight = height;
+            return go.transform;
+        }
+
+        /// <summary>
+        /// A button that takes part in a layout row.
+        /// </summary>
+        static void FlexButton(Transform parent, Sprite sprite, Font font, string label, float width, float height, int fontSize, Btn kind, UnityAction action)
+        {
+            Button button = MakeButton(label, parent, sprite, font, label, action, kind);
+            Text text = button.GetComponentInChildren<Text>();
+            text.fontSize = fontSize;
+            text.alignment = TextAnchor.MiddleCenter;
+            if (kind == Btn.Filled) text.color = Ink;
+            LayoutElement element = button.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = width;
+            element.flexibleWidth = width <= 0f ? 1f : 0f;
+            element.preferredHeight = height;
+            element.minHeight = height;
+        }
+
+        /// <summary>
+        /// Empty vertical space in the settings list.
+        /// </summary>
+        static void Spacer(Transform parent, float height)
+        {
+            GameObject go = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            LayoutElement element = go.GetComponent<LayoutElement>();
+            element.minHeight = height;
+            element.preferredHeight = height;
         }
 
         /// <summary>
@@ -1975,27 +2237,63 @@ namespace Handline
         }
 
         /// <summary>
-        /// Creates a clickable settings button. The label does not take the click.
+        /// Visual weight of a settings button. Filled is the yellow primary action.
         /// </summary>
-        static Button MakeButton(string name, Transform parent, Sprite sprite, Font font, string label, UnityAction action)
+        enum Btn
+        {
+            Text,
+            Filled,
+            Row
+        }
+
+        /// <summary>
+        /// Creates a clickable settings button. The graphic stays visible so the raycast is not culled.
+        /// </summary>
+        static Button MakeButton(string name, Transform parent, Sprite sprite, Font font, string label, UnityAction action, Btn kind)
         {
             GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             go.transform.SetParent(parent, false);
             Image image = go.GetComponent<Image>();
             image.sprite = sprite;
+            image.type = sprite == null ? Image.Type.Simple : Image.Type.Sliced;
             image.color = Color.white;
             image.raycastTarget = true;
+            image.canvasRenderer.cullTransparentMesh = false;
             Button button = go.GetComponent<Button>();
             button.targetGraphic = image;
             ColorBlock colors = button.colors;
-            colors.normalColor = new Color(1f, 1f, 1f, 0f);
-            colors.highlightedColor = new Color(1f, 0.82f, 0.12f, 0.12f);
-            colors.pressedColor = new Color(1f, 0.82f, 0.12f, 0.22f);
-            colors.selectedColor = colors.highlightedColor;
-            colors.fadeDuration = 0.05f;
+            Color labelColor = Ink;
+            if (kind == Btn.Filled)
+            {
+                colors.normalColor = Yellow;
+                colors.highlightedColor = new Color(0.93f, 0.62f, 0.00f, 1f);
+                colors.pressedColor = YellowDeep;
+                colors.selectedColor = colors.highlightedColor;
+                labelColor = Ink;
+            }
+            else if (kind == Btn.Row)
+            {
+                colors.normalColor = Color.white;
+                colors.highlightedColor = Hover;
+                colors.pressedColor = Line;
+                colors.selectedColor = colors.highlightedColor;
+                labelColor = Ink;
+            }
+            else
+            {
+                colors.normalColor = new Color(1f, 1f, 1f, 0.04f);
+                colors.highlightedColor = Hover;
+                colors.pressedColor = Line;
+                colors.selectedColor = colors.highlightedColor;
+                labelColor = YellowDeep;
+            }
+
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.4f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
             button.colors = colors;
             if (action != null) button.onClick.AddListener(action);
-            Text text = MakeText("Label", go.transform, font, label, 16, TextAnchor.MiddleCenter, Yellow);
+            Text text = MakeText("Label", go.transform, font, label, 16, TextAnchor.MiddleCenter, labelColor);
             Stretch(text.rectTransform);
             return button;
         }
