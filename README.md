@@ -1,6 +1,10 @@
 # BeeMoving
 
-This folder is a Unity **6000.0.82f1** project. Open it in Unity Hub. Do not use **Assets → Import Package**.
+Download the Unity project: [Camera_MoCap.zip](Camera_MoCap.zip)
+
+Unzip it and open the `Camera_MoCap` folder in Unity Hub with editor **6000.0.82f1**. Do not use **Assets → Import Package**.
+
+This repository folder is that same Unity project if you already have it checked out.
 
 1. In Unity Hub, click **Open** and choose this folder. It contains `Assets`, `Packages`, and `ProjectSettings` side by side. Use editor **6000.0.82f1**. Do not pick 6000.5.10f1.
 2. Leave the project alone until the first import finishes. It needs an internet connection once, so Package Manager can download TensorFlow Lite.
