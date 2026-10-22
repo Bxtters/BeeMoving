@@ -227,10 +227,8 @@ namespace Handline
             PlaceShoulders(figure, pose, leftShoulder, rightShoulder, hipMid, dt);
 
             bool ready = tracking && figure.Sized;
-            PlaceLimb(figure, pose, JointId.LeftElbow, JointId.LeftShoulder, ready && Accept(figure, JointId.LeftElbow, pose, score), UpperArm, dt);
-            PlaceLimb(figure, pose, JointId.RightElbow, JointId.RightShoulder, ready && Accept(figure, JointId.RightElbow, pose, score), UpperArm, dt);
-            PlaceLimb(figure, pose, JointId.LeftWrist, JointId.LeftElbow, ready && Accept(figure, JointId.LeftWrist, pose, score), ForeArm, dt);
-            PlaceLimb(figure, pose, JointId.RightWrist, JointId.RightElbow, ready && Accept(figure, JointId.RightWrist, pose, score), ForeArm, dt);
+            PlaceArm(figure, pose, true, ready, dt, score);
+            PlaceArm(figure, pose, false, ready, dt, score);
             PlaceLimb(figure, pose, JointId.LeftKnee, JointId.LeftHip, ready && Accept(figure, JointId.LeftKnee, pose, score), Thigh, dt);
             PlaceLimb(figure, pose, JointId.RightKnee, JointId.RightHip, ready && Accept(figure, JointId.RightKnee, pose, score), Thigh, dt);
             PlaceLimb(figure, pose, JointId.LeftAnkle, JointId.LeftKnee, ready && Accept(figure, JointId.LeftAnkle, pose, score), Shin, dt);
@@ -365,6 +363,59 @@ namespace Handline
 
             figure.Pos[left] = Vector3.Lerp(figure.Pos[left], wantL, Gain(dt, liveL ? 0.02f : 0.1f));
             figure.Pos[right] = Vector3.Lerp(figure.Pos[right], wantR, Gain(dt, liveR ? 0.02f : 0.1f));
+        }
+
+        /// <summary>
+        /// Bends the arm at the elbow from the shoulder and the wrist.
+        /// A straight arm keeps the elbow on that line, so a noisy elbow point cannot kink it.
+        /// A curl uses the elbow the camera sees. Depth fades out as the arm straightens.
+        /// </summary>
+        void PlaceArm(Figure figure, PoseFrame pose, bool left, bool ready, float dt, float score)
+        {
+            JointId elbowId = left ? JointId.LeftElbow : JointId.RightElbow;
+            JointId wristId = left ? JointId.LeftWrist : JointId.RightWrist;
+            int shoulder = left ? (int)JointId.LeftShoulder : (int)JointId.RightShoulder;
+            int elbow = (int)elbowId;
+            int wrist = (int)wristId;
+            Vector3 origin = figure.Pos[shoulder];
+            bool seeElbow = ready && Accept(figure, elbowId, pose, score);
+            bool seeWrist = ready && Accept(figure, wristId, pose, score);
+
+            Vector3 desiredElbow;
+            Vector3 desiredWrist;
+            if (seeElbow)
+            {
+                desiredElbow = SoftBone(origin, Map(figure, pose.Joints[elbow]), UpperArm);
+            }
+            else
+            {
+                desiredElbow = Project(origin, origin + (Rest[elbow] - Rest[shoulder]), UpperArm);
+            }
+
+            if (seeWrist)
+            {
+                Vector3 wristImage = Map(figure, pose.Joints[wrist]);
+                float dx = wristImage.x - origin.x;
+                float dy = wristImage.y - origin.y;
+                float imageReach = Mathf.Sqrt((dx * dx) + (dy * dy));
+                float straight = imageReach / (UpperArm + ForeArm);
+                if (straight > 0.9f && imageReach > 0.001f)
+                {
+                    Vector3 pinned = origin + new Vector3(dx, dy, 0f) * (UpperArm / imageReach);
+                    float pin = Mathf.InverseLerp(0.9f, 0.98f, straight);
+                    desiredElbow = Vector3.Lerp(desiredElbow, pinned, pin);
+                }
+
+                desiredWrist = SoftBone(desiredElbow, wristImage, ForeArm);
+            }
+            else
+            {
+                desiredWrist = Project(desiredElbow, desiredElbow + (Rest[wrist] - Rest[elbow]), ForeArm);
+            }
+
+            float gain = Gain(dt, (seeElbow || seeWrist) ? 0.035f : 0.1f);
+            figure.Pos[elbow] = Project(origin, Vector3.Lerp(figure.Pos[elbow], desiredElbow, gain), UpperArm);
+            figure.Pos[wrist] = Project(figure.Pos[elbow], Vector3.Lerp(figure.Pos[wrist], desiredWrist, gain), ForeArm);
         }
 
         /// <summary>
@@ -537,6 +588,28 @@ namespace Handline
             }
 
             float depth = -Mathf.Sqrt((length * length) - (planar * planar));
+            return new Vector3(target.x, target.y, parent.z + depth);
+        }
+
+        /// <summary>
+        /// Same reach as OnBone, but the forward pop fades out as the limb straightens.
+        /// A nearly straight elbow stays on the arm instead of jumping at the camera.
+        /// </summary>
+        static Vector3 SoftBone(Vector3 parent, Vector3 target, float length)
+        {
+            float dx = target.x - parent.x;
+            float dy = target.y - parent.y;
+            float planar = Mathf.Sqrt((dx * dx) + (dy * dy));
+            if (planar < 0.0008f) return new Vector3(parent.x, parent.y, parent.z - (length * 0.85f));
+            if (planar >= length)
+            {
+                float span = length / planar;
+                return new Vector3(parent.x + (dx * span), parent.y + (dy * span), parent.z);
+            }
+
+            float ratio = planar / length;
+            float weight = 1f - Mathf.SmoothStep(0.8f, 0.98f, ratio);
+            float depth = -Mathf.Sqrt((length * length) - (planar * planar)) * weight;
             return new Vector3(target.x, target.y, parent.z + depth);
         }
 
