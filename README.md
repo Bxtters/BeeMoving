@@ -14,7 +14,7 @@ Press Play to see the start screen. **Start** (or Enter) opens the camera. A pol
 
 ## Camera
 
-The pose read is the Handline one. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The character is already standing on the plane. Only the joints the camera sees move. A joint that drops out stays where it was until it is seen again. Arms sit in front of the chest so front and back are visible. Choose 2–6 people in Settings to use MultiPose. The lane does not run.
+The pose read is the Handline one. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The character is already standing on the plane and stays there. Only a joint the camera sees inside the picture moves that part. A part that is not seen keeps its pose. It is not hidden. Arms sit in front of the chest so front and back are visible. Choose 2–6 people in Settings to use MultiPose. The lane does not run.
 
 The camera stays on this machine. The picture is shown in the corner and it is not saved. Nose, eye, and ear points are not part of the drawn body. Hands are the wrists, because that is what MoveNet measures.
 

@@ -41,6 +41,12 @@ namespace Handline
         Transform[] hips;
         Transform[][] limbs;
         Vector3[][] jointPos;
+        float[][] seenX;
+        float[][] seenY;
+        bool[][] seenJoint;
+        float[] anchorX;
+        float[] anchorY;
+        bool[] anchorSet;
         float[] slotX;
         Material bodyMaterial;
         Material limbMaterial;
@@ -83,6 +89,12 @@ namespace Handline
             hips = new Transform[MaxPeople];
             limbs = new Transform[MaxPeople][];
             jointPos = new Vector3[MaxPeople][];
+            seenX = new float[MaxPeople][];
+            seenY = new float[MaxPeople][];
+            seenJoint = new bool[MaxPeople][];
+            anchorX = new float[MaxPeople];
+            anchorY = new float[MaxPeople];
+            anchorSet = new bool[MaxPeople];
             slotX = new float[MaxPeople];
             neutral = NeutralPose();
             for (int person = 0; person < MaxPeople; person++)
@@ -95,6 +107,9 @@ namespace Handline
                 heads[person] = Box("Head", headMaterial, root.transform);
                 limbs[person] = new Transform[limbCount];
                 jointPos[person] = new Vector3[jointCount];
+                seenX[person] = new float[jointCount];
+                seenY[person] = new float[jointCount];
+                seenJoint[person] = new bool[jointCount];
                 for (int i = 0; i < limbCount; i++) limbs[person][i] = Box("Limb", limbMaterial, root.transform);
                 Seed(person, 0f);
                 Rebuild(person);
@@ -165,7 +180,7 @@ namespace Handline
             int end = (int)JointId.Count;
             for (int id = (int)JointId.LeftShoulder; id < end; id++)
             {
-                jointPos[person][id] = Map(neutral.Joints[id], id, originX);
+                jointPos[person][id] = Map(neutral.Joints[id], id, originX, 0.5f, 0.56f);
             }
 
             slotX[person] = originX;
@@ -187,19 +202,50 @@ namespace Handline
         }
 
         /// <summary>
-        /// Writes a new position only for joints that are actually in the picture.
+        /// Moves a joint only when this frame actually sees it inside the picture.
+        /// Anything else keeps the position it already has, so that part stays on the model.
         /// </summary>
         void Absorb(int person, PoseFrame pose, float originX)
         {
             if (pose.Joints == null) return;
             int end = pose.Joints.Length;
             if (end > (int)JointId.Count) end = (int)JointId.Count;
+            if (Usable(pose.Joints[(int)JointId.LeftHip]) && Usable(pose.Joints[(int)JointId.RightHip]))
+            {
+                anchorX[person] = (pose.Joints[(int)JointId.LeftHip].X + pose.Joints[(int)JointId.RightHip].X) * 0.5f;
+                anchorY[person] = (pose.Joints[(int)JointId.LeftHip].Y + pose.Joints[(int)JointId.RightHip].Y) * 0.5f;
+                anchorSet[person] = true;
+            }
+
+            float au = anchorSet[person] ? anchorX[person] : 0.5f;
+            float av = anchorSet[person] ? anchorY[person] : 0.56f;
             for (int id = (int)JointId.LeftShoulder; id < end; id++)
             {
                 Joint joint = pose.Joints[id];
-                if (joint.Score < SeenScore) continue;
-                jointPos[person][id] = Map(joint, id, originX);
+                if (!Usable(joint)) continue;
+                if (seenJoint[person][id])
+                {
+                    float dx = joint.X - seenX[person][id];
+                    float dy = joint.Y - seenY[person][id];
+                    if ((dx * dx) + (dy * dy) > 0.22f * 0.22f) continue;
+                }
+
+                seenX[person][id] = joint.X;
+                seenY[person][id] = joint.Y;
+                seenJoint[person][id] = true;
+                jointPos[person][id] = Map(joint, id, originX, au, av);
             }
+        }
+
+        /// <summary>
+        /// A joint counts only when MoveNet sees it inside the picture, not on the border.
+        /// </summary>
+        static bool Usable(Joint joint)
+        {
+            if (joint.Score < SeenScore) return false;
+            if (joint.X < 0.05f || joint.X > 0.95f) return false;
+            if (joint.Y < 0.05f || joint.Y > 0.95f) return false;
+            return true;
         }
 
         void Rebuild(int person)
@@ -231,10 +277,10 @@ namespace Handline
         /// <summary>
         /// Maps a picture joint into the scene. Negative Z is toward the camera, so wrists read in front of the chest.
         /// </summary>
-        static Vector3 Map(Joint joint, int jointId, float originX)
+        static Vector3 Map(Joint joint, int jointId, float originX, float anchorX, float anchorY)
         {
-            float x = ((joint.X - 0.5f) * 1.35f) + originX;
-            float y = (1f - joint.Y) * 1.95f;
+            float x = originX + ((joint.X - anchorX) * 1.45f);
+            float y = 0.92f + ((anchorY - joint.Y) * 1.85f);
             float front = 1f - Mathf.Clamp01(Mathf.Abs(joint.X - 0.5f) / 0.42f);
             float z = Depth(jointId, front);
             return new Vector3(x, y, z);
@@ -283,11 +329,7 @@ namespace Handline
             Vector3 delta = b - a;
             float length = delta.magnitude;
             box.gameObject.SetActive(true);
-            if (length < 0.02f)
-            {
-                box.position = a;
-                return;
-            }
+            if (length < 0.02f) return;
 
             box.position = (a + b) * 0.5f;
             box.rotation = Quaternion.FromToRotation(Vector3.up, delta / length);
