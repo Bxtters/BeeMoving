@@ -14,7 +14,7 @@ Press Play to see the start screen. **Start** (or Enter) opens the camera. A pol
 
 ## Camera
 
-The pose read is the Handline one. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The character is a polygon body on the plane. Shoulders, elbows, wrists, knees, and ankles follow the camera, and a reach toward the lens comes forward so the arms are not stuck in the picture plane. The whole body eases through the pose: joints keep their speed, and the hands and feet trail the limbs. A straight arm keeps the elbow on the arm. A joint that leaves the frame eases back to the standing pose instead of freezing. Choose 2–6 people in Settings to use MultiPose. The lane does not run.
+The pose read is the Handline one. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The character is a polygon body on the plane. Shoulders, elbows, wrists, knees, and ankles follow the camera, and a reach toward the lens comes forward so the arms are not stuck in the picture plane. A raised arm is only an arm: a knee or ankle on that arm is ignored, so the leg does not climb to the head. The whole body eases through the pose. A straight arm keeps the elbow on the arm. A joint that leaves the frame eases back to the standing pose instead of freezing. Choose 2–6 people in Settings to use MultiPose. The lane does not run.
 
 The camera stays on this machine. The picture is shown in the corner and it is not saved. Nose, eye, and ear points are not part of the drawn body. Hands are the wrists, because that is what MoveNet measures.
 

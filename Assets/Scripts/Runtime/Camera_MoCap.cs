@@ -738,6 +738,103 @@ namespace Handline
             if (end > dest.Joints.Length) end = dest.Joints.Length;
             if (end > (int)JointId.Count) end = (int)JointId.Count;
             for (int i = start; i < end; i++) dest.Joints[i] = source.Joints[i];
+            KeepLegsOffArms(dest);
+        }
+
+        /// <summary>
+        /// Drops a knee or ankle that is sitting on an arm. A raised arm stays an arm,
+        /// and the leg eases down instead of climbing to the head.
+        /// </summary>
+        static void KeepLegsOffArms(PoseFrame pose)
+        {
+            if (pose == null || pose.Joints == null) return;
+            DropLegOnArm(pose, JointId.LeftKnee, JointId.LeftHip);
+            DropLegOnArm(pose, JointId.RightKnee, JointId.RightHip);
+            DropLegOnArm(pose, JointId.LeftAnkle, JointId.LeftHip);
+            DropLegOnArm(pose, JointId.RightAnkle, JointId.RightHip);
+        }
+
+        /// <summary>
+        /// Clears one leg joint when it is above the shoulders, or in the upper body and closer to an arm than to its hip.
+        /// </summary>
+        static void DropLegOnArm(PoseFrame pose, JointId legId, JointId hipId)
+        {
+            int leg = (int)legId;
+            int hip = (int)hipId;
+            if (leg >= pose.Joints.Length || hip >= pose.Joints.Length) return;
+            Joint point = pose.Joints[leg];
+            if (point.Score < 0.1f) return;
+
+            float shoulderY;
+            bool hasShoulder = TopShoulder(pose, out shoulderY);
+            if (hasShoulder && point.Y < shoulderY + 0.04f)
+            {
+                pose.Joints[leg] = default(Joint);
+                return;
+            }
+
+            Joint hipJoint = pose.Joints[hip];
+            if (hipJoint.Score < 0.2f) return;
+            float chestY = hasShoulder ? (shoulderY + hipJoint.Y) * 0.5f : hipJoint.Y - 0.08f;
+            if (point.Y > chestY) return;
+
+            float arm = NearestArm(pose, point);
+            float dx = point.X - hipJoint.X;
+            float dy = point.Y - hipJoint.Y;
+            float hipDist = (dx * dx) + (dy * dy);
+            if (arm < hipDist * 0.64f) pose.Joints[leg] = default(Joint);
+        }
+
+        /// <summary>
+        /// The higher shoulder in the picture. Y grows downward, so the smaller value is higher.
+        /// </summary>
+        static bool TopShoulder(PoseFrame pose, out float y)
+        {
+            y = 1f;
+            bool any = false;
+            Joint left = pose.Joints[(int)JointId.LeftShoulder];
+            Joint right = pose.Joints[(int)JointId.RightShoulder];
+            if (left.Score >= 0.2f)
+            {
+                y = left.Y;
+                any = true;
+            }
+
+            if (right.Score >= 0.2f && (!any || right.Y < y))
+            {
+                y = right.Y;
+                any = true;
+            }
+
+            return any;
+        }
+
+        /// <summary>
+        /// Squared distance from a point to the nearest elbow or wrist. A missing arm returns a huge distance.
+        /// </summary>
+        static float NearestArm(PoseFrame pose, Joint point)
+        {
+            float best = float.MaxValue;
+            int[] arms =
+            {
+                (int)JointId.LeftElbow,
+                (int)JointId.RightElbow,
+                (int)JointId.LeftWrist,
+                (int)JointId.RightWrist
+            };
+            for (int i = 0; i < arms.Length; i++)
+            {
+                int id = arms[i];
+                if (id >= pose.Joints.Length) continue;
+                Joint arm = pose.Joints[id];
+                if (arm.Score < 0.2f) continue;
+                float dx = point.X - arm.X;
+                float dy = point.Y - arm.Y;
+                float dist = (dx * dx) + (dy * dy);
+                if (dist < best) best = dist;
+            }
+
+            return best;
         }
 
         /// <summary>
