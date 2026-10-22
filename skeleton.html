@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Skeleton</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #12100e;
+      color: #f4efe6;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    body {
+      display: flex;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #1b1814;
+    }
+    #status {
+      position: fixed;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%);
+      max-width: min(34rem, calc(100% - 32px));
+      margin: 0;
+      padding: 12px 18px;
+      border-radius: 18px;
+      background: rgba(18, 16, 14, 0.88);
+      font-size: 15px;
+      line-height: 1.45;
+      text-align: center;
+    }
+    #status[hidden] {
+      display: none;
+    }
+    #download {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 2;
+      margin: 0;
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 999px;
+      background: #f2c14e;
+      color: #1a1208;
+      font: 600 14px "Segoe UI", system-ui, sans-serif;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="640" height="480"></canvas>
+  <button id="download" type="button">Download HTML</button>
+  <p id="status">Starting the camera…</p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+  <script>
+    (function () {
+      var statusEl = document.getElementById("status");
+      var canvas = document.getElementById("stage");
+      var ctx = canvas.getContext("2d");
+      var BONES = [
+        [5, 6], [5, 7], [7, 9], [6, 8], [8, 10],
+        [5, 11], [6, 12], [11, 12],
+        [11, 13], [13, 15], [12, 14], [14, 16],
+        [3, 1], [1, 0], [0, 2], [2, 4]
+      ];
+      var MIN_SCORE = 0.3;
+
+      function setStatus(text) {
+        statusEl.textContent = text || "";
+        statusEl.hidden = !text;
+      }
+
+      document.getElementById("download").addEventListener("click", function () {
+        fetch(location.href).then(function (response) {
+          return response.text();
+        }).then(function (html) {
+          var blob = new Blob([html], { type: "text/html" });
+          var url = URL.createObjectURL(blob);
+          var link = document.createElement("a");
+          link.href = url;
+          link.download = "skeleton.html";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+        }).catch(function () {
+          setStatus("Could not download the file from this page.");
+        });
+      });
+
+      window.addEventListener("error", function (event) {
+        setStatus(event.message || "Something went wrong.");
+      });
+      window.addEventListener("unhandledrejection", function (event) {
+        var reason = event.reason;
+        setStatus((reason && reason.message) || String(reason || "Something went wrong."));
+      });
+
+      function fileHint() {
+        return "Chrome blocks the camera when this file is opened from Downloads. In the folder that contains skeleton.html, run: python3 -m http.server 8741 — then open http://localhost:8741/skeleton.html";
+      }
+
+      function point(keypoint, width) {
+        return {
+          x: width - keypoint.x,
+          y: keypoint.y,
+          score: keypoint.score || 0
+        };
+      }
+
+      function stroke(x1, y1, x2, y2, color, width) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+
+      function drawSkeleton(keypoints, width) {
+        var thick = Math.max(6, width / 110);
+        var thin = Math.max(3, width / 180);
+        var i;
+        for (i = 0; i < BONES.length; i++) {
+          var a = point(keypoints[BONES[i][0]], width);
+          var b = point(keypoints[BONES[i][1]], width);
+          if (a.score < MIN_SCORE || b.score < MIN_SCORE) continue;
+          stroke(a.x, a.y, b.x, b.y, "rgba(20, 12, 6, 0.75)", thick);
+          stroke(a.x, a.y, b.x, b.y, "#f2c14e", thin);
+        }
+
+        var nose = point(keypoints[0], width);
+        var leftShoulder = point(keypoints[5], width);
+        var rightShoulder = point(keypoints[6], width);
+        if (nose.score >= MIN_SCORE && leftShoulder.score >= MIN_SCORE && rightShoulder.score >= MIN_SCORE) {
+          var midX = (leftShoulder.x + rightShoulder.x) / 2;
+          var midY = (leftShoulder.y + rightShoulder.y) / 2;
+          stroke(nose.x, nose.y, midX, midY, "rgba(20, 12, 6, 0.75)", thick);
+          stroke(nose.x, nose.y, midX, midY, "#f2c14e", thin);
+        }
+
+        var radius = Math.max(4, width / 150);
+        for (i = 0; i < keypoints.length; i++) {
+          var joint = point(keypoints[i], width);
+          if (joint.score < MIN_SCORE) continue;
+          ctx.fillStyle = "#ff5c39";
+          ctx.beginPath();
+          ctx.arc(joint.x, joint.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function openCamera() {
+        var preferred = {
+          audio: false,
+          video: {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          }
+        };
+        return navigator.mediaDevices.getUserMedia(preferred).catch(function (error) {
+          if (error && error.name === "OverconstrainedError") {
+            return navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+          }
+          throw error;
+        });
+      }
+
+      async function main() {
+        if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus(fileHint());
+          return;
+        }
+        if (!window.tf || !window.poseDetection) {
+          setStatus("The pose model did not load. Check the internet connection and reload.");
+          return;
+        }
+
+        var stream;
+        try {
+          stream = await openCamera();
+        } catch (error) {
+          setStatus("Camera permission was blocked. Allow the camera for this page, then reload.");
+          return;
+        }
+
+        window.addEventListener("pagehide", function () {
+          stream.getTracks().forEach(function (track) { track.stop(); });
+        });
+
+        var video = document.createElement("video");
+        video.playsInline = true;
+        video.muted = true;
+        video.autoplay = true;
+        video.srcObject = stream;
+        video.style.display = "none";
+        document.body.appendChild(video);
+        await video.play();
+        if (video.readyState < 2) {
+          await new Promise(function (resolve) {
+            video.addEventListener("loadeddata", resolve, { once: true });
+          });
+        }
+
+        setStatus("Loading the pose model…");
+        await tf.setBackend("webgl");
+        await tf.ready();
+        var detector = await poseDetection.createDetector(
+          poseDetection.SupportedModels.MoveNet,
+          { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+        );
+
+        var busy = false;
+        var keypoints = null;
+        var missingSince = 0;
+        setStatus("Step into frame.");
+
+        async function frame() {
+          var width = video.videoWidth;
+          var height = video.videoHeight;
+          if (width && height) {
+            if (canvas.width !== width) canvas.width = width;
+            if (canvas.height !== height) canvas.height = height;
+
+            ctx.save();
+            ctx.translate(width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, width, height);
+            ctx.restore();
+
+            if (keypoints) drawSkeleton(keypoints, width);
+
+            if (!busy) {
+              busy = true;
+              detector.estimatePoses(video, {}, performance.now()).then(function (poses) {
+                keypoints = poses && poses[0] ? poses[0].keypoints : null;
+                var seen = false;
+                if (keypoints) {
+                  for (var i = 0; i < keypoints.length; i++) {
+                    if ((keypoints[i].score || 0) >= MIN_SCORE) {
+                      seen = true;
+                      break;
+                    }
+                  }
+                }
+                var now = performance.now();
+                if (seen) {
+                  missingSince = 0;
+                  setStatus("");
+                } else {
+                  if (!missingSince) missingSince = now;
+                  if (now - missingSince > 700) setStatus("Step into frame.");
+                }
+              }).catch(function (error) {
+                setStatus(error && error.message ? error.message : "Pose tracking stopped.");
+              }).then(function () {
+                busy = false;
+              });
+            }
+          }
+          requestAnimationFrame(frame);
+        }
+
+        requestAnimationFrame(frame);
+      }
+
+      main();
+    })();
+  </script>
+</body>
+</html>

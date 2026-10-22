@@ -17,7 +17,7 @@ namespace Handline
     /// hand marker is that wrist and no fingers are invented.
     /// Nose, eye, and ear points are erased before drawing. The camera picture
     /// is never shown, never written to disk, and never sent off the device.
-    /// Place this file at Assets/Scripts/Runtime/Camera_MoCap.cs.
+    /// The Unity scene is Assets/Scenes/Camera_MoCap.unity.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class Camera_MoCap : MonoBehaviour
@@ -110,13 +110,15 @@ namespace Handline
         bool resuming;
 
         /// <summary>
-        /// Creates the stage after the scene loads when this display is the one Play should open.
+        /// Creates the stage when the open scene does not already contain it.
+        /// The lane scene keeps its own display.
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
             if (!OpenInsteadOfLane) return;
             if (UnityEngine.Object.FindAnyObjectByType<Camera_MoCap>() != null) return;
+            if (UnityEngine.Object.FindAnyObjectByType<HandlineApp>() != null) return;
             GameObject stageObject = new GameObject("Camera_MoCap");
             stageObject.AddComponent<Camera_MoCap>();
         }

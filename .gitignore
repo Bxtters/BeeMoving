@@ -147,3 +147,28 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+/*.csproj
+/*.sln
+.vs/
+.idea/
+agent-tools/
+tests/**/bin/
+tests/**/obj/
+*.user
+*.apk
+*.aab
+*.unitypackage
+sysinfo.txt
+crashlytics-buildid.txt
+InitTestScene*.unity
