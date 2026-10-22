@@ -10,11 +10,11 @@ This repository folder is that same Unity project if you already have it checked
 2. Leave the project alone until the first import finishes. It needs an internet connection once, so Package Manager can download TensorFlow Lite.
 3. `Assets/Scenes/Camera_MoCap.unity` opens by itself. Press Play.
 
-Press Play. Motion capture is the Handline camera path: the picture and skeleton are in the corner. The lane runner does not start. **F** mirrors, **Q** rotates, **C** switches camera. The picture is not saved.
+Press Play to see the start screen. **Start** (or Enter) opens the camera. A polygon character stands on a Unity plane and follows the pose. The camera picture stays in the bottom-left corner with the skeleton on it. The picture is not saved. Settings, phone pairing, and the USB steps are unchanged. **F** mirrors, **Q** rotates, and **C** switches camera. The lane runner does not start.
 
 ## Camera
 
-Play uses the Handline motion-capture code. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning. The skeleton is drawn on that picture. Choose 2–6 people in the People dropdown to use MultiPose. The lane does not run.
+The pose read is the Handline one. Each new camera frame is cropped to 384 pixels and sent to MoveNet Lightning, and those points are used as they come back. Choose 2–6 people in Settings to use MultiPose. The same points move the character and the corner skeleton. The lane does not run.
 
 The camera stays on this machine. The picture is shown in the corner and it is not saved. Nose, eye, and ear points are not part of the drawn body. Hands are the wrists, because that is what MoveNet measures.
 

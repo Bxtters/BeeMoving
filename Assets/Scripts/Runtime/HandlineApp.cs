@@ -27,7 +27,7 @@ namespace Handline
 
         static HandlineApp live;
 
-        Camera backdrop;
+        RunnerView view;
         HudView hud;
         PoseOverlay overlay;
         Sfx sfx;
@@ -87,12 +87,13 @@ namespace Handline
             live = this;
             try
             {
+                view = RunnerView.Create();
                 hud = HudView.Create();
-                hud.HideRunner();
                 overlay = hud.OverlayRoot.gameObject.AddComponent<PoseOverlay>();
                 overlay.Build();
+                sfx = new Sfx(gameObject.AddComponent<AudioSource>());
+                sim = new RunnerSim();
                 classifier = new GestureClassifier();
-                EnsureBackdrop();
                 for (int i = 0; i < crowd.Length; i++) crowd[i] = new PoseFrame();
                 pose = crowd[0];
                 hud.Bind(OpenCamera);
@@ -100,12 +101,12 @@ namespace Handline
                 {
                     hud.People.onValueChanged.AddListener(delegate (int value)
                     {
-                        peopleLimit = value + 1;
+                        if (mode == Mode.Attract) peopleLimit = value + 1;
                     });
                 }
                 ClaimCameraAndLights();
                 ready = true;
-                Debug.Log("Handline motion capture is running. The camera preview is in the corner.");
+                Debug.Log("Handline is running. Look at the Game view. Space starts the lane.");
             }
             catch (Exception ex)
             {
@@ -131,6 +132,7 @@ namespace Handline
         {
             if (!ready) return;
 
+            float dt = Time.deltaTime;
             ScanDevices();
             PollKeys();
             if (webcam != null && webcam.isPlaying && webcam.didUpdateThisFrame && webcam.width > 16)
@@ -148,9 +150,84 @@ namespace Handline
                 modelError = "Pose tracking stopped. " + estimator.Failure;
             }
 
+            RunnerInput input = ReadInput(signal);
+
+            if (mode == Mode.Attract)
+            {
+                bool gestureStart = signal.Tracking && signal.JumpHeld;
+                bool keyStart = Keys.Pressed(Key.Space) || Keys.Pressed(Key.Enter);
+                if (gestureStart || keyStart)
+                {
+                    Begin(gestureStart);
+                }
+            }
+            else if (mode == Mode.Pause)
+            {
+                if (Keys.Pressed(Key.Escape)) mode = Mode.Play;
+                dt = 0f;
+            }
+            else if (mode == Mode.Over)
+            {
+                dt = 0f;
+                if (restartNeedsRelease)
+                {
+                    if (!signal.JumpHeld) restartNeedsRelease = false;
+                    restartHold = 0f;
+                }
+                else if (signal.Tracking && signal.JumpHeld)
+                {
+                    restartHold += Time.deltaTime;
+                }
+                else
+                {
+                    restartHold = 0f;
+                }
+
+                bool again = Keys.Pressed(Key.Space) || Keys.Pressed(Key.R) || Keys.Pressed(Key.Enter);
+                if (restartHold > 0.7f || again)
+                {
+                    Begin(signal.JumpHeld);
+                }
+            }
+            else
+            {
+                if (Keys.Pressed(Key.Escape))
+                {
+                    mode = Mode.Pause;
+                }
+                else
+                {
+                    if (waitForHandsDown)
+                    {
+                        if (!signal.JumpHeld) waitForHandsDown = false;
+                        else if (!KeyJump()) input.JumpHeld = false;
+                    }
+
+                    int lives = sim.Lives;
+                    int coins = sim.Coins;
+                    int lane = sim.Lane;
+                    bool grounded = sim.Grounded;
+                    sim.Tick(dt, input);
+                    if (sim.Coins > coins) sfx.Coin();
+                    if (sim.Lives < lives) sfx.Hit();
+                    if (sim.Lane != lane) sfx.Lane();
+                    if (grounded && !sim.Grounded && sim.VelocityY > 0f) sfx.Jump();
+                    if (sim.GameOver)
+                    {
+                        mode = Mode.Over;
+                        restartNeedsRelease = signal.JumpHeld;
+                        restartHold = 0f;
+                        sfx.Over();
+                    }
+                }
+            }
+
+            view.Apply(sim, mode == Mode.Play || mode == Mode.Attract ? dt : 0f);
+            if (hud.People != null) hud.People.interactable = mode == Mode.Attract;
             int shown = webcam != null && webcam.isPlaying ? crowdCount : 0;
             overlay.Redraw(crowd, shown, 0);
-            hud.ShowCapture(signal, StatusLine());
+            hud.SetBoard(sim.Score, sim.Coins, sim.Lives, ToHud(mode), signal, StatusLine());
+            hud.SetHurt(sim.HurtTimer / RunnerSim.HurtDuration);
         }
 
         void OnDestroy()
@@ -391,7 +468,7 @@ namespace Handline
             PushCameraList(devices);
             if (devices == null || devices.Length == 0)
             {
-                cameraStatus = "No camera detected.";
+                cameraStatus = "No camera detected. Keyboard still runs the lane.";
                 if (webcam != null)
                 {
                     webcam.Stop();
@@ -466,37 +543,29 @@ namespace Handline
             return cameraStatus;
         }
 
-        /// <summary>
-        /// Gives the Game view a clear camera. The motion capture itself is the HUD preview.
-        /// </summary>
-        void EnsureBackdrop()
-        {
-            GameObject go = new GameObject("Handline Camera");
-            go.tag = "MainCamera";
-            backdrop = go.AddComponent<Camera>();
-            backdrop.clearFlags = CameraClearFlags.SolidColor;
-            backdrop.backgroundColor = new Color(0.09f, 0.075f, 0.06f, 1f);
-            backdrop.fieldOfView = 40f;
-            backdrop.nearClipPlane = 0.08f;
-            backdrop.farClipPlane = 80f;
-            backdrop.transform.position = new Vector3(0f, 1.6f, -4f);
-            go.AddComponent<AudioListener>();
-        }
-
         void ClaimCameraAndLights()
         {
             Camera[] cameras = FindAll<Camera>();
             for (int i = 0; i < cameras.Length; i++)
             {
-                if (cameras[i] != backdrop) cameras[i].gameObject.SetActive(false);
+                if (cameras[i] != view.CameraView) cameras[i].gameObject.SetActive(false);
             }
 
             AudioListener[] listeners = FindAll<AudioListener>();
             for (int i = 0; i < listeners.Length; i++)
             {
-                if (listeners[i].GetComponent<Camera>() != backdrop)
+                if (listeners[i].GetComponent<Camera>() != view.CameraView)
                 {
                     Destroy(listeners[i]);
+                }
+            }
+
+            Light[] lights = FindAll<Light>();
+            for (int i = 0; i < lights.Length; i++)
+            {
+                if (lights[i].transform.parent != view.transform)
+                {
+                    lights[i].gameObject.SetActive(false);
                 }
             }
         }

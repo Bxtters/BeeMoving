@@ -196,7 +196,7 @@ namespace Handline
                 heldBody[person] = true;
             }
 
-            if (heldBody[person])
+            if (shoulders && hipJoints)
             {
                 PlaceBox(chests[person], heldChestA[person], heldChestB[person], 0.42f, 0.28f);
                 PlaceBox(hips[person], heldHipA[person], heldHipB[person], 0.36f, 0.24f);
@@ -205,17 +205,22 @@ namespace Handline
                 heads[person].rotation = Quaternion.identity;
                 heads[person].localScale = new Vector3(0.32f, 0.3f, 0.3f);
             }
+            else
+            {
+                chests[person].gameObject.SetActive(false);
+                hips[person].gameObject.SetActive(false);
+                heads[person].gameObject.SetActive(false);
+            }
 
             int limbCount = LimbJoints.Length / 2;
             for (int i = 0; i < limbCount; i++)
             {
                 int aId = LimbJoints[i * 2];
                 int bId = LimbJoints[i * 2 + 1];
-                bool live = pose.Joints[aId].Score >= 0.15f && pose.Joints[bId].Score >= 0.15f;
+                bool live = pose.Joints[aId].Score >= 0.25f && pose.Joints[bId].Score >= 0.25f;
                 if (!live)
                 {
-                    if (heldLimb[person][i]) PlaceBox(limbs[person][i], heldA[person][i], heldB[person][i], LimbThickness[i], LimbThickness[i]);
-                    else limbs[person][i].gameObject.SetActive(false);
+                    limbs[person][i].gameObject.SetActive(false);
                     continue;
                 }
 
@@ -230,7 +235,7 @@ namespace Handline
 
         static bool Live(PoseFrame pose, JointId id)
         {
-            return pose.Joints[(int)id].Score >= 0.15f;
+            return pose.Joints[(int)id].Score >= 0.25f;
         }
 
         static Vector3 Map(PoseFrame pose, JointId id, float originX)

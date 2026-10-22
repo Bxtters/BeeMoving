@@ -127,43 +127,6 @@ namespace Handline
             Vignette.color = new Color(0.55f, 0.08f, 0.05f, Mathf.Clamp01(hurt01) * 0.45f);
         }
 
-        /// <summary>
-        /// Hides the lane score, lives, and start cards. The camera preview and pose stay.
-        /// </summary>
-        public void HideRunner()
-        {
-            if (People != null && Preview != null)
-            {
-                People.transform.SetParent(Preview.transform.parent, false);
-                People.gameObject.SetActive(true);
-                RectTransform peopleRect = People.GetComponent<RectTransform>();
-                peopleRect.anchorMin = Vector2.zero;
-                peopleRect.anchorMax = Vector2.zero;
-                peopleRect.pivot = Vector2.zero;
-                peopleRect.anchoredPosition = new Vector2(12f, 58f);
-                peopleRect.sizeDelta = new Vector2(276f, 36f);
-            }
-
-            if (scoreText != null) scoreText.gameObject.SetActive(false);
-            if (coinText != null) coinText.gameObject.SetActive(false);
-            if (livesText != null) livesText.gameObject.SetActive(false);
-            if (attract != null) attract.SetActive(false);
-            if (pause != null) pause.SetActive(false);
-            if (over != null) over.SetActive(false);
-            if (runFill != null) runFill.transform.parent.gameObject.SetActive(false);
-        }
-
-        /// <summary>
-        /// Shows the capture status and the pose label without the runner board.
-        /// </summary>
-        public void ShowCapture(GestureSignal signal, string status)
-        {
-            if (statusText != null) statusText.text = status;
-            if (gestureText == null) return;
-            gestureText.text = string.IsNullOrEmpty(signal.Label) ? "Ready" : signal.Label;
-            gestureText.color = GestureColor(signal);
-        }
-
         void Build(Transform parent, Font font, Sprite sprite)
         {
             Vignette = ImagePanel(parent, "Vignette", sprite, new Color(0f, 0f, 0f, 0f));
@@ -220,7 +183,11 @@ namespace Handline
             Image legend = ImagePanel(parent, "Legend", sprite, Ink);
             Place(legend.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-28f, 28f), new Vector2(360f, 210f));
             Text help = TextAt(legend.transform, font, "Help",
-                "<color=#f2b84a>Camera preview</color>\nThe skeleton is drawn on the picture in the corner.\n\n<size=15><color=#b7aa98>F mirror · Q rotate · C next camera</color></size>",
+                "<color=#f2b84a>Both hands up</color>     Jump\n" +
+                "<color=#f2b84a>Pump your arms</color>     Sprint\n" +
+                "<color=#f2b84a>Hands apart and down</color>     Slide\n" +
+                "<color=#f2b84a>One hand out</color>     One lane\n\n" +
+                "<size=15><color=#b7aa98>Arrows lane · Space jump · Down slide · Shift sprint\nF mirror · Q rotate · C next camera · Esc pause</color></size>",
                 20, TextAnchor.UpperLeft, Cream);
             help.horizontalOverflow = HorizontalWrapMode.Wrap;
             help.verticalOverflow = VerticalWrapMode.Overflow;

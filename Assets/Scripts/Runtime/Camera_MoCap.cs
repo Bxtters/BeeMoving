@@ -31,7 +31,7 @@ namespace Handline
         /// Set it to false to boot the runner again. The two displays are not
         /// meant to share one camera.
         /// </summary>
-        public const bool OpenInsteadOfLane = false;
+        public const bool OpenInsteadOfLane = true;
 
         /// <summary>MoveNet MultiPose Lightning publishes at most six people.</summary>
         public const int MaxPeople = 6;
@@ -39,7 +39,7 @@ namespace Handline
         const int CropSize = 192;
         const int HandlineSize = 384;
         const float HoldSeconds = 0.7f;
-        const float DrawScore = 0.18f;
+        const float DrawScore = 0.25f;
         const string MultiModelFile = "movenet_multipose.tflite";
         const string SingleModelFile = "movenet_lightning.tflite";
         const string PrivacyNotice = "Shown in this window only. The picture is not saved or uploaded. Faces are not drawn.";
@@ -246,12 +246,6 @@ namespace Handline
         /// </summary>
         void Awake()
         {
-            if (!OpenInsteadOfLane)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
             try
             {
                 for (int i = 0; i < MaxPeople; i++)
@@ -304,10 +298,9 @@ namespace Handline
             WatchCamera();
             if (!cameraHeldOff && ModelReady()) ScanDevices();
 
-            if (webcam != null && webcam.isPlaying && webcam.width > 16 && (webcam.didUpdateThisFrame || Time.unscaledTime >= nextPose))
+            if (webcam != null && webcam.isPlaying && webcam.didUpdateThisFrame && webcam.width > 16)
             {
                 CaptureAndEstimate();
-                nextPose = Time.unscaledTime + 0.05f;
             }
             else if (webcam == null && poseUntil > 0f && Time.unscaledTime > poseUntil)
             {
@@ -645,10 +638,10 @@ namespace Handline
                     else Blank(crowd[i]);
                 }
 
-                Stabilize();
+                ApplyRawPoses();
                 for (int i = 0; i < MaxPeople; i++) Blank(crowd[i]);
                 crowdCount = 0;
-                poseUntil = Time.unscaledTime + 0.4f;
+                poseUntil = Time.unscaledTime + 0.45f;
                 ShowCount(VisiblePeople());
                 if (active != null && !string.IsNullOrEmpty(active.Failure)) NoteModelFailure();
                 else RefreshStatus();
@@ -911,6 +904,26 @@ namespace Handline
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Copies the Handline MoveNet read straight onto the stage. No extra smoothing or guesses.
+        /// </summary>
+        void ApplyRawPoses()
+        {
+            for (int i = 0; i < MaxPeople; i++)
+            {
+                if (i < crowdCount && crowd[i] != null && crowd[i].Joints != null)
+                {
+                    CopyBody(crowd[i], stable[i]);
+                    slotUsed[i] = HasBody(stable[i]);
+                }
+                else
+                {
+                    Blank(stable[i]);
+                    slotUsed[i] = false;
+                }
+            }
         }
 
         /// <summary>
