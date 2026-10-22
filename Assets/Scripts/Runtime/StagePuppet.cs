@@ -3,15 +3,25 @@ using UnityEngine;
 namespace Handline
 {
     /// <summary>
-    /// Polygon character on a Unity plane, built from fixed-size boxes like the Handline runner.
-    /// The figure is standing when Play starts. A bone rotates only when both of its joints
-    /// are inside the picture. Otherwise that bone stays as it is. Lengths never change.
-    /// The head follows the nose. The face is not drawn.
+    /// Polygon character on a Unity plane. The body is standing when Play starts.
+    /// Shoulders, elbows, wrists, hips, knees, and ankles follow the camera.
+    /// A limb keeps a fixed reach, and any reach the picture does not show comes
+    /// forward, toward the camera, so the arm can move in every direction.
+    /// A joint that disappears eases back to the standing pose. It is not left stuck.
+    /// The face is not drawn. The head follows the nose.
     /// </summary>
     public sealed class StagePuppet : MonoBehaviour
     {
         const int MaxPeople = 6;
-        const float Seen = 0.25f;
+        const float UpperArm = 0.30f;
+        const float ForeArm = 0.27f;
+        const float Thigh = 0.42f;
+        const float Shin = 0.40f;
+        const float Neck = 0.28f;
+        const float Torso = 0.48f;
+        const float HipY = 0.92f;
+
+        static readonly Vector3[] Rest = BuildRest();
 
         Transform floor;
         Figure[] figures;
@@ -19,11 +29,14 @@ namespace Handline
         Material limbMaterial;
         Material headMaterial;
         Material floorMaterial;
+        int framedFor = -1;
 
         class Figure
         {
             public Transform Root;
-            public Transform Torso;
+            public Transform Chest;
+            public Transform Pelvis;
+            public Transform NeckBone;
             public Transform Head;
             public Transform UpperArmL;
             public Transform ForeArmL;
@@ -33,13 +46,31 @@ namespace Handline
             public Transform ShinL;
             public Transform ThighR;
             public Transform ShinR;
+            public Transform HandL;
+            public Transform HandR;
+            public Transform FootL;
+            public Transform FootR;
+            public Vector3[] Pos;
+            public float[] Reach;
+            public bool[] Held;
+            public float[] HeldX;
+            public float[] HeldY;
+            public bool[] Jump;
+            public float[] JumpX;
+            public float[] JumpY;
+            public float Scale = 1.8f;
+            public bool Sized;
+            public float AnchorU = 0.5f;
+            public float AnchorV = 0.62f;
+            public bool AnchorReady;
+            public float Plant;
             public float NoseX;
             public float NoseY;
-            public int NoseFrame;
+            public float NoseUntil;
         }
 
         /// <summary>
-        /// Builds the plane, a light, and the standing figures.
+        /// Builds the plane, a light, and one standing figure for each person slot.
         /// </summary>
         public void Build()
         {
@@ -54,43 +85,47 @@ namespace Handline
             Strip(plane);
             plane.GetComponent<Renderer>().sharedMaterial = floorMaterial;
             floor = plane.transform;
-            floor.localScale = new Vector3(0.36f, 1f, 0.24f);
+            floor.localScale = new Vector3(0.42f, 1f, 0.28f);
 
             Light sun = new GameObject("Sun").AddComponent<Light>();
             sun.transform.SetParent(transform, false);
             sun.type = LightType.Directional;
             sun.color = new Color(1f, 0.94f, 0.84f);
-            sun.intensity = 1.2f;
+            sun.intensity = 1.15f;
             sun.shadows = LightShadows.None;
-            sun.transform.rotation = Quaternion.Euler(42f, -28f, 0f);
+            sun.transform.rotation = Quaternion.Euler(38f, -32f, 0f);
 
             figures = new Figure[MaxPeople];
             for (int i = 0; i < MaxPeople; i++)
             {
                 figures[i] = CreateFigure(i);
                 figures[i].Root.gameObject.SetActive(i == 0);
+                Draw(figures[i]);
             }
         }
 
         /// <summary>
-        /// Looks at the figures from the front-side so the boxes have visible depth.
+        /// Frames the standing area from the front-side so a reach toward the camera is visible.
         /// </summary>
         public void Frame(Camera camera, int visible)
         {
             if (camera == null) return;
             if (visible < 1) visible = 1;
-            float span = Mathf.Max(2.2f, ((visible - 1) * 1.2f) + 1.6f);
+            if (visible > MaxPeople) visible = MaxPeople;
+            float span = Mathf.Max(2.4f, ((visible - 1) * 1.35f) + 1.8f);
             if (floor != null)
             {
-                floor.localScale = new Vector3(Mathf.Max(0.36f, (span + 1.6f) / 10f), 1f, 0.26f);
+                floor.localScale = new Vector3(Mathf.Max(0.42f, (span + 2.2f) / 10f), 1f, 0.30f);
                 floor.position = Vector3.zero;
             }
 
-            float dist = Mathf.Max(5.2f, span * 2.15f);
-            Vector3 look = new Vector3(0f, 1.05f, 0f);
+            if (framedFor == visible && camera.fieldOfView == 32f) return;
+            framedFor = visible;
+            float dist = Mathf.Max(4.6f, span * 1.85f);
+            Vector3 look = new Vector3(0f, 1.0f, 0f);
             camera.orthographic = false;
-            camera.fieldOfView = 34f;
-            camera.transform.position = new Vector3(dist * 0.22f, 1.75f, -dist);
+            camera.fieldOfView = 32f;
+            camera.transform.position = new Vector3(dist * 0.36f, 1.55f, -dist);
             camera.transform.rotation = Quaternion.LookRotation(look - camera.transform.position, Vector3.up);
             camera.nearClipPlane = 0.08f;
             camera.farClipPlane = 40f;
@@ -99,165 +134,673 @@ namespace Handline
         }
 
         /// <summary>
-        /// Keeps every figure on the plane. Only bones whose joints are visible this frame rotate.
+        /// Moves every active figure. A visible joint goes to the camera point.
+        /// A joint that drops out eases back to the standing pose instead of freezing.
         /// </summary>
-        public void Follow(PoseFrame[] poses, bool[] used, int limit)
+        public void Follow(PoseFrame[] poses, bool[] used, int limit, float score)
         {
             if (figures == null) return;
             if (limit < 1) limit = 1;
             if (limit > MaxPeople) limit = MaxPeople;
+            if (score < 0.1f) score = 0.1f;
+            if (score > 0.6f) score = 0.6f;
+            float dt = Mathf.Clamp(Time.unscaledDeltaTime, 0.001f, 0.05f);
             for (int i = 0; i < MaxPeople; i++)
             {
-                figures[i].Root.gameObject.SetActive(i < limit);
-                if (i >= limit) continue;
-                figures[i].Root.localPosition = new Vector3((i - ((limit - 1) * 0.5f)) * 1.25f, 0f, 0f);
-                if (poses != null && used != null && used[i] && i < poses.Length && poses[i] != null)
-                {
-                    Apply(figures[i], poses[i]);
-                }
+                Figure figure = figures[i];
+                bool show = i < limit;
+                if (figure.Root.gameObject.activeSelf != show) figure.Root.gameObject.SetActive(show);
+                if (!show) continue;
+                float lane = (i - ((limit - 1) * 0.5f)) * 1.4f;
+                float shift = figure.AnchorReady ? Mathf.Clamp((figure.AnchorU - 0.5f) * 0.85f, -0.7f, 0.7f) : 0f;
+                figure.Root.localPosition = new Vector3(lane + shift, 0f, 0f);
+                PoseFrame pose = null;
+                if (poses != null && used != null && used[i] && i < poses.Length) pose = poses[i];
+                Track(figure, pose, dt, score);
+                Draw(figure);
             }
         }
 
         /// <summary>
-        /// Stores a nose sample for the head. It is not drawn as a face.
+        /// Stores a nose sample for the head. The nose is not drawn as a face.
+        /// A missing nose clears the hold so the head returns to the shoulders.
         /// </summary>
         public void NoteHead(int person, Joint nose)
         {
             if (figures == null || person < 0 || person >= MaxPeople) return;
-            if (!Inside(nose)) return;
             Figure figure = figures[person];
-            if (figure.NoseFrame == Time.frameCount - 1 || figure.NoseFrame == Time.frameCount)
+            if (!Live(nose, 0.2f))
+            {
+                figure.NoseUntil = 0f;
+                return;
+            }
+
+            if (figure.NoseUntil > Time.unscaledTime)
             {
                 float dx = nose.X - figure.NoseX;
                 float dy = nose.Y - figure.NoseY;
-                if ((dx * dx) + (dy * dy) > 0.18f * 0.18f) return;
+                if ((dx * dx) + (dy * dy) > 0.35f * 0.35f) return;
             }
 
             figure.NoseX = nose.X;
             figure.NoseY = nose.Y;
-            figure.NoseFrame = Time.frameCount;
+            figure.NoseUntil = Time.unscaledTime + 0.25f;
         }
 
-        void Apply(Figure figure, PoseFrame pose)
+        /// <summary>
+        /// Solves one figure from the current pose, then relaxes any joint that is not in frame.
+        /// </summary>
+        void Track(Figure figure, PoseFrame pose, float dt, float score)
         {
-            if (pose.Joints == null) return;
-            Joint leftHip = pose.Joints[(int)JointId.LeftHip];
-            Joint rightHip = pose.Joints[(int)JointId.RightHip];
-            Joint leftShoulder = pose.Joints[(int)JointId.LeftShoulder];
-            Joint rightShoulder = pose.Joints[(int)JointId.RightShoulder];
-            if (Inside(leftHip) && Inside(rightHip) && Inside(leftShoulder) && Inside(rightShoulder))
+            bool tracking = pose != null && pose.Joints != null;
+            if (!tracking) figure.NoseUntil = 0f;
+            bool leftHip = tracking && Accept(figure, JointId.LeftHip, pose, score);
+            bool rightHip = tracking && Accept(figure, JointId.RightHip, pose, score);
+            if (leftHip && rightHip)
             {
-                float hipX = (leftHip.X + rightHip.X) * 0.5f;
-                float hipY = (leftHip.Y + rightHip.Y) * 0.5f;
-                float shoulderX = (leftShoulder.X + rightShoulder.X) * 0.5f;
-                float shoulderY = (leftShoulder.Y + rightShoulder.Y) * 0.5f;
-                Vector3 spine = new Vector3(shoulderX - hipX, hipY - shoulderY, 0f);
-                if (spine.y > 0.04f && spine.y > Mathf.Abs(spine.x))
+                Joint l = pose.Joints[(int)JointId.LeftHip];
+                Joint r = pose.Joints[(int)JointId.RightHip];
+                float u = (l.X + r.X) * 0.5f;
+                float v = (l.Y + r.Y) * 0.5f;
+                if (!figure.AnchorReady)
                 {
-                    Aim(figure.Torso, figure.Root, Vector3.up, spine);
+                    figure.AnchorU = u;
+                    figure.AnchorV = v;
+                    figure.AnchorReady = true;
+                }
+                else
+                {
+                    float follow = Gain(dt, 0.05f);
+                    figure.AnchorU = Mathf.Lerp(figure.AnchorU, u, follow);
+                    figure.AnchorV = Mathf.Lerp(figure.AnchorV, v, follow);
                 }
 
-                if (figure.NoseFrame == Time.frameCount)
+                UpdateScale(figure, pose, dt, score);
+            }
+
+            Vector3 hipL = PlaceHips(figure, pose, leftHip, rightHip, dt);
+            Vector3 hipR = figure.Pos[(int)JointId.RightHip];
+            Vector3 hipMid = (hipL + hipR) * 0.5f;
+
+            bool leftShoulder = tracking && figure.Sized && Accept(figure, JointId.LeftShoulder, pose, score);
+            bool rightShoulder = tracking && figure.Sized && Accept(figure, JointId.RightShoulder, pose, score);
+            PlaceShoulders(figure, pose, leftShoulder, rightShoulder, hipMid, dt);
+
+            bool ready = tracking && figure.Sized;
+            PlaceLimb(figure, pose, JointId.LeftElbow, JointId.LeftShoulder, ready && Accept(figure, JointId.LeftElbow, pose, score), UpperArm, dt);
+            PlaceLimb(figure, pose, JointId.RightElbow, JointId.RightShoulder, ready && Accept(figure, JointId.RightElbow, pose, score), UpperArm, dt);
+            PlaceLimb(figure, pose, JointId.LeftWrist, JointId.LeftElbow, ready && Accept(figure, JointId.LeftWrist, pose, score), ForeArm, dt);
+            PlaceLimb(figure, pose, JointId.RightWrist, JointId.RightElbow, ready && Accept(figure, JointId.RightWrist, pose, score), ForeArm, dt);
+            PlaceLimb(figure, pose, JointId.LeftKnee, JointId.LeftHip, ready && Accept(figure, JointId.LeftKnee, pose, score), Thigh, dt);
+            PlaceLimb(figure, pose, JointId.RightKnee, JointId.RightHip, ready && Accept(figure, JointId.RightKnee, pose, score), Thigh, dt);
+            PlaceLimb(figure, pose, JointId.LeftAnkle, JointId.LeftKnee, ready && Accept(figure, JointId.LeftAnkle, pose, score), Shin, dt);
+            PlaceLimb(figure, pose, JointId.RightAnkle, JointId.RightKnee, ready && Accept(figure, JointId.RightAnkle, pose, score), Shin, dt);
+            PlaceHead(figure, dt);
+
+            float lowest = Mathf.Min(figure.Pos[(int)JointId.LeftAnkle].y, figure.Pos[(int)JointId.RightAnkle].y);
+            float targetPlant = Mathf.Clamp(lowest - 0.05f, -0.08f, 0.62f);
+            figure.Plant = Mathf.Lerp(figure.Plant, targetPlant, Gain(dt, 0.1f));
+        }
+
+        /// <summary>
+        /// Learns how many meters one camera unit covers from the shoulders and the torso.
+        /// A spiked sample is ignored so the body does not pulse.
+        /// </summary>
+        static void UpdateScale(Figure figure, PoseFrame pose, float dt, float score)
+        {
+            Joint ls = pose.Joints[(int)JointId.LeftShoulder];
+            Joint rs = pose.Joints[(int)JointId.RightShoulder];
+            Joint lh = pose.Joints[(int)JointId.LeftHip];
+            Joint rh = pose.Joints[(int)JointId.RightHip];
+            float sum = 0f;
+            int count = 0;
+            if (Live(ls, score) && Live(rs, score))
+            {
+                float width = Mathf.Abs(ls.X - rs.X);
+                if (width > 0.05f && width < 0.8f)
                 {
-                    Vector3 look = new Vector3(figure.NoseX - shoulderX, shoulderY - figure.NoseY, 0f);
-                    if (look.y > 0.01f) Aim(figure.Head, figure.Torso, Vector3.up, look);
+                    sum += 0.40f / width;
+                    count++;
                 }
             }
 
-            AimBone(figure.UpperArmL, figure.Torso, pose, JointId.LeftShoulder, JointId.LeftElbow);
-            AimBone(figure.ForeArmL, figure.UpperArmL, pose, JointId.LeftElbow, JointId.LeftWrist);
-            AimBone(figure.UpperArmR, figure.Torso, pose, JointId.RightShoulder, JointId.RightElbow);
-            AimBone(figure.ForeArmR, figure.UpperArmR, pose, JointId.RightElbow, JointId.RightWrist);
-            AimBone(figure.ThighL, figure.Root, pose, JointId.LeftHip, JointId.LeftKnee);
-            AimBone(figure.ShinL, figure.ThighL, pose, JointId.LeftKnee, JointId.LeftAnkle);
-            AimBone(figure.ThighR, figure.Root, pose, JointId.RightHip, JointId.RightKnee);
-            AimBone(figure.ShinR, figure.ThighR, pose, JointId.RightKnee, JointId.RightAnkle);
+            if (count > 0 && Live(lh, score) && Live(rh, score) && Live(ls, score) && Live(rs, score))
+            {
+                float sx = (ls.X + rs.X) * 0.5f;
+                float sy = (ls.Y + rs.Y) * 0.5f;
+                float hx = (lh.X + rh.X) * 0.5f;
+                float hy = (lh.Y + rh.Y) * 0.5f;
+                float dx = sx - hx;
+                float dy = sy - hy;
+                float torso = Mathf.Sqrt((dx * dx) + (dy * dy));
+                if (torso > 0.06f && torso < 0.85f)
+                {
+                    sum += Torso / torso;
+                    count++;
+                }
+            }
+
+            if (count == 0) return;
+            float target = Mathf.Clamp(sum / count, 0.6f, 5.5f);
+            if (!figure.Sized)
+            {
+                figure.Scale = target;
+                figure.Sized = true;
+                return;
+            }
+
+            if (target < figure.Scale * 0.65f || target > figure.Scale * 1.45f) return;
+            figure.Scale = Mathf.Lerp(figure.Scale, target, Gain(dt, 0.3f));
         }
 
-        static void AimBone(Transform bone, Transform parent, PoseFrame pose, JointId from, JointId to)
+        /// <summary>
+        /// Puts both hips on the camera points and keeps the pelvis level.
+        /// A hip that is missing moves back beside the other hip.
+        /// </summary>
+        Vector3 PlaceHips(Figure figure, PoseFrame pose, bool liveL, bool liveR, float dt)
         {
-            Joint a = pose.Joints[(int)from];
-            Joint b = pose.Joints[(int)to];
-            if (!Inside(a) || !Inside(b)) return;
-            Vector3 dir = new Vector3(b.X - a.X, a.Y - b.Y, 0f);
-            if (dir.sqrMagnitude < 0.0004f) return;
-            Aim(bone, parent, Vector3.down, dir);
+            int left = (int)JointId.LeftHip;
+            int right = (int)JointId.RightHip;
+            Vector3 wantL = Rest[left];
+            Vector3 wantR = Rest[right];
+            if (liveL && liveR)
+            {
+                FitHips(Map(figure, pose.Joints[left]), Map(figure, pose.Joints[right]), out wantL, out wantR);
+            }
+            else if (liveL)
+            {
+                Vector3 mapped = Map(figure, pose.Joints[left]);
+                FitHips(mapped, mapped + (Rest[right] - Rest[left]), out wantL, out wantR);
+            }
+            else if (liveR)
+            {
+                Vector3 mapped = Map(figure, pose.Joints[right]);
+                FitHips(mapped + (Rest[left] - Rest[right]), mapped, out wantL, out wantR);
+            }
+
+            float leftGain = Gain(dt, liveL ? 0.025f : 0.08f);
+            float rightGain = Gain(dt, liveR ? 0.025f : 0.08f);
+            figure.Pos[left] = Vector3.Lerp(figure.Pos[left], wantL, leftGain);
+            figure.Pos[right] = Vector3.Lerp(figure.Pos[right], wantR, rightGain);
+            if (liveL || liveR)
+            {
+                Vector3 fittedL;
+                Vector3 fittedR;
+                FitHips(figure.Pos[left], figure.Pos[right], out fittedL, out fittedR);
+                figure.Pos[left] = fittedL;
+                figure.Pos[right] = fittedR;
+            }
+
+            return figure.Pos[left];
         }
 
-        static void Aim(Transform bone, Transform parent, Vector3 restAxis, Vector3 direction)
+        /// <summary>
+        /// Moves each shoulder to its camera point. The pair stays on a real torso,
+        /// and a foreshortened torso comes forward instead of shrinking.
+        /// A missing shoulder returns to the standing offset. It does not stay shrugged.
+        /// </summary>
+        void PlaceShoulders(Figure figure, PoseFrame pose, bool liveL, bool liveR, Vector3 hipMid, float dt)
         {
-            Quaternion world = Quaternion.FromToRotation(restAxis, direction.normalized);
-            Quaternion local = Quaternion.Inverse(parent.rotation) * world;
-            bone.localRotation = Quaternion.Slerp(bone.localRotation, local, 0.55f);
+            int left = (int)JointId.LeftShoulder;
+            int right = (int)JointId.RightShoulder;
+            Vector3 hipRest = (Rest[(int)JointId.LeftHip] + Rest[(int)JointId.RightHip]) * 0.5f;
+            Vector3 wantL = hipMid + (Rest[left] - hipRest);
+            Vector3 wantR = hipMid + (Rest[right] - hipRest);
+            if (liveL && liveR)
+            {
+                FitShoulders(hipMid, Map(figure, pose.Joints[left]), Map(figure, pose.Joints[right]), out wantL, out wantR);
+            }
+            else if (liveL)
+            {
+                Vector3 mapped = Map(figure, pose.Joints[left]);
+                Vector3 other = new Vector3((hipMid.x * 2f) - mapped.x, mapped.y, mapped.z);
+                FitShoulders(hipMid, mapped, other, out wantL, out wantR);
+            }
+            else if (liveR)
+            {
+                Vector3 mapped = Map(figure, pose.Joints[right]);
+                Vector3 other = new Vector3((hipMid.x * 2f) - mapped.x, mapped.y, mapped.z);
+                FitShoulders(hipMid, other, mapped, out wantL, out wantR);
+            }
+
+            figure.Pos[left] = Vector3.Lerp(figure.Pos[left], wantL, Gain(dt, liveL ? 0.02f : 0.1f));
+            figure.Pos[right] = Vector3.Lerp(figure.Pos[right], wantR, Gain(dt, liveR ? 0.02f : 0.1f));
         }
 
-        static bool Inside(Joint joint)
+        /// <summary>
+        /// Places a child joint one bone-length from its parent.
+        /// The camera point is matched on screen, and the leftover length points at the camera.
+        /// When the joint is not seen, the bone swings back to its standing direction.
+        /// </summary>
+        void PlaceLimb(Figure figure, PoseFrame pose, JointId childId, JointId parentId, bool seen, float fallback, float dt)
         {
-            if (joint.Score < Seen) return false;
-            if (joint.X < 0.06f || joint.X > 0.94f) return false;
-            if (joint.Y < 0.06f || joint.Y > 0.94f) return false;
+            int child = (int)childId;
+            int parent = (int)parentId;
+            Vector3 origin = figure.Pos[parent];
+            Vector3 restPoint = origin + (Rest[child] - Rest[parent]);
+            Vector3 desired;
+            if (seen && pose != null)
+            {
+                Vector3 target = Map(figure, pose.Joints[child]);
+                float dx = target.x - origin.x;
+                float dy = target.y - origin.y;
+                float planar = Mathf.Sqrt((dx * dx) + (dy * dy));
+                float sample = planar;
+                float cap = fallback * 1.4f;
+                if (sample > cap) sample = cap;
+                if (sample > figure.Reach[child]) figure.Reach[child] = Mathf.Lerp(figure.Reach[child], sample, 0.35f);
+                float length = Mathf.Clamp(figure.Reach[child], fallback * 0.85f, fallback * 1.4f);
+                desired = OnBone(origin, target, length);
+            }
+            else
+            {
+                float length = Mathf.Clamp(figure.Reach[child], fallback * 0.85f, fallback * 1.4f);
+                desired = Project(origin, restPoint, length);
+            }
+
+            bool leg = parentId == JointId.LeftHip || parentId == JointId.RightHip || parentId == JointId.LeftKnee || parentId == JointId.RightKnee;
+            float tau = seen ? 0.02f : (leg ? 0.07f : 0.1f);
+            Vector3 next = Vector3.Lerp(figure.Pos[child], desired, Gain(dt, tau));
+            float keep = Mathf.Clamp(figure.Reach[child], fallback * 0.85f, fallback * 1.4f);
+            figure.Pos[child] = Project(origin, next, keep);
+        }
+
+        /// <summary>
+        /// Sits the head on the shoulders and leans it toward the nose while the nose is visible.
+        /// </summary>
+        void PlaceHead(Figure figure, float dt)
+        {
+            int nose = (int)JointId.Nose;
+            Vector3 shoulderMid = (figure.Pos[(int)JointId.LeftShoulder] + figure.Pos[(int)JointId.RightShoulder]) * 0.5f;
+            bool seen = figure.NoseUntil >= Time.unscaledTime && figure.Sized;
+            Vector3 restPoint = shoulderMid + new Vector3(0f, Neck, -0.02f);
+            Vector3 desired = restPoint;
+            if (seen)
+            {
+                Vector3 target = Map(figure, figure.NoseX, figure.NoseY);
+                if (target.y < shoulderMid.y + 0.04f) target = restPoint;
+                desired = OnBone(shoulderMid, target, Neck);
+            }
+
+            Vector3 next = Vector3.Lerp(figure.Pos[nose], desired, Gain(dt, seen ? 0.04f : 0.1f));
+            figure.Pos[nose] = Project(shoulderMid, next, Neck);
+        }
+
+        /// <summary>
+        /// Maps a camera point into the figure. X is right, Y is up, and the hips sit near standing height.
+        /// </summary>
+        static Vector3 Map(Figure figure, Joint joint)
+        {
+            return Map(figure, joint.X, joint.Y);
+        }
+
+        static Vector3 Map(Figure figure, float u, float v)
+        {
+            return new Vector3((u - figure.AnchorU) * figure.Scale, ((figure.AnchorV - v) * figure.Scale) + HipY, 0f);
+        }
+
+        /// <summary>
+        /// Keeps the pelvis a normal width and level, so one noisy hip cannot kick a leg sideways.
+        /// </summary>
+        static void FitHips(Vector3 left, Vector3 right, out Vector3 fittedL, out Vector3 fittedR)
+        {
+            float y = (left.y + right.y) * 0.5f;
+            float mid = (left.x + right.x) * 0.5f;
+            float half = Mathf.Abs(right.x - left.x) * 0.5f;
+            if (half < 0.08f) half = 0.08f;
+            if (half > 0.2f) half = 0.2f;
+            float order = right.x >= left.x ? 1f : -1f;
+            fittedL = new Vector3(mid - (half * order), y, 0.02f);
+            fittedR = new Vector3(mid + (half * order), y, 0.02f);
+        }
+
+        /// <summary>
+        /// Keeps the shoulders on a torso-length spine. A short spine in the picture
+        /// is a lean toward the camera, not a shorter body.
+        /// </summary>
+        static void FitShoulders(Vector3 hipMid, Vector3 left, Vector3 right, out Vector3 fittedL, out Vector3 fittedR)
+        {
+            float yL = left.y;
+            float yR = right.y;
+            float yMid = (yL + yR) * 0.5f;
+            yL = Mathf.Clamp(yL, yMid - 0.18f, yMid + 0.18f);
+            yR = Mathf.Clamp(yR, yMid - 0.18f, yMid + 0.18f);
+            yMid = (yL + yR) * 0.5f;
+
+            float midX = (left.x + right.x) * 0.5f;
+            float half = Mathf.Abs(right.x - left.x) * 0.5f;
+            if (half < 0.12f) half = 0.12f;
+            if (half > 0.32f) half = 0.32f;
+            float order = right.x >= left.x ? 1f : -1f;
+            float xL = midX - (half * order);
+            float xR = midX + (half * order);
+
+            float dx = midX - hipMid.x;
+            float dy = yMid - hipMid.y;
+            float planar = Mathf.Sqrt((dx * dx) + (dy * dy));
+            bool upright = dy > 0.05f && dy > Mathf.Abs(dx);
+            float x;
+            float y;
+            float z;
+            if (planar < 0.04f)
+            {
+                x = hipMid.x;
+                y = hipMid.y + Torso;
+                z = hipMid.z - 0.04f;
+            }
+            else if (!upright || planar >= Torso * 0.82f)
+            {
+                float span = planar > Torso ? Torso / planar : 1f;
+                x = hipMid.x + (dx * span);
+                y = hipMid.y + (dy * span);
+                z = hipMid.z - 0.04f;
+            }
+            else
+            {
+                x = hipMid.x + dx;
+                y = hipMid.y + dy;
+                z = hipMid.z - Mathf.Sqrt((Torso * Torso) - (planar * planar));
+            }
+
+            if (y < hipMid.y + 0.12f && z > hipMid.z - 0.16f) y = hipMid.y + 0.12f;
+            float horiz = Mathf.Abs(x - hipMid.x);
+            float vert = Mathf.Max(0.16f, y - hipMid.y);
+            if (horiz > vert * 0.9f)
+            {
+                float sign = x < hipMid.x ? -1f : 1f;
+                x = hipMid.x + (sign * vert * 0.9f);
+            }
+
+            float shiftX = x - midX;
+            xL += shiftX;
+            xR += shiftX;
+            float shrugL = yL - yMid;
+            float shrugR = yR - yMid;
+            fittedL = new Vector3(xL, y + shrugL, z);
+            fittedR = new Vector3(xR, y + shrugR, z);
+        }
+
+        /// <summary>
+        /// Puts a point on the bone sphere. Screen position is kept when the bone can reach it.
+        /// The part of the bone the camera cannot see points toward the camera.
+        /// </summary>
+        static Vector3 OnBone(Vector3 parent, Vector3 target, float length)
+        {
+            float dx = target.x - parent.x;
+            float dy = target.y - parent.y;
+            float planar = Mathf.Sqrt((dx * dx) + (dy * dy));
+            if (planar < 0.0008f) return new Vector3(parent.x, parent.y, parent.z - length);
+            if (planar >= length)
+            {
+                float span = length / planar;
+                return new Vector3(parent.x + (dx * span), parent.y + (dy * span), parent.z);
+            }
+
+            float depth = -Mathf.Sqrt((length * length) - (planar * planar));
+            return new Vector3(target.x, target.y, parent.z + depth);
+        }
+
+        /// <summary>
+        /// Keeps a point exactly one bone-length from its parent, in the direction it already has.
+        /// </summary>
+        static Vector3 Project(Vector3 parent, Vector3 point, float length)
+        {
+            Vector3 delta = point - parent;
+            float mag = delta.magnitude;
+            if (mag < 0.0001f) return parent + new Vector3(0f, -length, 0f);
+            return parent + (delta * (length / mag));
+        }
+
+        /// <summary>
+        /// Accepts a joint that is inside the picture. One wild jump is skipped.
+        /// The next steady sample is used, so a lost point is not glued in place.
+        /// </summary>
+        static bool Accept(Figure figure, JointId id, PoseFrame pose, float score)
+        {
+            int index = (int)id;
+            if (pose == null || pose.Joints == null || index >= pose.Joints.Length) return false;
+            Joint joint = pose.Joints[index];
+            if (!Live(joint, score))
+            {
+                figure.Jump[index] = false;
+                return false;
+            }
+
+            if (!figure.Held[index])
+            {
+                figure.Held[index] = true;
+                figure.HeldX[index] = joint.X;
+                figure.HeldY[index] = joint.Y;
+                figure.Jump[index] = false;
+                return true;
+            }
+
+            float dx = joint.X - figure.HeldX[index];
+            float dy = joint.Y - figure.HeldY[index];
+            if ((dx * dx) + (dy * dy) > 0.35f * 0.35f)
+            {
+                if (figure.Jump[index])
+                {
+                    float jx = joint.X - figure.JumpX[index];
+                    float jy = joint.Y - figure.JumpY[index];
+                    if ((jx * jx) + (jy * jy) < 0.12f * 0.12f)
+                    {
+                        figure.HeldX[index] = joint.X;
+                        figure.HeldY[index] = joint.Y;
+                        figure.Jump[index] = false;
+                        return true;
+                    }
+                }
+
+                figure.Jump[index] = true;
+                figure.JumpX[index] = joint.X;
+                figure.JumpY[index] = joint.Y;
+                return false;
+            }
+
+            figure.HeldX[index] = joint.X;
+            figure.HeldY[index] = joint.Y;
+            figure.Jump[index] = false;
             return true;
+        }
+
+        static bool Live(Joint joint, float score)
+        {
+            if (joint.Score < score) return false;
+            if (joint.X <= 0.01f || joint.X >= 0.99f) return false;
+            if (joint.Y <= 0.01f || joint.Y >= 0.99f) return false;
+            return true;
+        }
+
+        static float Gain(float dt, float tau)
+        {
+            return 1f - Mathf.Exp(-dt / tau);
+        }
+
+        /// <summary>
+        /// Writes the boxes from the solved joints. Length is the distance between those joints.
+        /// </summary>
+        void Draw(Figure figure)
+        {
+            float plant = figure.Plant;
+            Vector3 hipL = Shown(figure.Pos[(int)JointId.LeftHip], plant);
+            Vector3 hipR = Shown(figure.Pos[(int)JointId.RightHip], plant);
+            Vector3 shL = Shown(figure.Pos[(int)JointId.LeftShoulder], plant);
+            Vector3 shR = Shown(figure.Pos[(int)JointId.RightShoulder], plant);
+            Vector3 elL = Shown(figure.Pos[(int)JointId.LeftElbow], plant);
+            Vector3 elR = Shown(figure.Pos[(int)JointId.RightElbow], plant);
+            Vector3 wrL = Shown(figure.Pos[(int)JointId.LeftWrist], plant);
+            Vector3 wrR = Shown(figure.Pos[(int)JointId.RightWrist], plant);
+            Vector3 knL = Shown(figure.Pos[(int)JointId.LeftKnee], plant);
+            Vector3 knR = Shown(figure.Pos[(int)JointId.RightKnee], plant);
+            Vector3 anL = Shown(figure.Pos[(int)JointId.LeftAnkle], plant);
+            Vector3 anR = Shown(figure.Pos[(int)JointId.RightAnkle], plant);
+            Vector3 head = Shown(figure.Pos[(int)JointId.Nose], plant);
+            Vector3 hipMid = (hipL + hipR) * 0.5f;
+            Vector3 shoulderMid = (shL + shR) * 0.5f;
+
+            Orient(figure.Pelvis, hipL, hipR, 0.18f, 0.22f, true);
+            Orient(figure.Chest, hipMid, shoulderMid, Mathf.Clamp(Mathf.Abs(shR.x - shL.x) + 0.08f, 0.28f, 0.72f), 0.26f, false);
+            Orient(figure.NeckBone, shoulderMid, head, 0.1f, 0.1f, false);
+            figure.Head.localPosition = head;
+            figure.Head.localRotation = Quaternion.identity;
+            figure.Head.localScale = new Vector3(0.28f, 0.3f, 0.26f);
+
+            Orient(figure.UpperArmL, shL, elL, 0.1f, 0.1f, false);
+            Orient(figure.ForeArmL, elL, wrL, 0.09f, 0.09f, false);
+            Orient(figure.UpperArmR, shR, elR, 0.1f, 0.1f, false);
+            Orient(figure.ForeArmR, elR, wrR, 0.09f, 0.09f, false);
+            Orient(figure.ThighL, hipL, knL, 0.14f, 0.14f, false);
+            Orient(figure.ShinL, knL, anL, 0.12f, 0.12f, false);
+            Orient(figure.ThighR, hipR, knR, 0.14f, 0.14f, false);
+            Orient(figure.ShinR, knR, anR, 0.12f, 0.12f, false);
+            PlaceEnd(figure.HandL, elL, wrL, new Vector3(0.1f, 0.1f, 0.08f));
+            PlaceEnd(figure.HandR, elR, wrR, new Vector3(0.1f, 0.1f, 0.08f));
+            PlaceEnd(figure.FootL, knL, anL, new Vector3(0.12f, 0.1f, 0.18f));
+            PlaceEnd(figure.FootR, knR, anR, new Vector3(0.12f, 0.1f, 0.18f));
+        }
+
+        static Vector3 Shown(Vector3 point, float plant)
+        {
+            point.y -= plant;
+            return point;
+        }
+
+        /// <summary>
+        /// Stretches one box between two joints. The long axis follows the bone without flipping.
+        /// </summary>
+        static void Orient(Transform bone, Vector3 from, Vector3 to, float thickX, float thickZ, bool alongX)
+        {
+            Vector3 delta = to - from;
+            float length = delta.magnitude;
+            if (length < 0.02f)
+            {
+                bone.localPosition = (from + to) * 0.5f;
+                bone.localScale = new Vector3(thickX, 0.02f, thickZ);
+                return;
+            }
+
+            bone.localPosition = (from + to) * 0.5f;
+            if (alongX)
+            {
+                bone.localRotation = LookAlongX(delta / length);
+                bone.localScale = new Vector3(length, thickX, thickZ);
+            }
+            else
+            {
+                bone.localRotation = LookAlongY(delta / length);
+                bone.localScale = new Vector3(thickX, length, thickZ);
+            }
+        }
+
+        /// <summary>
+        /// Puts the hand or foot just past the end joint, lined up with that limb.
+        /// </summary>
+        static void PlaceEnd(Transform bone, Vector3 from, Vector3 to, Vector3 scale)
+        {
+            Vector3 dir = to - from;
+            if (dir.sqrMagnitude < 0.0001f) dir = Vector3.down;
+            else dir.Normalize();
+            bone.localPosition = to + (dir * (scale.y * 0.35f));
+            bone.localRotation = LookAlongY(dir);
+            bone.localScale = scale;
+        }
+
+        static Quaternion LookAlongY(Vector3 direction)
+        {
+            Vector3 y = direction.normalized;
+            Vector3 x = Vector3.Cross(Vector3.forward, y);
+            if (x.sqrMagnitude < 0.0001f) x = Vector3.Cross(Vector3.right, y);
+            x.Normalize();
+            Vector3 z = Vector3.Cross(x, y);
+            return Quaternion.LookRotation(z, y);
+        }
+
+        static Quaternion LookAlongX(Vector3 direction)
+        {
+            Vector3 x = direction.normalized;
+            Vector3 y = Vector3.Cross(x, Vector3.forward);
+            if (y.sqrMagnitude < 0.0001f) y = Vector3.Cross(x, Vector3.up);
+            y.Normalize();
+            Vector3 z = Vector3.Cross(x, y);
+            return Quaternion.LookRotation(z, y);
+        }
+
+        static Vector3[] BuildRest()
+        {
+            Vector3[] rest = new Vector3[(int)JointId.Count];
+            rest[(int)JointId.LeftHip] = new Vector3(-0.11f, HipY, 0.02f);
+            rest[(int)JointId.RightHip] = new Vector3(0.11f, HipY, 0.02f);
+            rest[(int)JointId.LeftShoulder] = new Vector3(-0.24f, 1.40f, -0.04f);
+            rest[(int)JointId.RightShoulder] = new Vector3(0.24f, 1.40f, -0.04f);
+            rest[(int)JointId.LeftElbow] = rest[(int)JointId.LeftShoulder] + new Vector3(-0.06f, -0.294f, 0f);
+            rest[(int)JointId.RightElbow] = rest[(int)JointId.RightShoulder] + new Vector3(0.06f, -0.294f, 0f);
+            rest[(int)JointId.LeftWrist] = rest[(int)JointId.LeftElbow] + new Vector3(0f, -ForeArm, 0f);
+            rest[(int)JointId.RightWrist] = rest[(int)JointId.RightElbow] + new Vector3(0f, -ForeArm, 0f);
+            rest[(int)JointId.LeftKnee] = rest[(int)JointId.LeftHip] + new Vector3(0f, -Thigh, 0f);
+            rest[(int)JointId.RightKnee] = rest[(int)JointId.RightHip] + new Vector3(0f, -Thigh, 0f);
+            rest[(int)JointId.LeftAnkle] = rest[(int)JointId.LeftKnee] + new Vector3(0f, -Shin, 0f);
+            rest[(int)JointId.RightAnkle] = rest[(int)JointId.RightKnee] + new Vector3(0f, -Shin, 0f);
+            Vector3 shoulderMid = (rest[(int)JointId.LeftShoulder] + rest[(int)JointId.RightShoulder]) * 0.5f;
+            rest[(int)JointId.Nose] = shoulderMid + new Vector3(0f, Neck, -0.02f);
+            return rest;
         }
 
         Figure CreateFigure(int index)
         {
             Figure figure = new Figure();
+            int count = (int)JointId.Count;
+            figure.Pos = new Vector3[count];
+            figure.Reach = new float[count];
+            figure.Held = new bool[count];
+            figure.HeldX = new float[count];
+            figure.HeldY = new float[count];
+            figure.Jump = new bool[count];
+            figure.JumpX = new float[count];
+            figure.JumpY = new float[count];
+            for (int i = 0; i < count; i++) figure.Pos[i] = Rest[i];
+            figure.Reach[(int)JointId.LeftElbow] = UpperArm;
+            figure.Reach[(int)JointId.RightElbow] = UpperArm;
+            figure.Reach[(int)JointId.LeftWrist] = ForeArm;
+            figure.Reach[(int)JointId.RightWrist] = ForeArm;
+            figure.Reach[(int)JointId.LeftKnee] = Thigh;
+            figure.Reach[(int)JointId.RightKnee] = Thigh;
+            figure.Reach[(int)JointId.LeftAnkle] = Shin;
+            figure.Reach[(int)JointId.RightAnkle] = Shin;
+
             GameObject rootObject = new GameObject("Character " + (index + 1));
             rootObject.transform.SetParent(transform, false);
             figure.Root = rootObject.transform;
-
-            Transform hips = Pivot("Hips", figure.Root, new Vector3(0f, 0.92f, 0f));
-            Cube(hips, "Pelvis", new Vector3(0f, 0.02f, 0.02f), new Vector3(0.38f, 0.2f, 0.24f), limbMaterial);
-
-            figure.Torso = Pivot("Torso", hips, Vector3.zero);
-            Cube(figure.Torso, "Chest", new Vector3(0f, 0.28f, -0.02f), new Vector3(0.46f, 0.48f, 0.28f), bodyMaterial);
-            Cube(figure.Torso, "Stripe", new Vector3(0f, 0.34f, -0.16f), new Vector3(0.28f, 0.06f, 0.04f), headMaterial);
-
-            figure.Head = Pivot("Head", figure.Torso, new Vector3(0f, 0.56f, -0.02f));
-            Cube(figure.Head, "Skull", new Vector3(0f, 0.16f, 0f), new Vector3(0.3f, 0.3f, 0.28f), bodyMaterial);
-
-            figure.UpperArmL = Limb(figure.Torso, "Upper Arm L", new Vector3(-0.28f, 0.46f, -0.12f), 0.34f, 0.12f, limbMaterial, out figure.ForeArmL, 0.3f);
-            figure.UpperArmR = Limb(figure.Torso, "Upper Arm R", new Vector3(0.28f, 0.46f, -0.12f), 0.34f, 0.12f, limbMaterial, out figure.ForeArmR, 0.3f);
-            Cube(figure.ForeArmL, "Hand", new Vector3(0f, -0.34f, -0.02f), new Vector3(0.1f, 0.1f, 0.08f), headMaterial);
-            Cube(figure.ForeArmR, "Hand", new Vector3(0f, -0.34f, -0.02f), new Vector3(0.1f, 0.1f, 0.08f), headMaterial);
-            figure.ThighL = Limb(figure.Root, "Thigh L", new Vector3(-0.11f, 0.92f, 0.04f), 0.42f, 0.15f, limbMaterial, out figure.ShinL, 0.42f);
-            figure.ThighR = Limb(figure.Root, "Thigh R", new Vector3(0.11f, 0.92f, 0.04f), 0.42f, 0.15f, limbMaterial, out figure.ShinR, 0.42f);
-            Cube(figure.ShinL, "Foot", new Vector3(0f, -0.44f, -0.06f), new Vector3(0.14f, 0.08f, 0.22f), limbMaterial);
-            Cube(figure.ShinR, "Foot", new Vector3(0f, -0.44f, -0.06f), new Vector3(0.14f, 0.08f, 0.22f), limbMaterial);
+            figure.Pelvis = Box(figure.Root, "Pelvis", limbMaterial);
+            figure.Chest = Box(figure.Root, "Chest", bodyMaterial);
+            figure.NeckBone = Box(figure.Root, "Neck", limbMaterial);
+            figure.Head = Box(figure.Root, "Head", headMaterial);
+            figure.UpperArmL = Box(figure.Root, "Upper Arm L", limbMaterial);
+            figure.ForeArmL = Box(figure.Root, "Forearm L", limbMaterial);
+            figure.UpperArmR = Box(figure.Root, "Upper Arm R", limbMaterial);
+            figure.ForeArmR = Box(figure.Root, "Forearm R", limbMaterial);
+            figure.ThighL = Box(figure.Root, "Thigh L", limbMaterial);
+            figure.ShinL = Box(figure.Root, "Shin L", limbMaterial);
+            figure.ThighR = Box(figure.Root, "Thigh R", limbMaterial);
+            figure.ShinR = Box(figure.Root, "Shin R", limbMaterial);
+            figure.HandL = Box(figure.Root, "Hand L", headMaterial);
+            figure.HandR = Box(figure.Root, "Hand R", headMaterial);
+            figure.FootL = Box(figure.Root, "Foot L", limbMaterial);
+            figure.FootR = Box(figure.Root, "Foot R", limbMaterial);
             return figure;
         }
 
-        static Transform Limb(Transform parent, string name, Vector3 pivot, float upper, float thick, Material material, out Transform next, float lower)
-        {
-            Transform upperPivot = Pivot(name, parent, pivot);
-            Cube(upperPivot, "Upper", new Vector3(0f, -upper * 0.5f, 0f), new Vector3(thick, upper, thick), material);
-            next = Pivot("Lower", upperPivot, new Vector3(0f, -upper, 0f));
-            Cube(next, "Lower", new Vector3(0f, -lower * 0.5f, 0f), new Vector3(thick * 0.9f, lower, thick * 0.9f), material);
-            return upperPivot;
-        }
-
-        static Transform Pivot(string name, Transform parent, Vector3 localPosition)
-        {
-            GameObject go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPosition;
-            go.transform.localRotation = Quaternion.identity;
-            return go.transform;
-        }
-
-        static void Cube(Transform parent, string name, Vector3 localPosition, Vector3 scale, Material material)
+        static Transform Box(Transform parent, string name, Material material)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = name;
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPosition;
-            go.transform.localRotation = Quaternion.identity;
-            go.transform.localScale = scale;
             Strip(go);
             Renderer renderer = go.GetComponent<Renderer>();
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+            return go.transform;
         }
 
         static void Strip(GameObject go)

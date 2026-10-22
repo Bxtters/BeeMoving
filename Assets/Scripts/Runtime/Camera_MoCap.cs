@@ -151,6 +151,7 @@ namespace Handline
         RectTransform canvasRect;
         RectTransform stage;
         RectTransform stageFrame;
+        bool stagePlaced;
         RawImage videoView;
         StagePuppet puppet;
         Camera stageCamera;
@@ -171,8 +172,8 @@ namespace Handline
         int settingsSeenW = -1;
         int settingsSeenH = -1;
         Color32[] crop;
+        Color32[] cameraPixels;
         Texture2D previewTex;
-        Color32[] previewPixels;
         int[] sampleIndex;
         int sampleWidth;
         int sampleHeight;
@@ -616,7 +617,9 @@ namespace Handline
 
             try
             {
-                Color32[] filled = webcam.GetPixels32();
+                int pixels = sw * sh;
+                if (cameraPixels == null || cameraPixels.Length != pixels) cameraPixels = new Color32[pixels];
+                Color32[] filled = webcam.GetPixels32(cameraPixels);
                 if (filled == null || filled.Length == 0) return;
                 FillCrop(filled, sw, sh, HandlineSize);
                 ShowCrop(crop, HandlineSize);
@@ -747,7 +750,7 @@ namespace Handline
             if (end > (int)JointId.Count) end = (int)JointId.Count;
             for (int i = start; i < end; i++)
             {
-                if (pose.Joints[i].Score >= DrawScore) count++;
+                if (pose.Joints[i].Score >= jointThreshold) count++;
             }
 
             return count;
@@ -783,7 +786,7 @@ namespace Handline
             {
                 if (ids[i] >= pose.Joints.Length) continue;
                 Joint joint = pose.Joints[ids[i]];
-                if (joint.Score < DrawScore) continue;
+                if (joint.Score < jointThreshold) continue;
                 x += joint.X;
                 y += joint.Y;
                 count++;
@@ -797,7 +800,7 @@ namespace Handline
                 for (int i = start; i < end; i++)
                 {
                     Joint joint = pose.Joints[i];
-                    if (joint.Score < DrawScore) continue;
+                    if (joint.Score < jointThreshold) continue;
                     x += joint.X;
                     y += joint.Y;
                     count++;
@@ -1501,22 +1504,12 @@ namespace Handline
                 previewTex.wrapMode = TextureWrapMode.Clamp;
                 previewTex.filterMode = FilterMode.Bilinear;
                 previewTex.name = "Camera preview";
+                videoView.texture = previewTex;
+                videoView.uvRect = new Rect(0f, 1f, 1f, -1f);
             }
 
-            int count = size * size;
-            if (previewPixels == null || previewPixels.Length != count) previewPixels = new Color32[count];
-            for (int y = 0; y < size; y++)
-            {
-                int src = y * size;
-                int dst = (size - 1 - y) * size;
-                for (int x = 0; x < size; x++) previewPixels[dst + x] = square[src + x];
-            }
-
-            previewTex.SetPixels32(previewPixels);
+            previewTex.SetPixels32(square);
             previewTex.Apply(false, false);
-            Array.Clear(previewPixels, 0, previewPixels.Length);
-            videoView.uvRect = new Rect(0f, 0f, 1f, 1f);
-            videoView.texture = previewTex;
             videoView.enabled = true;
         }
 
@@ -1531,7 +1524,6 @@ namespace Handline
                 previewTex = null;
             }
 
-            previewPixels = null;
             if (videoView == null) return;
             videoView.texture = null;
             videoView.enabled = false;
@@ -1585,7 +1577,7 @@ namespace Handline
         /// </summary>
         bool LayoutStage()
         {
-            if (stage == null) return false;
+            if (stagePlaced || stage == null) return false;
             const float side = 280f;
             stage.anchorMin = Vector2.zero;
             stage.anchorMax = Vector2.zero;
@@ -1601,6 +1593,7 @@ namespace Handline
                 stageFrame.sizeDelta = new Vector2(side + 10f, side + 10f);
             }
 
+            stagePlaced = true;
             return false;
         }
 
@@ -1620,7 +1613,7 @@ namespace Handline
 
             if (puppet != null)
             {
-                puppet.Follow(stable, slotUsed, peopleLimit);
+                puppet.Follow(stable, slotUsed, peopleLimit, jointThreshold);
                 puppet.Frame(stageCamera, peopleLimit);
             }
         }
@@ -1643,7 +1636,7 @@ namespace Handline
 
                 Joint a = pose.Joints[aId];
                 Joint b = pose.Joints[bId];
-                if (a.Score < DrawScore || b.Score < DrawScore)
+                if (a.Score < jointThreshold || b.Score < jointThreshold)
                 {
                     bones[i].enabled = false;
                     continue;
@@ -1661,7 +1654,6 @@ namespace Handline
 
                 RectTransform boneRect = bones[i].rectTransform;
                 boneRect.anchoredPosition = (pa + pb) * 0.5f;
-                boneRect.SetAsLastSibling();
                 boneRect.sizeDelta = new Vector2(length, 8f);
                 boneRect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
                 bones[i].enabled = true;
@@ -1672,7 +1664,7 @@ namespace Handline
             for (int i = 0; i < joints.Length; i++)
             {
                 int jointId = start + i;
-                if (!show || jointId >= pose.Joints.Length || pose.Joints[jointId].Score < DrawScore)
+                if (!show || jointId >= pose.Joints.Length || pose.Joints[jointId].Score < jointThreshold)
                 {
                     joints[i].enabled = false;
                     continue;
@@ -1681,7 +1673,6 @@ namespace Handline
                 bool hand = IsMeasuredHand(jointId);
                 float size = hand ? 22f : 14f;
                 RectTransform jointRect = joints[i].rectTransform;
-                jointRect.SetAsLastSibling();
                 jointRect.sizeDelta = new Vector2(size, size);
                 Vector2 point = ToPoint(pose.Joints[jointId], width, height);
                 jointRect.anchoredPosition = point;
