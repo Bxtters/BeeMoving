@@ -3,7 +3,10 @@ using System.Collections;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 
@@ -33,13 +36,24 @@ namespace Handline
         public const int MaxPeople = 6;
 
         const int CropSize = 384;
-        const float JointThreshold = 0.3f;
         const int MinBodyPoints = 3;
         const float SlotMatchDistance = 0.35f;
         const string MultiModelFile = "movenet_multipose.tflite";
         const string SingleModelFile = "movenet_lightning.tflite";
         const string PrivacyNotice = "On this device only. The camera picture is not shown or saved. Faces are not kept.";
         const string HandNotice = "Each hand is the wrist. MoveNet Lightning has no finger joints, so none are drawn.";
+        const string PhoneHelp =
+            "iPhone: Settings → General → AirPlay & Continuity → Continuity Camera. Unlock the phone beside this computer on the same Apple ID, then press Refresh.\n" +
+            "Android: start Iriun or DroidCam on the phone and this computer, then press Refresh.\n" +
+            "USB: plug the phone in, allow the prompt, then press Refresh.";
+        const string PrefMirror = "CameraMoCap.Mirror";
+        const string PrefRotation = "CameraMoCap.Rotation";
+        const string PrefWidth = "CameraMoCap.Width";
+        const string PrefHeight = "CameraMoCap.Height";
+        const string PrefFps = "CameraMoCap.Fps";
+        const string PrefPeople = "CameraMoCap.People";
+        const string PrefThreshold = "CameraMoCap.Threshold";
+        const string PrefCamera = "CameraMoCap.Camera";
 
         static readonly int[] Bones =
         {
@@ -101,6 +115,12 @@ namespace Handline
         int knownDeviceCount = -1;
         int crowdCount;
         int extraRotation;
+        int requestWidth = 640;
+        int requestHeight = 480;
+        int requestFps = 30;
+        int peopleLimit = MaxPeople;
+        int pendingCamera = -1;
+        float jointThreshold = 0.3f;
         float nextDeviceScan;
         float poseUntil;
         float cameraOpenedAt;
@@ -108,6 +128,17 @@ namespace Handline
         bool ready;
         bool cameraHeldOff;
         bool resuming;
+        bool waitingForPhone;
+        string savedCameraName = "";
+        GameObject settingsRoot;
+        Text settingsCameraText;
+        Text settingsResolutionText;
+        Text settingsFpsText;
+        Text settingsMirrorText;
+        Text settingsRotationText;
+        Text settingsPeopleText;
+        Text settingsDetailText;
+        Text settingsPowerText;
 
         /// <summary>
         /// Creates the stage when the open scene does not already contain it.
@@ -136,6 +167,7 @@ namespace Handline
                     stable[i] = new PoseFrame();
                 }
 
+                LoadSettings();
                 BuildStage();
                 ready = true;
             }
@@ -154,7 +186,7 @@ namespace Handline
             if (!ready) yield break;
             yield return LoadModel();
             if (engine == null || cameraHeldOff) yield break;
-            OpenCamera(PreferredCamera());
+            OpenCamera(ChooseStartupCamera());
         }
 
         /// <summary>
@@ -221,30 +253,35 @@ namespace Handline
         /// </summary>
         void PollKeys()
         {
+            if (Keys.Pressed(Key.Tab))
+            {
+                SetSettingsOpen(settingsRoot == null || !settingsRoot.activeSelf);
+                return;
+            }
+
             if (Keys.Pressed(Key.Escape))
             {
+                if (settingsRoot != null && settingsRoot.activeSelf)
+                {
+                    SetSettingsOpen(false);
+                    return;
+                }
+
                 StopCapture("Camera off. Press Enter to start it again.");
                 return;
             }
 
             if (Keys.Pressed(Key.Enter) || Keys.Pressed(Key.Space))
             {
+                if (settingsRoot != null && settingsRoot.activeSelf) return;
                 if (!resuming) StartCoroutine(Resume());
                 return;
             }
 
             if (cameraHeldOff || webcam == null) return;
-            if (Keys.Pressed(Key.F))
-            {
-                mirror = !mirror;
-                RefreshStatus();
-            }
+            if (Keys.Pressed(Key.F)) ToggleMirror();
 
-            if (Keys.Pressed(Key.Q))
-            {
-                extraRotation = (extraRotation + 90) % 360;
-                RefreshStatus();
-            }
+            if (Keys.Pressed(Key.Q)) CycleRotation();
 
             if (Keys.Pressed(Key.C))
             {
@@ -263,7 +300,9 @@ namespace Handline
             if (engine == null) yield return LoadModel();
             resuming = false;
             if (engine == null || cameraHeldOff) yield break;
-            OpenCamera(PreferredCamera());
+            int index = pendingCamera >= 0 ? pendingCamera : ChooseStartupCamera();
+            pendingCamera = -1;
+            OpenCamera(index);
         }
 
         /// <summary>
@@ -460,7 +499,7 @@ namespace Handline
                 FillCrop(sensorPixels, sw, sh);
                 if (engine != null)
                 {
-                    crowdCount = engine.TryRead(crop, CropSize, crowd, MaxPeople);
+                    crowdCount = engine.TryRead(crop, CropSize, crowd, peopleLimit);
                     if (crowdCount < 0) crowdCount = 0;
                     if (crowdCount > MaxPeople) crowdCount = MaxPeople;
                 }
@@ -574,7 +613,7 @@ namespace Handline
         /// <summary>
         /// Counts body joints that cleared the drawing threshold.
         /// </summary>
-        static int BodyPoints(PoseFrame pose)
+        int BodyPoints(PoseFrame pose)
         {
             if (pose == null || pose.Joints == null) return 0;
             int count = 0;
@@ -583,7 +622,7 @@ namespace Handline
             if (end > (int)JointId.Count) end = (int)JointId.Count;
             for (int i = start; i < end; i++)
             {
-                if (pose.Joints[i].Score >= JointThreshold) count++;
+                if (pose.Joints[i].Score >= jointThreshold) count++;
             }
 
             return count;
@@ -592,7 +631,7 @@ namespace Handline
         /// <summary>
         /// True when enough of the torso and limbs are visible to draw a person.
         /// </summary>
-        static bool HasBody(PoseFrame pose)
+        bool HasBody(PoseFrame pose)
         {
             return BodyPoints(pose) >= MinBodyPoints;
         }
@@ -601,7 +640,7 @@ namespace Handline
         /// Averages the visible shoulders and hips. If those are hidden, it uses the visible limbs.
         /// Facial points are not part of the average.
         /// </summary>
-        static bool Torso(PoseFrame pose, out float x, out float y)
+        bool Torso(PoseFrame pose, out float x, out float y)
         {
             x = 0f;
             y = 0f;
@@ -619,7 +658,7 @@ namespace Handline
             {
                 if (ids[i] >= pose.Joints.Length) continue;
                 Joint joint = pose.Joints[ids[i]];
-                if (joint.Score < JointThreshold) continue;
+                if (joint.Score < jointThreshold) continue;
                 x += joint.X;
                 y += joint.Y;
                 count++;
@@ -633,7 +672,7 @@ namespace Handline
                 for (int i = start; i < end; i++)
                 {
                     Joint joint = pose.Joints[i];
-                    if (joint.Score < JointThreshold) continue;
+                    if (joint.Score < jointThreshold) continue;
                     x += joint.X;
                     y += joint.Y;
                     count++;
@@ -765,7 +804,7 @@ namespace Handline
         }
 
         /// <summary>
-        /// Opens one camera at a modest size. The picture is read for MoveNet and is not assigned to a view.
+        /// Opens one camera at the size chosen in settings. The picture is read for MoveNet and is not assigned to a view.
         /// </summary>
         void OpenCamera(int index)
         {
@@ -774,6 +813,7 @@ namespace Handline
             {
                 knownDeviceCount = 0;
                 ReleaseCamera();
+                RefreshSettingLabels();
                 SetStatus("No camera detected.");
                 return;
             }
@@ -781,21 +821,24 @@ namespace Handline
             if (index < 0 || index >= devices.Length) index = 0;
             cameraIndex = index;
             knownDeviceCount = devices.Length;
+            savedCameraName = devices[index].name;
+            SaveSettings();
             ReleaseCamera();
             try
             {
-                // The device name is only passed to Unity. It is not drawn or stored.
-                webcam = new WebCamTexture(devices[index].name, 640, 480, 30);
+                webcam = new WebCamTexture(devices[index].name, requestWidth, requestHeight, requestFps);
                 webcam.Play();
             }
             catch (Exception)
             {
                 ReleaseCamera();
-                SetStatus("The camera did not start. Allow the camera for Unity, then press C.");
+                SetStatus("The camera did not start. Allow the camera for Unity, then choose another one in Settings.");
+                RefreshSettingLabels();
                 return;
             }
 
             cameraOpenedAt = Time.unscaledTime;
+            RefreshSettingLabels();
             RefreshStatus();
         }
 
@@ -811,11 +854,28 @@ namespace Handline
         }
 
         /// <summary>
-        /// Picks a front-facing camera when the device reports one.
+        /// Uses the camera saved in settings, or a front-facing camera when nothing is saved.
         /// </summary>
-        static int PreferredCamera()
+        int ChooseStartupCamera()
         {
             WebCamDevice[] devices = WebCamTexture.devices;
+            if (devices == null || devices.Length == 0) return 0;
+            if (!string.IsNullOrEmpty(savedCameraName))
+            {
+                for (int i = 0; i < devices.Length; i++)
+                {
+                    if (devices[i].name == savedCameraName) return i;
+                }
+            }
+
+            return FrontCamera(devices);
+        }
+
+        /// <summary>
+        /// Picks a front-facing camera when the device reports one.
+        /// </summary>
+        static int FrontCamera(WebCamDevice[] devices)
+        {
             if (devices == null) return 0;
             for (int i = 0; i < devices.Length; i++)
             {
@@ -826,7 +886,7 @@ namespace Handline
         }
 
         /// <summary>
-        /// Notices a newly plugged-in camera without printing the device name.
+        /// Notices a newly connected camera. A phone that appears after Use my phone is selected on its own.
         /// </summary>
         void ScanDevices()
         {
@@ -836,8 +896,27 @@ namespace Handline
             int count = devices == null ? 0 : devices.Length;
             if (count == knownDeviceCount) return;
             knownDeviceCount = count;
-            if (webcam == null && count > 0 && !cameraHeldOff) OpenCamera(PreferredCamera());
-            if (count == 0) ReleaseCamera();
+            RefreshSettingLabels();
+            if (count == 0)
+            {
+                ReleaseCamera();
+                return;
+            }
+
+            if (waitingForPhone)
+            {
+                int phone = FindPhone(devices);
+                if (phone >= 0)
+                {
+                    waitingForPhone = false;
+                    cameraHeldOff = false;
+                    OpenCamera(phone);
+                    SetStatus("Phone camera connected. The picture stays on this device.");
+                    return;
+                }
+            }
+
+            if (webcam == null && !cameraHeldOff) OpenCamera(ChooseStartupCamera());
         }
 
         /// <summary>
@@ -848,7 +927,8 @@ namespace Handline
             Font font = BuiltinFont();
             Sprite sprite = WhiteSprite();
 
-            GameObject canvasObject = new GameObject("Camera_MoCap Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            EnsureEventSystem();
+            GameObject canvasObject = new GameObject("Camera_MoCap Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasObject.transform.SetParent(transform, false);
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -916,8 +996,9 @@ namespace Handline
             statusText.horizontalOverflow = HorizontalWrapMode.Wrap;
             statusText.verticalOverflow = VerticalWrapMode.Overflow;
             Place(statusText.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 58f), new Vector2(1100f, 28f));
-            Text help = MakeText("Help", canvasRect, font, "C next camera    F mirror    Q rotate    Esc stop    Enter start", 16, TextAnchor.LowerLeft, Muted);
+            Text help = MakeText("Help", canvasRect, font, "Tab settings    F mirror    Q rotate    Esc stop    Enter start", 16, TextAnchor.LowerLeft, Muted);
             Place(help.rectTransform, new Vector2(0f, 0f), new Vector2(36f, 28f), new Vector2(1100f, 24f));
+            BuildSettings(font, sprite);
         }
 
         /// <summary>
@@ -966,7 +1047,7 @@ namespace Handline
 
                 Joint a = pose.Joints[aId];
                 Joint b = pose.Joints[bId];
-                if (a.Score < JointThreshold || b.Score < JointThreshold)
+                if (a.Score < jointThreshold || b.Score < jointThreshold)
                 {
                     bones[i].enabled = false;
                     continue;
@@ -994,7 +1075,7 @@ namespace Handline
             for (int i = 0; i < joints.Length; i++)
             {
                 int jointId = start + i;
-                if (!show || jointId >= pose.Joints.Length || pose.Joints[jointId].Score < JointThreshold)
+                if (!show || jointId >= pose.Joints.Length || pose.Joints[jointId].Score < jointThreshold)
                 {
                     joints[i].enabled = false;
                     continue;
@@ -1097,6 +1178,470 @@ namespace Handline
             whiteTex.Apply();
             whiteSprite = Sprite.Create(whiteTex, new Rect(0f, 0f, 2f, 2f), new Vector2(0.5f, 0.5f), 100f);
             return whiteSprite;
+        }
+
+        /// <summary>
+        /// Reads display choices saved on this machine. Nothing here is uploaded.
+        /// </summary>
+        void LoadSettings()
+        {
+            mirror = PlayerPrefs.GetInt(PrefMirror, 1) == 1;
+            extraRotation = PlayerPrefs.GetInt(PrefRotation, 0);
+            if (extraRotation != 0 && extraRotation != 90 && extraRotation != 180 && extraRotation != 270) extraRotation = 0;
+            requestWidth = PlayerPrefs.GetInt(PrefWidth, 640);
+            requestHeight = PlayerPrefs.GetInt(PrefHeight, 480);
+            if (!KnownResolution(requestWidth, requestHeight))
+            {
+                requestWidth = 640;
+                requestHeight = 480;
+            }
+
+            requestFps = PlayerPrefs.GetInt(PrefFps, 30);
+            if (requestFps != 15 && requestFps != 30 && requestFps != 60) requestFps = 30;
+            peopleLimit = Mathf.Clamp(PlayerPrefs.GetInt(PrefPeople, MaxPeople), 1, MaxPeople);
+            jointThreshold = PlayerPrefs.GetFloat(PrefThreshold, 0.3f);
+            if (jointThreshold < 0.15f || jointThreshold > 0.6f) jointThreshold = 0.3f;
+            savedCameraName = PlayerPrefs.GetString(PrefCamera, "");
+        }
+
+        /// <summary>
+        /// Stores the current display choices in Unity PlayerPrefs on this machine.
+        /// </summary>
+        void SaveSettings()
+        {
+            PlayerPrefs.SetInt(PrefMirror, mirror ? 1 : 0);
+            PlayerPrefs.SetInt(PrefRotation, extraRotation);
+            PlayerPrefs.SetInt(PrefWidth, requestWidth);
+            PlayerPrefs.SetInt(PrefHeight, requestHeight);
+            PlayerPrefs.SetInt(PrefFps, requestFps);
+            PlayerPrefs.SetInt(PrefPeople, peopleLimit);
+            PlayerPrefs.SetFloat(PrefThreshold, jointThreshold);
+            PlayerPrefs.SetString(PrefCamera, savedCameraName ?? "");
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>
+        /// True for the three resolutions the settings menu offers.
+        /// </summary>
+        static bool KnownResolution(int width, int height)
+        {
+            return (width == 640 && height == 480) || (width == 1280 && height == 720) || (width == 1920 && height == 1080);
+        }
+
+        /// <summary>
+        /// Creates the event system the settings buttons need.
+        /// </summary>
+        static void EnsureEventSystem()
+        {
+            if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null) return;
+            GameObject events = new GameObject("EventSystem");
+            events.AddComponent<EventSystem>();
+            events.AddComponent<InputSystemUIInputModule>();
+        }
+
+        /// <summary>
+        /// Builds the settings card, the phone steps, and the button that opens them.
+        /// </summary>
+        void BuildSettings(Font font, Sprite sprite)
+        {
+            Button open = MakeButton("Open Settings", canvasRect, sprite, font, "Settings", delegate { SetSettingsOpen(true); });
+            Place(open.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(-36f, -72f), new Vector2(160f, 36f));
+
+            settingsRoot = new GameObject("Settings", typeof(RectTransform));
+            settingsRoot.transform.SetParent(canvasRect, false);
+            Stretch(settingsRoot.GetComponent<RectTransform>());
+
+            Image dim = MakeImage("Dim", settingsRoot.transform, sprite, new Color(0.02f, 0.02f, 0.02f, 0.62f));
+            dim.raycastTarget = true;
+            Stretch(dim.rectTransform);
+            Button dimButton = dim.gameObject.AddComponent<Button>();
+            dimButton.targetGraphic = dim;
+            dimButton.onClick.AddListener(delegate { SetSettingsOpen(false); });
+
+            Image panel = MakeImage("Panel", settingsRoot.transform, sprite, new Color(0.10f, 0.09f, 0.08f, 0.98f));
+            panel.raycastTarget = true;
+            RectTransform panelRect = panel.rectTransform;
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(640f, 760f);
+
+            Text heading = MakeText("Heading", panel.transform, font, "Settings", 28, TextAnchor.MiddleLeft, Cream);
+            PlaceTop(heading.rectTransform, 24f, -16f, 400f, 40f);
+            Button close = MakeButton("Close", panel.transform, sprite, font, "Close", delegate { SetSettingsOpen(false); });
+            PlaceTop(close.GetComponent<RectTransform>(), 500f, -18f, 116f, 36f);
+
+            Text cameraHeading = MakeText("Camera Heading", panel.transform, font, "Camera", 16, TextAnchor.MiddleLeft, Muted);
+            PlaceTop(cameraHeading.rectTransform, 24f, -64f, 560f, 22f);
+            settingsCameraText = MakeText("Camera Value", panel.transform, font, "No camera yet", 20, TextAnchor.MiddleLeft, Cream);
+            PlaceTop(settingsCameraText.rectTransform, 24f, -90f, 592f, 32f);
+
+            Button previous = MakeButton("Previous", panel.transform, sprite, font, "Previous", delegate { StepCamera(-1); });
+            PlaceTop(previous.GetComponent<RectTransform>(), 24f, -130f, 180f, 36f);
+            Button next = MakeButton("Next", panel.transform, sprite, font, "Next", delegate { StepCamera(1); });
+            PlaceTop(next.GetComponent<RectTransform>(), 216f, -130f, 180f, 36f);
+            Button refresh = MakeButton("Refresh", panel.transform, sprite, font, "Refresh", RefreshCameras);
+            PlaceTop(refresh.GetComponent<RectTransform>(), 408f, -130f, 208f, 36f);
+            Button phone = MakeButton("Use Phone", panel.transform, sprite, font, "Use my phone", UseMyPhone);
+            PlaceTop(phone.GetComponent<RectTransform>(), 24f, -176f, 592f, 40f);
+
+            Text phoneHelp = MakeText("Phone Help", panel.transform, font, PhoneHelp, 15, TextAnchor.UpperLeft, Muted);
+            phoneHelp.horizontalOverflow = HorizontalWrapMode.Wrap;
+            phoneHelp.verticalOverflow = VerticalWrapMode.Overflow;
+            PlaceTop(phoneHelp.rectTransform, 24f, -226f, 592f, 168f);
+
+            Text captureHeading = MakeText("Capture Heading", panel.transform, font, "Capture", 16, TextAnchor.MiddleLeft, Muted);
+            PlaceTop(captureHeading.rectTransform, 24f, -404f, 560f, 22f);
+            settingsResolutionText = AddSettingRow(panel.transform, sprite, font, "Resolution", -432f, CycleResolution);
+            settingsFpsText = AddSettingRow(panel.transform, sprite, font, "Frame rate", -478f, CycleFrameRate);
+            settingsMirrorText = AddSettingRow(panel.transform, sprite, font, "Mirror", -524f, ToggleMirror);
+            settingsRotationText = AddSettingRow(panel.transform, sprite, font, "Rotate", -570f, CycleRotation);
+            settingsPeopleText = AddSettingRow(panel.transform, sprite, font, "People", -616f, CyclePeople);
+            settingsDetailText = AddSettingRow(panel.transform, sprite, font, "Tracking", -662f, CycleDetail);
+            settingsPowerText = AddSettingRow(panel.transform, sprite, font, "Power", -708f, TogglePower);
+
+            settingsRoot.SetActive(false);
+            RefreshSettingLabels();
+        }
+
+        /// <summary>
+        /// Adds one full-width settings button and returns its label.
+        /// </summary>
+        Text AddSettingRow(Transform parent, Sprite sprite, Font font, string name, float y, UnityAction action)
+        {
+            Button button = MakeButton(name, parent, sprite, font, name, action);
+            PlaceTop(button.GetComponent<RectTransform>(), 24f, y, 592f, 40f);
+            return button.GetComponentInChildren<Text>();
+        }
+
+        /// <summary>
+        /// Shows or hides the settings card.
+        /// </summary>
+        void SetSettingsOpen(bool open)
+        {
+            if (settingsRoot == null) return;
+            settingsRoot.SetActive(open);
+            if (open) RefreshSettingLabels();
+        }
+
+        /// <summary>
+        /// Rewrites the settings labels from the current choices.
+        /// </summary>
+        void RefreshSettingLabels()
+        {
+            if (settingsCameraText == null) return;
+            settingsCameraText.text = CurrentCameraLabel();
+            settingsResolutionText.text = "Resolution  ·  " + requestWidth + "×" + requestHeight;
+            settingsFpsText.text = "Frame rate  ·  " + requestFps;
+            settingsMirrorText.text = mirror ? "Mirror  ·  on" : "Mirror  ·  off";
+            settingsRotationText.text = "Rotate  ·  " + extraRotation + "°";
+            settingsPeopleText.text = peopleLimit == 1 ? "People  ·  1" : "People  ·  " + peopleLimit;
+            settingsDetailText.text = DetailLabel();
+            settingsPowerText.text = cameraHeldOff ? "Camera  ·  off" : "Camera  ·  on";
+        }
+
+        /// <summary>
+        /// Names the camera selected in settings. The main stage still hides the device name.
+        /// </summary>
+        string CurrentCameraLabel()
+        {
+            WebCamDevice[] devices = WebCamTexture.devices;
+            if (devices == null || devices.Length == 0) return "No camera yet";
+            int index = cameraIndex;
+            if (index < 0 || index >= devices.Length) index = 0;
+            string name = ShortName(devices[index].name);
+            if (devices[index].isFrontFacing) name += "  ·  front";
+            return name + "   " + (index + 1) + " of " + devices.Length;
+        }
+
+        /// <summary>
+        /// Keeps a long device name inside the settings card.
+        /// </summary>
+        static string ShortName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "Camera";
+            if (name.Length <= 42) return name;
+            return name.Substring(0, 39) + "...";
+        }
+
+        /// <summary>
+        /// Describes the joint-confidence choice.
+        /// </summary>
+        string DetailLabel()
+        {
+            if (jointThreshold < 0.25f) return "Tracking  ·  relaxed";
+            if (jointThreshold < 0.4f) return "Tracking  ·  normal";
+            return "Tracking  ·  firm";
+        }
+
+        /// <summary>
+        /// Moves to the previous or next camera the operating system exposes.
+        /// </summary>
+        void StepCamera(int delta)
+        {
+            WebCamDevice[] devices = WebCamTexture.devices;
+            int count = devices == null ? 0 : devices.Length;
+            if (count == 0)
+            {
+                SetStatus("No camera yet. Connect a phone, then press Refresh.");
+                RefreshSettingLabels();
+                return;
+            }
+
+            int next = cameraIndex + delta;
+            if (next < 0) next = count - 1;
+            if (next >= count) next = 0;
+            cameraHeldOff = false;
+            waitingForPhone = false;
+            if (engine == null)
+            {
+                pendingCamera = next;
+                if (!resuming) StartCoroutine(Resume());
+                return;
+            }
+
+            OpenCamera(next);
+        }
+
+        /// <summary>
+        /// Asks the operating system for cameras again and updates the settings card.
+        /// </summary>
+        void RefreshCameras()
+        {
+            knownDeviceCount = -1;
+            WebCamDevice[] devices = WebCamTexture.devices;
+            knownDeviceCount = devices == null ? 0 : devices.Length;
+            RefreshSettingLabels();
+            if (!waitingForPhone) 
+            {
+                SetStatus(knownDeviceCount == 0 ? "No camera yet." : "Camera list refreshed.");
+                return;
+            }
+
+            int phone = FindPhone(devices);
+            if (phone < 0)
+            {
+                SetStatus("Still waiting for the phone. Leave the webcam app running, then press Refresh.");
+                return;
+            }
+
+            waitingForPhone = false;
+            cameraHeldOff = false;
+            if (engine == null)
+            {
+                pendingCamera = phone;
+                if (!resuming) StartCoroutine(Resume());
+                return;
+            }
+
+            OpenCamera(phone);
+            SetStatus("Phone camera connected. The picture stays on this device.");
+        }
+
+        /// <summary>
+        /// Selects a phone that already appears as a webcam, or waits for Continuity Camera or a webcam app.
+        /// </summary>
+        void UseMyPhone()
+        {
+            WebCamDevice[] devices = WebCamTexture.devices;
+            int phone = FindPhone(devices);
+            if (phone < 0)
+            {
+                waitingForPhone = true;
+                knownDeviceCount = devices == null ? 0 : devices.Length;
+                SetStatus("Waiting for the phone. Use the steps below, then it connects on its own.");
+                RefreshSettingLabels();
+                return;
+            }
+
+            waitingForPhone = false;
+            cameraHeldOff = false;
+            if (engine == null)
+            {
+                pendingCamera = phone;
+                if (!resuming) StartCoroutine(Resume());
+                return;
+            }
+
+            OpenCamera(phone);
+            SetStatus("Phone camera on. The picture stays on this device.");
+        }
+
+        /// <summary>
+        /// Finds a device whose name looks like a phone or a phone webcam app.
+        /// </summary>
+        static int FindPhone(WebCamDevice[] devices)
+        {
+            if (devices == null) return -1;
+            for (int i = 0; i < devices.Length; i++)
+            {
+                if (LooksLikePhone(devices[i])) return i;
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// True when a device name matches a phone, Continuity Camera, or a common phone webcam app.
+        /// </summary>
+        static bool LooksLikePhone(WebCamDevice device)
+        {
+            string name = device.name == null ? "" : device.name.ToLowerInvariant();
+            if (name.IndexOf("iphone") >= 0 || name.IndexOf("ipad") >= 0 || name.IndexOf("continuity") >= 0) return true;
+            if (name.IndexOf("android") >= 0 || name.IndexOf("droidcam") >= 0 || name.IndexOf("iriun") >= 0) return true;
+            if (name.IndexOf("epoccam") >= 0 || name.IndexOf("camo") >= 0 || name.IndexOf("galaxy") >= 0) return true;
+            if (name.IndexOf("pixel") >= 0 || name.IndexOf("phone") >= 0) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Switches between 640×480, 1280×720, and 1920×1080, then reopens the camera.
+        /// </summary>
+        void CycleResolution()
+        {
+            if (requestWidth == 640)
+            {
+                requestWidth = 1280;
+                requestHeight = 720;
+            }
+            else if (requestWidth == 1280)
+            {
+                requestWidth = 1920;
+                requestHeight = 1080;
+            }
+            else
+            {
+                requestWidth = 640;
+                requestHeight = 480;
+            }
+
+            SaveSettings();
+            ReopenCamera();
+        }
+
+        /// <summary>
+        /// Switches the requested frame rate between 15, 30, and 60, then reopens the camera.
+        /// </summary>
+        void CycleFrameRate()
+        {
+            if (requestFps == 15) requestFps = 30;
+            else if (requestFps == 30) requestFps = 60;
+            else requestFps = 15;
+            SaveSettings();
+            ReopenCamera();
+        }
+
+        /// <summary>
+        /// Flips the selfie mirror and keeps that choice.
+        /// </summary>
+        void ToggleMirror()
+        {
+            mirror = !mirror;
+            SaveSettings();
+            RefreshSettingLabels();
+            RefreshStatus();
+        }
+
+        /// <summary>
+        /// Turns the camera crop by another 90 degrees and keeps that choice.
+        /// </summary>
+        void CycleRotation()
+        {
+            extraRotation = (extraRotation + 90) % 360;
+            SaveSettings();
+            RefreshSettingLabels();
+            RefreshStatus();
+        }
+
+        /// <summary>
+        /// Cycles how many people MoveNet is asked to return, from 1 through 6.
+        /// </summary>
+        void CyclePeople()
+        {
+            peopleLimit++;
+            if (peopleLimit > MaxPeople) peopleLimit = 1;
+            for (int i = peopleLimit; i < MaxPeople; i++)
+            {
+                Blank(stable[i]);
+                slotUsed[i] = false;
+            }
+
+            SaveSettings();
+            RefreshSettingLabels();
+        }
+
+        /// <summary>
+        /// Cycles how confident a joint must be before it is drawn.
+        /// </summary>
+        void CycleDetail()
+        {
+            if (jointThreshold < 0.25f) jointThreshold = 0.3f;
+            else if (jointThreshold < 0.4f) jointThreshold = 0.45f;
+            else jointThreshold = 0.2f;
+            SaveSettings();
+            RefreshSettingLabels();
+        }
+
+        /// <summary>
+        /// Turns capture off, or starts it again with the current settings.
+        /// </summary>
+        void TogglePower()
+        {
+            if (cameraHeldOff)
+            {
+                if (!resuming) StartCoroutine(Resume());
+                return;
+            }
+
+            StopCapture("Camera off. Turn it on in Settings, or press Enter.");
+            RefreshSettingLabels();
+        }
+
+        /// <summary>
+        /// Applies a resolution or frame-rate change to the open camera.
+        /// </summary>
+        void ReopenCamera()
+        {
+            RefreshSettingLabels();
+            if (cameraHeldOff || engine == null) return;
+            OpenCamera(cameraIndex);
+        }
+
+        /// <summary>
+        /// Places a control from the top-left of its parent.
+        /// </summary>
+        static void PlaceTop(RectTransform rect, float x, float y, float width, float height)
+        {
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(x, y);
+            rect.sizeDelta = new Vector2(width, height);
+        }
+
+        /// <summary>
+        /// Creates a clickable settings button. The label does not take the click.
+        /// </summary>
+        static Button MakeButton(string name, Transform parent, Sprite sprite, Font font, string label, UnityAction action)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            Image image = go.GetComponent<Image>();
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.raycastTarget = true;
+            Button button = go.GetComponent<Button>();
+            button.targetGraphic = image;
+            ColorBlock colors = button.colors;
+            colors.normalColor = new Color(0.20f, 0.17f, 0.14f, 1f);
+            colors.highlightedColor = new Color(0.32f, 0.26f, 0.16f, 1f);
+            colors.pressedColor = new Color(0.98f, 0.74f, 0.28f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            button.colors = colors;
+            if (action != null) button.onClick.AddListener(action);
+            Text text = MakeText("Label", go.transform, font, label, 16, TextAnchor.MiddleCenter, Cream);
+            Stretch(text.rectTransform);
+            return button;
         }
 
         /// <summary>

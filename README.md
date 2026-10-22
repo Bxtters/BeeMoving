@@ -10,7 +10,7 @@ This repository folder is that same Unity project if you already have it checked
 2. Leave the project alone until the first import finishes. It needs an internet connection once, so Package Manager can download TensorFlow Lite.
 3. `Assets/Scenes/Camera_MoCap.unity` opens by itself. Press Play.
 
-Turn Continuity Camera on before you press Play, then press **C** to use the phone. If the skeleton is sideways, press **Q**. If your left and right hands feel swapped, press **F**. The stage does not show the camera picture.
+Press **Settings** or **Tab**, then **Use my phone**, to connect a phone. If the skeleton is sideways, press **Q**. If your left and right hands feel swapped, press **F**. The stage does not show the camera picture.
 
 ## Motion capture
 
@@ -18,12 +18,21 @@ Turn Continuity Camera on before you press Play, then press **C** to use the pho
 
 The camera stays on this machine. The picture is not shown and it is not saved. Nose, eye, and ear points are thrown away before anything is drawn. MoveNet Lightning measures a hand at the wrist. It does not output finger joints, so the display does not invent any.
 
+Press **Settings** or **Tab** for the camera, resolution, frame rate, mirror, rotation, and how many people to track.
+
+**Use my phone** selects a phone that is already a webcam. If none is connected yet, the card waits and connects when it appears.
+
+- iPhone: Settings → General → AirPlay & Continuity → Continuity Camera. Unlock the phone beside the computer on the same Apple ID, then press Refresh.
+- Android: start Iriun or DroidCam on the phone and the computer, then press Refresh.
+- USB: plug the phone in, allow the prompt, then press Refresh.
+
 | Key | Action |
 |---|---|
+| Tab | Open or close settings |
 | C | Next camera |
 | F | Mirror |
 | Q | Rotate 90° |
-| Esc | Stop the camera and release the pose model |
+| Esc | Close settings, or stop the camera |
 | Enter or Space | Start the camera again |
 
 Colors distinguish people who are on screen together. A color follows the torso for the current camera session only. It is not a name, and it is cleared when the camera stops.
