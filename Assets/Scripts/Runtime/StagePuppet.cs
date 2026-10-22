@@ -8,7 +8,8 @@ namespace Handline
     /// A limb keeps a fixed reach, and any reach the picture does not show comes
     /// forward, toward the camera, so the arm can move in every direction.
     /// A joint that disappears eases back to the standing pose. It is not left stuck.
-    /// The face is not drawn. The head follows the nose.
+    /// Every joint carries speed into the next frame, so the body glides and the hands
+    /// and feet trail the limbs. The face is not drawn. The head follows the nose.
     /// </summary>
     public sealed class StagePuppet : MonoBehaviour
     {
@@ -20,6 +21,13 @@ namespace Handline
         const float Neck = 0.28f;
         const float Torso = 0.48f;
         const float HipY = 0.92f;
+        const float GlideBody = 0.11f;
+        const float GlideElbow = 0.09f;
+        const float GlideWrist = 0.15f;
+        const float GlideKnee = 0.10f;
+        const float GlideAnkle = 0.16f;
+        const float GlideHead = 0.13f;
+        const float GlideRest = 0.22f;
 
         static readonly Vector3[] Rest = BuildRest();
 
@@ -51,6 +59,7 @@ namespace Handline
             public Transform FootL;
             public Transform FootR;
             public Vector3[] Pos;
+            public Vector3[] Vel;
             public float[] Reach;
             public bool[] Held;
             public float[] HeldX;
@@ -62,8 +71,14 @@ namespace Handline
             public bool Sized;
             public float AnchorU = 0.5f;
             public float AnchorV = 0.62f;
+            public float AnchorUVel;
+            public float AnchorVVel;
+            public float ScaleVel;
             public bool AnchorReady;
             public float Plant;
+            public float PlantVel;
+            public float Shift;
+            public float ShiftVel;
             public float NoseX;
             public float NoseY;
             public float NoseUntil;
@@ -152,8 +167,9 @@ namespace Handline
                 if (figure.Root.gameObject.activeSelf != show) figure.Root.gameObject.SetActive(show);
                 if (!show) continue;
                 float lane = (i - ((limit - 1) * 0.5f)) * 1.4f;
-                float shift = figure.AnchorReady ? Mathf.Clamp((figure.AnchorU - 0.5f) * 0.85f, -0.7f, 0.7f) : 0f;
-                figure.Root.localPosition = new Vector3(lane + shift, 0f, 0f);
+                float targetShift = figure.AnchorReady ? Mathf.Clamp((figure.AnchorU - 0.5f) * 0.85f, -0.7f, 0.7f) : 0f;
+                figure.Shift = Mathf.SmoothDamp(figure.Shift, targetShift, ref figure.ShiftVel, 0.18f, 1.8f, dt);
+                figure.Root.localPosition = new Vector3(lane + figure.Shift, 0f, 0f);
                 PoseFrame pose = null;
                 if (poses != null && used != null && used[i] && i < poses.Length) pose = poses[i];
                 Track(figure, pose, dt, score);
@@ -210,9 +226,8 @@ namespace Handline
                 }
                 else
                 {
-                    float follow = Gain(dt, 0.05f);
-                    figure.AnchorU = Mathf.Lerp(figure.AnchorU, u, follow);
-                    figure.AnchorV = Mathf.Lerp(figure.AnchorV, v, follow);
+                    figure.AnchorU = Mathf.SmoothDamp(figure.AnchorU, u, ref figure.AnchorUVel, 0.14f, 2.2f, dt);
+                    figure.AnchorV = Mathf.SmoothDamp(figure.AnchorV, v, ref figure.AnchorVVel, 0.14f, 2.2f, dt);
                 }
 
                 UpdateScale(figure, pose, dt, score);
@@ -237,7 +252,7 @@ namespace Handline
 
             float lowest = Mathf.Min(figure.Pos[(int)JointId.LeftAnkle].y, figure.Pos[(int)JointId.RightAnkle].y);
             float targetPlant = Mathf.Clamp(lowest - 0.05f, -0.08f, 0.62f);
-            figure.Plant = Mathf.Lerp(figure.Plant, targetPlant, Gain(dt, 0.1f));
+            figure.Plant = Mathf.SmoothDamp(figure.Plant, targetPlant, ref figure.PlantVel, 0.18f, 1.4f, dt);
         }
 
         /// <summary>
@@ -288,7 +303,7 @@ namespace Handline
             }
 
             if (target < figure.Scale * 0.65f || target > figure.Scale * 1.45f) return;
-            figure.Scale = Mathf.Lerp(figure.Scale, target, Gain(dt, 0.3f));
+            figure.Scale = Mathf.SmoothDamp(figure.Scale, target, ref figure.ScaleVel, 0.4f, 2.5f, dt);
         }
 
         /// <summary>
@@ -316,10 +331,8 @@ namespace Handline
                 FitHips(mapped + (Rest[left] - Rest[right]), mapped, out wantL, out wantR);
             }
 
-            float leftGain = Gain(dt, liveL ? 0.025f : 0.08f);
-            float rightGain = Gain(dt, liveR ? 0.025f : 0.08f);
-            figure.Pos[left] = Vector3.Lerp(figure.Pos[left], wantL, leftGain);
-            figure.Pos[right] = Vector3.Lerp(figure.Pos[right], wantR, rightGain);
+            figure.Pos[left] = Glide(figure, left, wantL, GlideBody, liveL, dt);
+            figure.Pos[right] = Glide(figure, right, wantR, GlideBody, liveR, dt);
             if (liveL || liveR)
             {
                 Vector3 fittedL;
@@ -361,8 +374,8 @@ namespace Handline
                 FitShoulders(hipMid, other, mapped, out wantL, out wantR);
             }
 
-            figure.Pos[left] = Vector3.Lerp(figure.Pos[left], wantL, Gain(dt, liveL ? 0.02f : 0.1f));
-            figure.Pos[right] = Vector3.Lerp(figure.Pos[right], wantR, Gain(dt, liveR ? 0.02f : 0.1f));
+            figure.Pos[left] = Glide(figure, left, wantL, GlideBody, liveL, dt);
+            figure.Pos[right] = Glide(figure, right, wantR, GlideBody, liveR, dt);
         }
 
         /// <summary>
@@ -413,9 +426,11 @@ namespace Handline
                 desiredWrist = Project(desiredElbow, desiredElbow + (Rest[wrist] - Rest[elbow]), ForeArm);
             }
 
-            float gain = Gain(dt, (seeElbow || seeWrist) ? 0.035f : 0.1f);
-            figure.Pos[elbow] = Project(origin, Vector3.Lerp(figure.Pos[elbow], desiredElbow, gain), UpperArm);
-            figure.Pos[wrist] = Project(figure.Pos[elbow], Vector3.Lerp(figure.Pos[wrist], desiredWrist, gain), ForeArm);
+            bool armLive = seeElbow || seeWrist;
+            Vector3 nextElbow = Glide(figure, elbow, desiredElbow, GlideElbow, armLive, dt);
+            figure.Pos[elbow] = Project(origin, nextElbow, UpperArm);
+            Vector3 nextWrist = Glide(figure, wrist, desiredWrist, GlideWrist, seeWrist, dt);
+            figure.Pos[wrist] = Project(figure.Pos[elbow], nextWrist, ForeArm);
         }
 
         /// <summary>
@@ -449,9 +464,9 @@ namespace Handline
                 desired = Project(origin, restPoint, length);
             }
 
-            bool leg = parentId == JointId.LeftHip || parentId == JointId.RightHip || parentId == JointId.LeftKnee || parentId == JointId.RightKnee;
-            float tau = seen ? 0.02f : (leg ? 0.07f : 0.1f);
-            Vector3 next = Vector3.Lerp(figure.Pos[child], desired, Gain(dt, tau));
+            bool ankle = childId == JointId.LeftAnkle || childId == JointId.RightAnkle;
+            float smooth = ankle ? GlideAnkle : GlideKnee;
+            Vector3 next = Glide(figure, child, desired, smooth, seen, dt);
             float keep = Mathf.Clamp(figure.Reach[child], fallback * 0.85f, fallback * 1.4f);
             figure.Pos[child] = Project(origin, next, keep);
         }
@@ -473,7 +488,7 @@ namespace Handline
                 desired = OnBone(shoulderMid, target, Neck);
             }
 
-            Vector3 next = Vector3.Lerp(figure.Pos[nose], desired, Gain(dt, seen ? 0.04f : 0.1f));
+            Vector3 next = Glide(figure, nose, desired, GlideHead, seen, dt);
             figure.Pos[nose] = Project(shoulderMid, next, Neck);
         }
 
@@ -685,9 +700,19 @@ namespace Handline
             return true;
         }
 
-        static float Gain(float dt, float tau)
+        /// <summary>
+        /// Eases a joint toward its pose. Speed carries into the next frame, so motion
+        /// accelerates and settles instead of stepping. Hands and feet use a longer time
+        /// and trail the limb. A lost joint glides back more slowly.
+        /// </summary>
+        static Vector3 Glide(Figure figure, int index, Vector3 target, float smoothTime, bool live, float dt)
         {
-            return 1f - Mathf.Exp(-dt / tau);
+            float time = live ? smoothTime : GlideRest;
+            float maxSpeed = live ? 7f : 2.4f;
+            Vector3 velocity = figure.Vel[index];
+            Vector3 next = Vector3.SmoothDamp(figure.Pos[index], target, ref velocity, time, maxSpeed, dt);
+            figure.Vel[index] = velocity;
+            return next;
         }
 
         /// <summary>
@@ -824,6 +849,7 @@ namespace Handline
             Figure figure = new Figure();
             int count = (int)JointId.Count;
             figure.Pos = new Vector3[count];
+            figure.Vel = new Vector3[count];
             figure.Reach = new float[count];
             figure.Held = new bool[count];
             figure.HeldX = new float[count];
