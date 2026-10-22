@@ -232,12 +232,14 @@ namespace Handline
 
         /// <summary>
         /// Creates the camera stage when the open scene does not already contain it.
+        /// The lane scene keeps its own display.
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
             if (!OpenInsteadOfLane) return;
             if (UnityEngine.Object.FindAnyObjectByType<Camera_MoCap>() != null) return;
+            if (UnityEngine.Object.FindAnyObjectByType<HandlineApp>() != null) return;
             GameObject stageObject = new GameObject("Camera_MoCap");
             stageObject.AddComponent<Camera_MoCap>();
         }

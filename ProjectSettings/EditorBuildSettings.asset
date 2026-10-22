@@ -8,4 +8,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Camera_MoCap.unity
     guid: c4a1b8e07d2f4a6b9e3c5d1f8a7b6c50
+  - enabled: 1
+    path: Assets/Scenes/Main.unity
+    guid: a4c8e2b17d5f4c0a9e6b3d8f1a2c4e70
   m_configObjects: {}

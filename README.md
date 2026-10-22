@@ -122,7 +122,7 @@ Open http://localhost:8741/skeleton.html and allow the camera. On a Chromebook, 
 
 The TensorFlow Lite interpreter comes from [TensorFlow Lite for Unity](https://github.com/asus4/tf-lite-unity-sample) by Koki Ibukuro, Apache License 2.0. It is declared in `Packages/manifest.json` and is not copied into this repo.
 
-Older lane scripts remain in the project and are not part of the build. Play starts the camera stage.
+Play starts the camera stage. The lane is still `Assets/Scenes/Main.unity`. Open that scene and press Play to run it. The camera stage does not replace the lane while that scene is open.
 
 ## Troubleshooting
 
