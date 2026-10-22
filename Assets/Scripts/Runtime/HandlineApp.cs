@@ -72,6 +72,12 @@ namespace Handline
 
         void Awake()
         {
+            if (Camera_MoCap.OpenInsteadOfLane)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
             if (live != null && live != this)
             {
                 Destroy(gameObject);

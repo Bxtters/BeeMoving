@@ -13,7 +13,7 @@ using UnityEngine.UI;
 namespace Handline
 {
     /// <summary>
-    /// Motion-capture stage for the Handline project in Unity 6000.0.82f1.
+    /// Camera stage for Unity 6000.0.82f1. Play opens this display.
     /// A local camera feeds MoveNet MultiPose Lightning, which returns up to six
     /// people. The stage draws the body from the shoulders to the ankles.
     /// MoveNet measures each hand at the wrist and has no finger joints, so the
@@ -42,10 +42,32 @@ namespace Handline
         const string SingleModelFile = "movenet_lightning.tflite";
         const string PrivacyNotice = "On this device only. The camera picture is not shown or saved. Faces are not kept.";
         const string HandNotice = "Each hand is the wrist. MoveNet Lightning has no finger joints, so none are drawn.";
-        const string PhoneHelp =
-            "iPhone: Settings → General → AirPlay & Continuity → Continuity Camera. Unlock the phone beside this computer on the same Apple ID, then press Refresh.\n" +
-            "Android: start Iriun or DroidCam on the phone and this computer, then press Refresh.\n" +
-            "USB: plug the phone in, allow the prompt, then press Refresh.";
+        const string PairingGuide =
+            "IPHONE ON A MAC\n\n" +
+            "1. On the iPhone, open Settings, then General, then AirPlay & Continuity.\n" +
+            "2. Turn Continuity Camera on.\n" +
+            "3. Sign the iPhone and the Mac into the same Apple ID.\n" +
+            "4. Turn Wi-Fi and Bluetooth on for both. Unlock the iPhone, leave it near the Mac, and do not let it sleep.\n" +
+            "5. Press Refresh. Choose the iPhone in the camera row.\n\n" +
+            "IPHONE ON WINDOWS\n\n" +
+            "Continuity Camera is a Mac feature. Windows does not see an iPhone until a webcam app publishes it.\n\n" +
+            "1. On the PC, install Iriun Webcam from iriun.com and open it. If Windows asks to install a camera driver, allow it.\n" +
+            "2. On the iPhone, install Iriun Webcam from the App Store.\n" +
+            "3. Join the same Wi-Fi on the phone and the PC. Or plug the iPhone in with a data cable and tap Trust.\n" +
+            "4. Open Iriun on the iPhone and allow the camera.\n" +
+            "5. Leave Iriun open on Windows so the phone is registered as a webcam.\n" +
+            "6. Press Refresh here and select the camera named Iriun.\n\n" +
+            "ANDROID\n\n" +
+            "1. Install Iriun Webcam or DroidCam on the phone and on this computer.\n" +
+            "2. Open the app on both. Allow the camera on the phone.\n" +
+            "3. Use the same Wi-Fi, or USB when the app offers it.\n" +
+            "4. Press Refresh here and select that camera.\n\n" +
+            "USB\n\n" +
+            "1. Use a data cable, not a charge-only cable.\n" +
+            "2. On the phone, pick USB webcam or File transfer if it asks.\n" +
+            "3. Allow the permission prompt.\n" +
+            "4. Press Refresh here.\n\n" +
+            "This app only uses a webcam the computer already lists. It does not install a driver and it does not show the picture.";
         const string PrefMirror = "CameraMoCap.Mirror";
         const string PrefRotation = "CameraMoCap.Rotation";
         const string PrefWidth = "CameraMoCap.Width";
@@ -73,18 +95,19 @@ namespace Handline
 
         static readonly Color[] PersonColors =
         {
-            new Color(0.98f, 0.74f, 0.28f, 1f),
-            new Color(0.45f, 0.82f, 0.78f, 1f),
-            new Color(0.95f, 0.45f, 0.34f, 1f),
-            new Color(0.72f, 0.62f, 0.95f, 1f),
-            new Color(0.62f, 0.82f, 0.42f, 1f),
-            new Color(0.45f, 0.66f, 0.95f, 1f)
+            new Color(1f, 0.84f, 0.12f, 1f),
+            new Color(1f, 0.93f, 0.55f, 1f),
+            new Color(0.86f, 0.68f, 0.04f, 1f),
+            new Color(1f, 0.78f, 0.20f, 1f),
+            new Color(0.96f, 0.90f, 0.62f, 1f),
+            new Color(0.72f, 0.58f, 0.06f, 1f)
         };
 
-        static readonly Color Ink = new Color(0.07f, 0.06f, 0.05f, 1f);
-        static readonly Color StageColor = new Color(0.13f, 0.11f, 0.09f, 1f);
-        static readonly Color Cream = new Color(0.96f, 0.93f, 0.86f, 1f);
-        static readonly Color Muted = new Color(0.72f, 0.66f, 0.56f, 1f);
+        static readonly Color Ink = new Color(0f, 0f, 0f, 1f);
+        static readonly Color StageColor = new Color(0.05f, 0.05f, 0.05f, 1f);
+        static readonly Color Cream = new Color(0.96f, 0.96f, 0.94f, 1f);
+        static readonly Color Yellow = new Color(1f, 0.82f, 0.12f, 1f);
+        static readonly Color Muted = new Color(0.62f, 0.62f, 0.58f, 1f);
 
         readonly PoseFrame[] crowd = new PoseFrame[MaxPeople];
         readonly PoseFrame[] stable = new PoseFrame[MaxPeople];
@@ -131,6 +154,9 @@ namespace Handline
         bool waitingForPhone;
         string savedCameraName = "";
         GameObject settingsRoot;
+        GameObject settingsMain;
+        GameObject settingsPairing;
+        Text pairingStatus;
         Text settingsCameraText;
         Text settingsResolutionText;
         Text settingsFpsText;
@@ -141,15 +167,13 @@ namespace Handline
         Text settingsPowerText;
 
         /// <summary>
-        /// Creates the stage when the open scene does not already contain it.
-        /// The lane scene keeps its own display.
+        /// Creates the camera stage when the open scene does not already contain it.
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
             if (!OpenInsteadOfLane) return;
             if (UnityEngine.Object.FindAnyObjectByType<Camera_MoCap>() != null) return;
-            if (UnityEngine.Object.FindAnyObjectByType<HandlineApp>() != null) return;
             GameObject stageObject = new GameObject("Camera_MoCap");
             stageObject.AddComponent<Camera_MoCap>();
         }
@@ -886,7 +910,7 @@ namespace Handline
         }
 
         /// <summary>
-        /// Notices a newly connected camera. A phone that appears after Use my phone is selected on its own.
+        /// Notices a newly connected camera. A phone that appears while pairing is selected on its own.
         /// </summary>
         void ScanDevices()
         {
@@ -910,10 +934,14 @@ namespace Handline
                 {
                     waitingForPhone = false;
                     cameraHeldOff = false;
+                    if (pairingStatus != null) pairingStatus.text = "Phone camera connected. The picture stays on this device.";
                     OpenCamera(phone);
                     SetStatus("Phone camera connected. The picture stays on this device.");
                     return;
                 }
+
+                if (pairingStatus != null && settingsPairing != null && settingsPairing.activeSelf)
+                    pairingStatus.text = "No phone camera yet. Follow the steps, then press Refresh.";
             }
 
             if (webcam == null && !cameraHeldOff) OpenCamera(ChooseStartupCamera());
@@ -932,6 +960,7 @@ namespace Handline
             canvasObject.transform.SetParent(transform, false);
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
             canvas.sortingOrder = 100;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -979,7 +1008,7 @@ namespace Handline
                 }
             }
 
-            Text title = MakeText("Title", canvasRect, font, "Motion capture", 28, TextAnchor.UpperLeft, Cream);
+            Text title = MakeText("Title", canvasRect, font, "Camera", 28, TextAnchor.UpperLeft, Yellow);
             Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(36f, -28f), new Vector2(520f, 36f));
             Text privacy = MakeText("Privacy", canvasRect, font, PrivacyNotice, 16, TextAnchor.UpperLeft, Muted);
             privacy.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -1173,10 +1202,14 @@ namespace Handline
         /// </summary>
         Sprite WhiteSprite()
         {
-            whiteTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            whiteTex.SetPixels(new Color[] { Color.white, Color.white, Color.white, Color.white });
-            whiteTex.Apply();
-            whiteSprite = Sprite.Create(whiteTex, new Rect(0f, 0f, 2f, 2f), new Vector2(0.5f, 0.5f), 100f);
+            whiteTex = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            whiteTex.filterMode = FilterMode.Point;
+            whiteTex.wrapMode = TextureWrapMode.Clamp;
+            Color[] pixels = new Color[64];
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
+            whiteTex.SetPixels(pixels);
+            whiteTex.Apply(false, false);
+            whiteSprite = Sprite.Create(whiteTex, new Rect(0f, 0f, 8f, 8f), new Vector2(0.5f, 0.5f), 8f);
             return whiteSprite;
         }
 
@@ -1240,78 +1273,207 @@ namespace Handline
         }
 
         /// <summary>
-        /// Builds the settings card, the phone steps, and the button that opens them.
+        /// Builds a sharp black-and-yellow settings card on its own pixel-perfect canvas.
         /// </summary>
         void BuildSettings(Font font, Sprite sprite)
         {
-            Button open = MakeButton("Open Settings", canvasRect, sprite, font, "Settings", delegate { SetSettingsOpen(true); });
-            Place(open.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(-36f, -72f), new Vector2(160f, 36f));
+            int u = Screen.height >= 1700 ? 2 : 1;
+            GameObject canvasObject = new GameObject("Settings Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            canvasObject.transform.SetParent(transform, false);
+            Canvas canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
+            canvas.sortingOrder = 200;
+            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+            scaler.scaleFactor = 1f;
+            RectTransform root = canvasObject.GetComponent<RectTransform>();
+
+            Button open = MakeButton("Open Settings", root, sprite, font, "Settings", delegate { SetSettingsOpen(true); });
+            Text openLabel = open.GetComponentInChildren<Text>();
+            openLabel.fontSize = 16 * u;
+            openLabel.color = Yellow;
+            RectTransform openRect = open.GetComponent<RectTransform>();
+            openRect.anchorMin = new Vector2(1f, 1f);
+            openRect.anchorMax = new Vector2(1f, 1f);
+            openRect.pivot = new Vector2(1f, 1f);
+            openRect.anchoredPosition = new Vector2(-28f * u, -28f * u);
+            openRect.sizeDelta = new Vector2(120f * u, 36f * u);
 
             settingsRoot = new GameObject("Settings", typeof(RectTransform));
-            settingsRoot.transform.SetParent(canvasRect, false);
+            settingsRoot.transform.SetParent(root, false);
             Stretch(settingsRoot.GetComponent<RectTransform>());
 
-            Image dim = MakeImage("Dim", settingsRoot.transform, sprite, new Color(0.02f, 0.02f, 0.02f, 0.62f));
+            Image dim = MakeImage("Dim", settingsRoot.transform, sprite, new Color(0f, 0f, 0f, 0.72f));
             dim.raycastTarget = true;
             Stretch(dim.rectTransform);
             Button dimButton = dim.gameObject.AddComponent<Button>();
             dimButton.targetGraphic = dim;
             dimButton.onClick.AddListener(delegate { SetSettingsOpen(false); });
 
-            Image panel = MakeImage("Panel", settingsRoot.transform, sprite, new Color(0.10f, 0.09f, 0.08f, 0.98f));
+            float panelW = 460f * u;
+            float panelH = 600f * u;
+            Image frame = MakeImage("Frame", settingsRoot.transform, sprite, Yellow);
+            frame.raycastTarget = false;
+            RectTransform frameRect = frame.rectTransform;
+            frameRect.anchorMin = new Vector2(0.5f, 0.5f);
+            frameRect.anchorMax = new Vector2(0.5f, 0.5f);
+            frameRect.pivot = new Vector2(0.5f, 0.5f);
+            frameRect.sizeDelta = new Vector2(panelW + (2f * u), panelH + (2f * u));
+
+            Image panel = MakeImage("Panel", settingsRoot.transform, sprite, Ink);
             panel.raycastTarget = true;
             RectTransform panelRect = panel.rectTransform;
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(640f, 760f);
+            panelRect.sizeDelta = new Vector2(panelW, panelH);
 
-            Text heading = MakeText("Heading", panel.transform, font, "Settings", 28, TextAnchor.MiddleLeft, Cream);
-            PlaceTop(heading.rectTransform, 24f, -16f, 400f, 40f);
             Button close = MakeButton("Close", panel.transform, sprite, font, "Close", delegate { SetSettingsOpen(false); });
-            PlaceTop(close.GetComponent<RectTransform>(), 500f, -18f, 116f, 36f);
+            Text closeLabel = close.GetComponentInChildren<Text>();
+            closeLabel.fontSize = 15 * u;
+            closeLabel.color = Muted;
+            closeLabel.alignment = TextAnchor.MiddleRight;
+            PlaceTop(close.GetComponent<RectTransform>(), panelW - (108f * u), 16f * u, 84f * u, 32f * u);
 
-            Text cameraHeading = MakeText("Camera Heading", panel.transform, font, "Camera", 16, TextAnchor.MiddleLeft, Muted);
-            PlaceTop(cameraHeading.rectTransform, 24f, -64f, 560f, 22f);
-            settingsCameraText = MakeText("Camera Value", panel.transform, font, "No camera yet", 20, TextAnchor.MiddleLeft, Cream);
-            PlaceTop(settingsCameraText.rectTransform, 24f, -90f, 592f, 32f);
-
-            Button previous = MakeButton("Previous", panel.transform, sprite, font, "Previous", delegate { StepCamera(-1); });
-            PlaceTop(previous.GetComponent<RectTransform>(), 24f, -130f, 180f, 36f);
-            Button next = MakeButton("Next", panel.transform, sprite, font, "Next", delegate { StepCamera(1); });
-            PlaceTop(next.GetComponent<RectTransform>(), 216f, -130f, 180f, 36f);
-            Button refresh = MakeButton("Refresh", panel.transform, sprite, font, "Refresh", RefreshCameras);
-            PlaceTop(refresh.GetComponent<RectTransform>(), 408f, -130f, 208f, 36f);
-            Button phone = MakeButton("Use Phone", panel.transform, sprite, font, "Use my phone", UseMyPhone);
-            PlaceTop(phone.GetComponent<RectTransform>(), 24f, -176f, 592f, 40f);
-
-            Text phoneHelp = MakeText("Phone Help", panel.transform, font, PhoneHelp, 15, TextAnchor.UpperLeft, Muted);
-            phoneHelp.horizontalOverflow = HorizontalWrapMode.Wrap;
-            phoneHelp.verticalOverflow = VerticalWrapMode.Overflow;
-            PlaceTop(phoneHelp.rectTransform, 24f, -226f, 592f, 168f);
-
-            Text captureHeading = MakeText("Capture Heading", panel.transform, font, "Capture", 16, TextAnchor.MiddleLeft, Muted);
-            PlaceTop(captureHeading.rectTransform, 24f, -404f, 560f, 22f);
-            settingsResolutionText = AddSettingRow(panel.transform, sprite, font, "Resolution", -432f, CycleResolution);
-            settingsFpsText = AddSettingRow(panel.transform, sprite, font, "Frame rate", -478f, CycleFrameRate);
-            settingsMirrorText = AddSettingRow(panel.transform, sprite, font, "Mirror", -524f, ToggleMirror);
-            settingsRotationText = AddSettingRow(panel.transform, sprite, font, "Rotate", -570f, CycleRotation);
-            settingsPeopleText = AddSettingRow(panel.transform, sprite, font, "People", -616f, CyclePeople);
-            settingsDetailText = AddSettingRow(panel.transform, sprite, font, "Tracking", -662f, CycleDetail);
-            settingsPowerText = AddSettingRow(panel.transform, sprite, font, "Power", -708f, TogglePower);
+            settingsMain = new GameObject("Main", typeof(RectTransform));
+            settingsMain.transform.SetParent(panel.transform, false);
+            Stretch(settingsMain.GetComponent<RectTransform>());
+            BuildSettingsMain(settingsMain.transform, font, sprite, u);
+            BuildPairingPage(panel.transform, font, sprite, u);
 
             settingsRoot.SetActive(false);
             RefreshSettingLabels();
         }
 
         /// <summary>
-        /// Adds one full-width settings button and returns its label.
+        /// Lays out the camera and capture rows. Pairing steps are not on this page.
         /// </summary>
-        Text AddSettingRow(Transform parent, Sprite sprite, Font font, string name, float y, UnityAction action)
+        void BuildSettingsMain(Transform page, Font font, Sprite sprite, int u)
         {
-            Button button = MakeButton(name, parent, sprite, font, name, action);
-            PlaceTop(button.GetComponent<RectTransform>(), 24f, y, 592f, 40f);
-            return button.GetComponentInChildren<Text>();
+            Text heading = MakeText("Heading", page, font, "Settings", 22 * u, TextAnchor.MiddleLeft, Yellow);
+            PlaceTop(heading.rectTransform, 28f * u, 18f * u, 240f * u, 32f * u);
+            Rule(page, sprite, 28f * u, 58f * u, 404f * u);
+
+            Text cameraHeading = MakeText("Camera Heading", page, font, "CAMERA", 12 * u, TextAnchor.MiddleLeft, Muted);
+            PlaceTop(cameraHeading.rectTransform, 28f * u, 72f * u, 404f * u, 18f * u);
+            settingsCameraText = MakeText("Camera Value", page, font, "No camera yet", 18 * u, TextAnchor.MiddleLeft, Cream);
+            PlaceTop(settingsCameraText.rectTransform, 28f * u, 94f * u, 404f * u, 28f * u);
+
+            AddTextButton(page, sprite, font, "Previous", 28f * u, 136f * u, 110f * u, 32f * u, 15 * u, delegate { StepCamera(-1); });
+            AddTextButton(page, sprite, font, "Next", 150f * u, 136f * u, 80f * u, 32f * u, 15 * u, delegate { StepCamera(1); });
+            AddTextButton(page, sprite, font, "Refresh", 250f * u, 136f * u, 110f * u, 32f * u, 15 * u, RefreshCameras);
+
+            AddTextButton(page, sprite, font, "Pair phone", 28f * u, 180f * u, 160f * u, 32f * u, 16 * u, ShowPairing);
+            Rule(page, sprite, 28f * u, 224f * u, 404f * u);
+
+            settingsResolutionText = AddSettingRow(page, sprite, font, "Resolution", 240f * u, u, CycleResolution);
+            settingsFpsText = AddSettingRow(page, sprite, font, "Frame rate", 288f * u, u, CycleFrameRate);
+            settingsMirrorText = AddSettingRow(page, sprite, font, "Mirror", 336f * u, u, ToggleMirror);
+            settingsRotationText = AddSettingRow(page, sprite, font, "Rotate", 384f * u, u, CycleRotation);
+            settingsPeopleText = AddSettingRow(page, sprite, font, "People", 432f * u, u, CyclePeople);
+            settingsDetailText = AddSettingRow(page, sprite, font, "Tracking", 480f * u, u, CycleDetail);
+            settingsPowerText = AddSettingRow(page, sprite, font, "Camera", 528f * u, u, TogglePower);
+        }
+
+        /// <summary>
+        /// Builds the pairing page. It stays hidden until Pair phone is clicked.
+        /// </summary>
+        void BuildPairingPage(Transform panel, Font font, Sprite sprite, int u)
+        {
+            settingsPairing = new GameObject("Pairing", typeof(RectTransform));
+            settingsPairing.transform.SetParent(panel, false);
+            Stretch(settingsPairing.GetComponent<RectTransform>());
+
+            AddTextButton(settingsPairing.transform, sprite, font, "Back", 28f * u, 18f * u, 72f * u, 32f * u, 15 * u, HidePairing);
+            Text title = MakeText("Pair Title", settingsPairing.transform, font, "Pair phone", 22 * u, TextAnchor.MiddleLeft, Yellow);
+            PlaceTop(title.rectTransform, 112f * u, 18f * u, 240f * u, 32f * u);
+            pairingStatus = MakeText("Pair Status", settingsPairing.transform, font, "", 14 * u, TextAnchor.UpperLeft, Muted);
+            pairingStatus.horizontalOverflow = HorizontalWrapMode.Wrap;
+            pairingStatus.verticalOverflow = VerticalWrapMode.Overflow;
+            PlaceTop(pairingStatus.rectTransform, 28f * u, 58f * u, 404f * u, 36f * u);
+            AddTextButton(settingsPairing.transform, sprite, font, "Refresh", 28f * u, 98f * u, 120f * u, 32f * u, 15 * u, RefreshCameras);
+
+            GameObject scrollObject = new GameObject("Steps", typeof(RectTransform), typeof(ScrollRect));
+            scrollObject.transform.SetParent(settingsPairing.transform, false);
+            PlaceTop(scrollObject.GetComponent<RectTransform>(), 28f * u, 142f * u, 404f * u, 420f * u);
+            ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 28f * u;
+
+            GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollObject.transform, false);
+            Stretch(viewport.GetComponent<RectTransform>());
+            Image viewportImage = viewport.GetComponent<Image>();
+            viewportImage.sprite = sprite;
+            viewportImage.color = Color.white;
+            viewportImage.raycastTarget = true;
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            GameObject content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(viewport.transform, false);
+            RectTransform contentRect = content.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = new Vector2(0f, 0f);
+
+            Text guide = MakeText("Guide", content.transform, font, PairingGuide, 15 * u, TextAnchor.UpperLeft, Cream);
+            guide.horizontalOverflow = HorizontalWrapMode.Wrap;
+            guide.verticalOverflow = VerticalWrapMode.Overflow;
+            guide.lineSpacing = 1.08f;
+            RectTransform guideRect = guide.rectTransform;
+            guideRect.anchorMin = new Vector2(0f, 1f);
+            guideRect.anchorMax = new Vector2(1f, 1f);
+            guideRect.pivot = new Vector2(0.5f, 1f);
+            guideRect.anchoredPosition = Vector2.zero;
+            guideRect.sizeDelta = new Vector2(-4f * u, 0f);
+            ContentSizeFitter fitter = guide.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = guideRect;
+            settingsPairing.SetActive(false);
+        }
+
+        /// <summary>
+        /// Draws a one-pixel yellow hairline.
+        /// </summary>
+        static void Rule(Transform parent, Sprite sprite, float x, float y, float width)
+        {
+            Image line = MakeImage("Rule", parent, sprite, new Color(1f, 0.82f, 0.12f, 0.45f));
+            PlaceTop(line.rectTransform, x, y, width, 1f);
+        }
+
+        /// <summary>
+        /// Adds a text button with no filled background.
+        /// </summary>
+        static void AddTextButton(Transform parent, Sprite sprite, Font font, string label, float x, float y, float width, float height, int fontSize, UnityAction action)
+        {
+            Button button = MakeButton(label, parent, sprite, font, label, action);
+            Text text = button.GetComponentInChildren<Text>();
+            text.fontSize = fontSize;
+            text.color = Yellow;
+            text.alignment = TextAnchor.MiddleLeft;
+            PlaceTop(button.GetComponent<RectTransform>(), x, y, width, height);
+        }
+
+        /// <summary>
+        /// Adds one settings row and returns the yellow value label.
+        /// </summary>
+        static Text AddSettingRow(Transform parent, Sprite sprite, Font font, string caption, float y, int u, UnityAction action)
+        {
+            Button button = MakeButton(caption, parent, sprite, font, "", action);
+            PlaceTop(button.GetComponent<RectTransform>(), 20f * u, y, 420f * u, 40f * u);
+            Text name = MakeText("Name", button.transform, font, caption, 16 * u, TextAnchor.MiddleLeft, Cream);
+            PlaceTop(name.rectTransform, 8f * u, 0f, 200f * u, 40f * u);
+            Text value = MakeText("Value", button.transform, font, "", 16 * u, TextAnchor.MiddleRight, Yellow);
+            PlaceTop(value.rectTransform, 180f * u, 0f, 228f * u, 40f * u);
+            return value;
         }
 
         /// <summary>
@@ -1320,8 +1482,52 @@ namespace Handline
         void SetSettingsOpen(bool open)
         {
             if (settingsRoot == null) return;
+            if (settingsPairing != null) settingsPairing.SetActive(false);
+            if (settingsMain != null) settingsMain.SetActive(true);
             settingsRoot.SetActive(open);
             if (open) RefreshSettingLabels();
+        }
+
+        /// <summary>
+        /// Opens the pairing steps and watches for a phone webcam.
+        /// </summary>
+        void ShowPairing()
+        {
+            if (settingsMain != null) settingsMain.SetActive(false);
+            if (settingsPairing != null) settingsPairing.SetActive(true);
+            waitingForPhone = true;
+            WebCamDevice[] devices = WebCamTexture.devices;
+            knownDeviceCount = devices == null ? 0 : devices.Length;
+            int phone = FindPhone(devices);
+            if (phone < 0)
+            {
+                if (pairingStatus != null) pairingStatus.text = "No phone camera yet. Follow the steps, then press Refresh.";
+                SetStatus("Waiting for the phone. Follow the pairing steps, then press Refresh.");
+                return;
+            }
+
+            waitingForPhone = false;
+            cameraHeldOff = false;
+            if (pairingStatus != null) pairingStatus.text = "Phone camera connected. The picture stays on this device.";
+            if (engine == null)
+            {
+                pendingCamera = phone;
+                if (!resuming) StartCoroutine(Resume());
+                return;
+            }
+
+            OpenCamera(phone);
+            SetStatus("Phone camera connected. The picture stays on this device.");
+        }
+
+        /// <summary>
+        /// Returns from the pairing steps to the settings rows.
+        /// </summary>
+        void HidePairing()
+        {
+            if (settingsPairing != null) settingsPairing.SetActive(false);
+            if (settingsMain != null) settingsMain.SetActive(true);
+            RefreshSettingLabels();
         }
 
         /// <summary>
@@ -1331,13 +1537,13 @@ namespace Handline
         {
             if (settingsCameraText == null) return;
             settingsCameraText.text = CurrentCameraLabel();
-            settingsResolutionText.text = "Resolution  ·  " + requestWidth + "×" + requestHeight;
-            settingsFpsText.text = "Frame rate  ·  " + requestFps;
-            settingsMirrorText.text = mirror ? "Mirror  ·  on" : "Mirror  ·  off";
-            settingsRotationText.text = "Rotate  ·  " + extraRotation + "°";
-            settingsPeopleText.text = peopleLimit == 1 ? "People  ·  1" : "People  ·  " + peopleLimit;
+            settingsResolutionText.text = requestWidth + " × " + requestHeight;
+            settingsFpsText.text = requestFps.ToString();
+            settingsMirrorText.text = mirror ? "On" : "Off";
+            settingsRotationText.text = extraRotation + "°";
+            settingsPeopleText.text = peopleLimit.ToString();
             settingsDetailText.text = DetailLabel();
-            settingsPowerText.text = cameraHeldOff ? "Camera  ·  off" : "Camera  ·  on";
+            settingsPowerText.text = cameraHeldOff ? "Off" : "On";
         }
 
         /// <summary>
@@ -1369,9 +1575,9 @@ namespace Handline
         /// </summary>
         string DetailLabel()
         {
-            if (jointThreshold < 0.25f) return "Tracking  ·  relaxed";
-            if (jointThreshold < 0.4f) return "Tracking  ·  normal";
-            return "Tracking  ·  firm";
+            if (jointThreshold < 0.25f) return "Relaxed";
+            if (jointThreshold < 0.4f) return "Normal";
+            return "Firm";
         }
 
         /// <summary>
@@ -1412,21 +1618,25 @@ namespace Handline
             WebCamDevice[] devices = WebCamTexture.devices;
             knownDeviceCount = devices == null ? 0 : devices.Length;
             RefreshSettingLabels();
-            if (!waitingForPhone) 
+            bool pairingOpen = settingsPairing != null && settingsPairing.activeSelf;
+            int phone = FindPhone(devices);
+            if (!waitingForPhone && !pairingOpen)
             {
                 SetStatus(knownDeviceCount == 0 ? "No camera yet." : "Camera list refreshed.");
                 return;
             }
 
-            int phone = FindPhone(devices);
             if (phone < 0)
             {
+                waitingForPhone = true;
+                if (pairingStatus != null) pairingStatus.text = "No phone camera yet. Follow the steps, then press Refresh.";
                 SetStatus("Still waiting for the phone. Leave the webcam app running, then press Refresh.");
                 return;
             }
 
             waitingForPhone = false;
             cameraHeldOff = false;
+            if (pairingStatus != null) pairingStatus.text = "Phone camera connected. The picture stays on this device.";
             if (engine == null)
             {
                 pendingCamera = phone;
@@ -1436,35 +1646,6 @@ namespace Handline
 
             OpenCamera(phone);
             SetStatus("Phone camera connected. The picture stays on this device.");
-        }
-
-        /// <summary>
-        /// Selects a phone that already appears as a webcam, or waits for Continuity Camera or a webcam app.
-        /// </summary>
-        void UseMyPhone()
-        {
-            WebCamDevice[] devices = WebCamTexture.devices;
-            int phone = FindPhone(devices);
-            if (phone < 0)
-            {
-                waitingForPhone = true;
-                knownDeviceCount = devices == null ? 0 : devices.Length;
-                SetStatus("Waiting for the phone. Use the steps below, then it connects on its own.");
-                RefreshSettingLabels();
-                return;
-            }
-
-            waitingForPhone = false;
-            cameraHeldOff = false;
-            if (engine == null)
-            {
-                pendingCamera = phone;
-                if (!resuming) StartCoroutine(Resume());
-                return;
-            }
-
-            OpenCamera(phone);
-            SetStatus("Phone camera on. The picture stays on this device.");
         }
 
         /// <summary>
@@ -1633,13 +1814,14 @@ namespace Handline
             Button button = go.GetComponent<Button>();
             button.targetGraphic = image;
             ColorBlock colors = button.colors;
-            colors.normalColor = new Color(0.20f, 0.17f, 0.14f, 1f);
-            colors.highlightedColor = new Color(0.32f, 0.26f, 0.16f, 1f);
-            colors.pressedColor = new Color(0.98f, 0.74f, 0.28f, 1f);
+            colors.normalColor = new Color(1f, 1f, 1f, 0f);
+            colors.highlightedColor = new Color(1f, 0.82f, 0.12f, 0.12f);
+            colors.pressedColor = new Color(1f, 0.82f, 0.12f, 0.22f);
             colors.selectedColor = colors.highlightedColor;
+            colors.fadeDuration = 0.05f;
             button.colors = colors;
             if (action != null) button.onClick.AddListener(action);
-            Text text = MakeText("Label", go.transform, font, label, 16, TextAnchor.MiddleCenter, Cream);
+            Text text = MakeText("Label", go.transform, font, label, 16, TextAnchor.MiddleCenter, Yellow);
             Stretch(text.rectTransform);
             return button;
         }
