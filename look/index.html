@@ -3130,20 +3130,32 @@
       }
     }
 
+    function showGoogleSetup(show) {
+      const box = document.getElementById("googleSetup");
+      if (!box) return;
+      box.hidden = !show;
+      if (show) {
+        document.getElementById("googleOriginHint").textContent = location.origin;
+        const input = document.getElementById("googleClientIdInput");
+        input.value = resolveGoogleClientId() || "";
+        input.focus();
+      }
+    }
+
     async function startGoogleAuth() {
       showAuthErr("");
       if (!resolveGoogleClientId()) {
-        showAuthErr(
-          "Google sign-in is not configured for this build yet. Use password sign-up for now, or ask the site owner to set LOOK_GOOGLE_CLIENT_ID (origin " +
-            location.origin +
-            ")."
-        );
+        showGoogleSetup(true);
+        showAuthErr("Paste your Google OAuth Web Client ID below, then continue.");
         return;
       }
+      showGoogleSetup(false);
       try {
+        googleReady = null;
+        googleTokenClient = null;
         await ensureGoogle();
         if (googleTokenClient) {
-          googleTokenClient.requestAccessToken({ prompt: "" });
+          googleTokenClient.requestAccessToken({ prompt: "consent" });
           return;
         }
         window.google.accounts.id.prompt();
@@ -3151,6 +3163,21 @@
         showAuthErr((e && e.message) || "Google sign-in unavailable");
       }
     }
+
+    document.getElementById("googleClientIdSave").addEventListener("click", async () => {
+      const raw = document.getElementById("googleClientIdInput").value.trim();
+      if (!raw || !raw.includes(".apps.googleusercontent.com")) {
+        showAuthErr("Enter a valid Google Web Client ID ending in .apps.googleusercontent.com");
+        return;
+      }
+      localStorage.setItem("look.googleClientId", raw);
+      googleClientId = raw;
+      googleReady = null;
+      googleTokenClient = null;
+      showGoogleSetup(false);
+      showAuthErr("");
+      await startGoogleAuth();
+    });
 
     function resizeImageFile(file) {
       return new Promise((resolve, reject) => {
@@ -3847,7 +3874,7 @@
         regs.forEach((r) => r.update().catch(() => {}));
       });
       navigator.serviceWorker
-        .register("./sw.js?v=11")
+        .register("./sw.js?v=12")
         .then((reg) => reg.update().catch(() => {}))
         .catch(() => {});
     }
