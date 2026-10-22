@@ -1616,8 +1616,7 @@ namespace Handline
             if (puppet != null)
             {
                 puppet.Follow(stable, slotUsed, peopleLimit);
-                int visible = VisiblePeople();
-                puppet.Frame(stageCamera, visible > 0 ? visible : 1);
+                puppet.Frame(stageCamera, peopleLimit);
             }
         }
 

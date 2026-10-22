@@ -3,14 +3,16 @@ using UnityEngine;
 namespace Handline
 {
     /// <summary>
-    /// A blocky polygon character on a Unity plane, built the same way as the Handline runner.
-    /// Limbs are cubes between the joints that are still on screen. An off-screen joint
-    /// keeps the last cube pose and does not move until the camera sees it again.
+    /// A blocky polygon character on a Unity plane, in the same kind of scene as the Handline runner.
+    /// The figure is standing from the start. A joint only moves when the camera sees it.
+    /// Joints that are missing keep the pose they already have. Nothing is removed.
+    /// Arms sit in front of the chest and the hips sit slightly back, so front and back read in the view.
     /// No face is drawn.
     /// </summary>
     public sealed class StagePuppet : MonoBehaviour
     {
         const int MaxPeople = 6;
+        const float SeenScore = 0.25f;
 
         static readonly int[] LimbJoints =
         {
@@ -38,15 +40,8 @@ namespace Handline
         Transform[] chests;
         Transform[] hips;
         Transform[][] limbs;
-        Vector3[][] heldA;
-        Vector3[][] heldB;
-        bool[][] heldLimb;
-        Vector3[] heldHead;
-        Vector3[] heldChestA;
-        Vector3[] heldChestB;
-        Vector3[] heldHipA;
-        Vector3[] heldHipB;
-        bool[] heldBody;
+        Vector3[][] jointPos;
+        float[] slotX;
         Material bodyMaterial;
         Material limbMaterial;
         Material headMaterial;
@@ -54,7 +49,7 @@ namespace Handline
         PoseFrame neutral;
 
         /// <summary>
-        /// Builds the plane, a light, and one polygon figure for each person slot.
+        /// Builds the plane, a light, and one polygon figure already standing in a rest pose.
         /// </summary>
         public void Build()
         {
@@ -69,7 +64,8 @@ namespace Handline
             Strip(plane);
             plane.GetComponent<Renderer>().sharedMaterial = floorMaterial;
             floor = plane.transform;
-            floor.localScale = new Vector3(0.28f, 1f, 0.2f);
+            floor.localScale = new Vector3(0.32f, 1f, 0.22f);
+            floor.position = Vector3.zero;
 
             Light sun = new GameObject("Sun").AddComponent<Light>();
             sun.transform.SetParent(transform, false);
@@ -80,20 +76,15 @@ namespace Handline
             sun.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
 
             int limbCount = LimbJoints.Length / 2;
+            int jointCount = (int)JointId.Count;
             roots = new Transform[MaxPeople];
             heads = new Transform[MaxPeople];
             chests = new Transform[MaxPeople];
             hips = new Transform[MaxPeople];
             limbs = new Transform[MaxPeople][];
-            heldA = new Vector3[MaxPeople][];
-            heldB = new Vector3[MaxPeople][];
-            heldLimb = new bool[MaxPeople][];
-            heldHead = new Vector3[MaxPeople];
-            heldChestA = new Vector3[MaxPeople];
-            heldChestB = new Vector3[MaxPeople];
-            heldHipA = new Vector3[MaxPeople];
-            heldHipB = new Vector3[MaxPeople];
-            heldBody = new bool[MaxPeople];
+            jointPos = new Vector3[MaxPeople][];
+            slotX = new float[MaxPeople];
+            neutral = NeutralPose();
             for (int person = 0; person < MaxPeople; person++)
             {
                 GameObject root = new GameObject("Character " + (person + 1));
@@ -103,14 +94,12 @@ namespace Handline
                 hips[person] = Box("Hips", limbMaterial, root.transform);
                 heads[person] = Box("Head", headMaterial, root.transform);
                 limbs[person] = new Transform[limbCount];
-                heldA[person] = new Vector3[limbCount];
-                heldB[person] = new Vector3[limbCount];
-                heldLimb[person] = new bool[limbCount];
+                jointPos[person] = new Vector3[jointCount];
                 for (int i = 0; i < limbCount; i++) limbs[person][i] = Box("Limb", limbMaterial, root.transform);
-                root.SetActive(false);
+                Seed(person, 0f);
+                Rebuild(person);
+                root.SetActive(person == 0);
             }
-
-            neutral = NeutralPose();
         }
 
         /// <summary>
@@ -124,16 +113,16 @@ namespace Handline
             if (floor != null)
             {
                 float width = Mathf.Max(3.2f, span + 1.4f);
-                floor.localScale = new Vector3(width / 10f, 1f, 0.22f);
-                floor.position = new Vector3(0f, 0f, 0f);
+                floor.localScale = new Vector3(width / 10f, 1f, 0.24f);
+                floor.position = Vector3.zero;
             }
 
             float dist = (span * 0.72f) / Mathf.Tan(18f * Mathf.Deg2Rad);
-            if (dist < 4.2f) dist = 4.2f;
-            Vector3 look = new Vector3(0f, 1.05f, 0.4f);
+            if (dist < 4.6f) dist = 4.6f;
+            Vector3 look = new Vector3(0f, 1.05f, 0.15f);
             camera.orthographic = false;
             camera.fieldOfView = 36f;
-            camera.transform.position = new Vector3(0f, 2.35f, -dist);
+            camera.transform.position = new Vector3(0.35f, 1.85f, -dist);
             camera.transform.rotation = Quaternion.LookRotation(look - camera.transform.position, Vector3.up);
             camera.nearClipPlane = 0.08f;
             camera.farClipPlane = 80f;
@@ -142,125 +131,164 @@ namespace Handline
         }
 
         /// <summary>
-        /// Moves each visible person. When nobody is tracked, one character stands in a rest pose.
+        /// Keeps every character standing. Only joints the camera currently sees are moved.
         /// </summary>
         public void Follow(PoseFrame[] poses, bool[] used, int limit)
         {
             if (roots == null) return;
-            int visible = 0;
-            for (int i = 0; i < MaxPeople && i < limit; i++)
-            {
-                if (used != null && used[i] && poses != null && poses[i] != null) visible++;
-            }
+            if (limit < 1) limit = 1;
+            if (limit > MaxPeople) limit = MaxPeople;
+            for (int i = 0; i < MaxPeople; i++) roots[i].gameObject.SetActive(i < limit);
 
-            if (visible == 0)
+            for (int i = 0; i < limit; i++)
             {
-                Place(0, neutral, 0f);
-                for (int i = 1; i < MaxPeople; i++) roots[i].gameObject.SetActive(false);
-                return;
-            }
-
-            int shown = 0;
-            for (int i = 0; i < MaxPeople; i++)
-            {
-                bool live = i < limit && used != null && used[i] && poses != null && poses[i] != null;
-                if (!live)
+                float originX = (i - ((limit - 1) * 0.5f)) * 1.15f;
+                if (!HasSeed(i)) Seed(i, originX);
+                else ShiftSlot(i, originX);
+                if (poses != null && used != null && used[i] && i < poses.Length && poses[i] != null)
                 {
-                    roots[i].gameObject.SetActive(false);
-                    continue;
+                    Absorb(i, poses[i], originX);
                 }
 
-                float x = (shown - ((visible - 1) * 0.5f)) * 1.15f;
-                Place(i, poses[i], x);
-                shown++;
+                Rebuild(i);
             }
         }
 
-        void Place(int person, PoseFrame pose, float originX)
+        bool HasSeed(int person)
         {
-            if (pose == null || pose.Joints == null) return;
-            roots[person].gameObject.SetActive(true);
-            bool shoulders = Live(pose, JointId.LeftShoulder) && Live(pose, JointId.RightShoulder);
-            bool hipJoints = Live(pose, JointId.LeftHip) && Live(pose, JointId.RightHip);
-            if (shoulders && hipJoints)
+            return jointPos[person][(int)JointId.LeftShoulder].sqrMagnitude > 0.0001f
+                || jointPos[person][(int)JointId.RightHip].sqrMagnitude > 0.0001f;
+        }
+
+        void Seed(int person, float originX)
+        {
+            int end = (int)JointId.Count;
+            for (int id = (int)JointId.LeftShoulder; id < end; id++)
             {
-                Vector3 hip = (Map(pose, JointId.LeftHip, originX) + Map(pose, JointId.RightHip, originX)) * 0.5f;
-                Vector3 shoulder = (Map(pose, JointId.LeftShoulder, originX) + Map(pose, JointId.RightShoulder, originX)) * 0.5f;
-                heldChestA[person] = hip;
-                heldChestB[person] = shoulder;
-                heldHipA[person] = Map(pose, JointId.LeftHip, originX);
-                heldHipB[person] = Map(pose, JointId.RightHip, originX);
-                Vector3 up = shoulder - hip;
-                if (up.sqrMagnitude < 0.0001f) up = Vector3.up;
-                heldHead[person] = shoulder + (up.normalized * 0.2f);
-                heldBody[person] = true;
+                jointPos[person][id] = Map(neutral.Joints[id], id, originX);
             }
 
-            if (shoulders && hipJoints)
+            slotX[person] = originX;
+        }
+
+        void ShiftSlot(int person, float originX)
+        {
+            float dx = originX - slotX[person];
+            if (Mathf.Abs(dx) < 0.001f) return;
+            int end = (int)JointId.Count;
+            for (int id = (int)JointId.LeftShoulder; id < end; id++)
             {
-                PlaceBox(chests[person], heldChestA[person], heldChestB[person], 0.42f, 0.28f);
-                PlaceBox(hips[person], heldHipA[person], heldHipB[person], 0.36f, 0.24f);
-                heads[person].gameObject.SetActive(true);
-                heads[person].position = heldHead[person];
-                heads[person].rotation = Quaternion.identity;
-                heads[person].localScale = new Vector3(0.32f, 0.3f, 0.3f);
+                Vector3 point = jointPos[person][id];
+                point.x += dx;
+                jointPos[person][id] = point;
             }
-            else
+
+            slotX[person] = originX;
+        }
+
+        /// <summary>
+        /// Writes a new position only for joints that are actually in the picture.
+        /// </summary>
+        void Absorb(int person, PoseFrame pose, float originX)
+        {
+            if (pose.Joints == null) return;
+            int end = pose.Joints.Length;
+            if (end > (int)JointId.Count) end = (int)JointId.Count;
+            for (int id = (int)JointId.LeftShoulder; id < end; id++)
             {
-                chests[person].gameObject.SetActive(false);
-                hips[person].gameObject.SetActive(false);
-                heads[person].gameObject.SetActive(false);
+                Joint joint = pose.Joints[id];
+                if (joint.Score < SeenScore) continue;
+                jointPos[person][id] = Map(joint, id, originX);
             }
+        }
+
+        void Rebuild(int person)
+        {
+            Vector3 leftHip = jointPos[person][(int)JointId.LeftHip];
+            Vector3 rightHip = jointPos[person][(int)JointId.RightHip];
+            Vector3 leftShoulder = jointPos[person][(int)JointId.LeftShoulder];
+            Vector3 rightShoulder = jointPos[person][(int)JointId.RightShoulder];
+            Vector3 hip = (leftHip + rightHip) * 0.5f;
+            Vector3 shoulder = (leftShoulder + rightShoulder) * 0.5f;
+            Vector3 up = shoulder - hip;
+            if (up.sqrMagnitude < 0.0001f) up = Vector3.up;
+            PlaceBox(chests[person], hip, shoulder, 0.42f, 0.32f);
+            PlaceBox(hips[person], leftHip, rightHip, 0.36f, 0.26f);
+            heads[person].gameObject.SetActive(true);
+            heads[person].position = shoulder + (up.normalized * 0.22f) + new Vector3(0f, 0f, -0.04f);
+            heads[person].rotation = Quaternion.identity;
+            heads[person].localScale = new Vector3(0.32f, 0.3f, 0.3f);
 
             int limbCount = LimbJoints.Length / 2;
             for (int i = 0; i < limbCount; i++)
             {
-                int aId = LimbJoints[i * 2];
-                int bId = LimbJoints[i * 2 + 1];
-                bool live = pose.Joints[aId].Score >= 0.25f && pose.Joints[bId].Score >= 0.25f;
-                if (!live)
-                {
-                    limbs[person][i].gameObject.SetActive(false);
-                    continue;
-                }
-
-                Vector3 worldA = Map(pose.Joints[aId], originX);
-                Vector3 worldB = Map(pose.Joints[bId], originX);
-                heldA[person][i] = worldA;
-                heldB[person][i] = worldB;
-                heldLimb[person][i] = true;
-                PlaceBox(limbs[person][i], worldA, worldB, LimbThickness[i], LimbThickness[i]);
+                Vector3 a = jointPos[person][LimbJoints[i * 2]];
+                Vector3 b = jointPos[person][LimbJoints[i * 2 + 1]];
+                PlaceBox(limbs[person][i], a, b, LimbThickness[i], LimbThickness[i]);
             }
         }
 
-        static bool Live(PoseFrame pose, JointId id)
-        {
-            return pose.Joints[(int)id].Score >= 0.25f;
-        }
-
-        static Vector3 Map(PoseFrame pose, JointId id, float originX)
-        {
-            return Map(pose.Joints[(int)id], originX);
-        }
-
-        static Vector3 Map(Joint joint, float originX)
+        /// <summary>
+        /// Maps a picture joint into the scene. Negative Z is toward the camera, so wrists read in front of the chest.
+        /// </summary>
+        static Vector3 Map(Joint joint, int jointId, float originX)
         {
             float x = ((joint.X - 0.5f) * 1.35f) + originX;
             float y = (1f - joint.Y) * 1.95f;
-            return new Vector3(x, y, 0f);
+            float front = 1f - Mathf.Clamp01(Mathf.Abs(joint.X - 0.5f) / 0.42f);
+            float z = Depth(jointId, front);
+            return new Vector3(x, y, z);
+        }
+
+        /// <summary>
+        /// Puts the arms in front of the torso and the hips slightly behind. A hand over the body comes closer to the camera.
+        /// </summary>
+        static float Depth(int jointId, float front)
+        {
+            float side = IsLeft(jointId) ? -0.04f : 0.04f;
+            switch ((JointId)jointId)
+            {
+                case JointId.LeftWrist:
+                case JointId.RightWrist:
+                    return Mathf.Lerp(-0.16f, -0.48f, front) + side;
+                case JointId.LeftElbow:
+                case JointId.RightElbow:
+                    return Mathf.Lerp(-0.08f, -0.3f, front) + side;
+                case JointId.LeftKnee:
+                case JointId.RightKnee:
+                    return Mathf.Lerp(0.04f, -0.18f, front) + (side * 0.5f);
+                case JointId.LeftAnkle:
+                case JointId.RightAnkle:
+                    return 0.06f + (side * 0.5f);
+                case JointId.LeftShoulder:
+                case JointId.RightShoulder:
+                    return -0.08f + side;
+                default:
+                    return 0.1f + (side * 0.5f);
+            }
+        }
+
+        static bool IsLeft(int jointId)
+        {
+            return jointId == (int)JointId.LeftShoulder
+                || jointId == (int)JointId.LeftElbow
+                || jointId == (int)JointId.LeftWrist
+                || jointId == (int)JointId.LeftHip
+                || jointId == (int)JointId.LeftKnee
+                || jointId == (int)JointId.LeftAnkle;
         }
 
         static void PlaceBox(Transform box, Vector3 a, Vector3 b, float width, float depth)
         {
             Vector3 delta = b - a;
             float length = delta.magnitude;
+            box.gameObject.SetActive(true);
             if (length < 0.02f)
             {
-                box.gameObject.SetActive(false);
+                box.position = a;
                 return;
             }
 
-            box.gameObject.SetActive(true);
             box.position = (a + b) * 0.5f;
             box.rotation = Quaternion.FromToRotation(Vector3.up, delta / length);
             box.localScale = new Vector3(width, length, depth);
@@ -272,9 +300,10 @@ namespace Handline
             go.name = name;
             go.transform.SetParent(parent, false);
             Strip(go);
-            go.GetComponent<Renderer>().sharedMaterial = material;
-            go.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            go.GetComponent<Renderer>().receiveShadows = false;
+            Renderer renderer = go.GetComponent<Renderer>();
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
             return go.transform;
         }
 
