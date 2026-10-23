@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LOOK">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="description" content="LOOK rates your face from 1 to 10 with on-device MediaPipe face mocap, plus research-backed tips.">
+  <meta name="description" content="LOOK rates your face on the PSL scale with on-device MediaPipe face mocap, plus research-backed tips.">
   <title>LOOK</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -48,7 +48,8 @@
 
     body { position: relative; }
     body.mode-scan { overflow: hidden; height: 100dvh; }
-    body.mode-home { overflow-x: hidden; overflow-y: auto; }
+    body.mode-home,
+    body.mode-results { overflow-x: hidden; overflow-y: auto; }
 
     .atmosphere {
       position: fixed;
@@ -85,8 +86,17 @@
       margin: 0 auto;
     }
 
+    .top-utility {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      min-height: 44px;
+      margin: 0 0 8px;
+    }
+
     .home-hero {
-      min-height: min(72dvh, 560px);
+      min-height: min(68dvh, 520px);
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
@@ -121,6 +131,856 @@
       flex-wrap: wrap;
       gap: 10px;
       margin-top: 6px;
+    }
+
+    .build-stamp {
+      margin: 4px 0 0;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(232, 245, 239, 0.35);
+    }
+
+    .personal-banner {
+      margin: 0 0 18px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .personal-banner .score-line {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      margin: 0 0 6px;
+    }
+
+    .personal-banner .score-line em {
+      font-style: normal;
+      color: var(--mint);
+    }
+
+    .personal-banner p {
+      margin: 0;
+      color: rgba(232, 245, 239, 0.65);
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+
+    .focus-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 0;
+    }
+
+    .focus-chips span {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+      background: var(--mint);
+      padding: 6px 10px;
+      font-weight: 700;
+      font-family: Syne, sans-serif;
+    }
+
+    .focus-chips span.dim {
+      background: transparent;
+      color: rgba(232, 245, 239, 0.55);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .tip.priority h3::before {
+      content: "For you · ";
+      color: var(--mint);
+      font-weight: 700;
+    }
+
+    .empty-plan {
+      color: rgba(232, 245, 239, 0.62);
+      line-height: 1.45;
+      margin: 0 0 12px;
+    }
+
+    /* —— Results —— */
+    #results {
+      padding:
+        calc(14px + var(--safe-t))
+        calc(18px + var(--safe-r))
+        calc(36px + var(--safe-b))
+        calc(18px + var(--safe-l));
+      max-width: 40rem;
+      margin: 0 auto;
+    }
+
+    .results-bar {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .results-bar .brand {
+      font-size: clamp(1.8rem, 7vw, 2.6rem);
+      justify-self: center;
+      text-align: center;
+    }
+
+    .results-bar .hero-tools {
+      margin-left: 0;
+      justify-self: end;
+    }
+
+    .results-bar .back-btn {
+      border-radius: 999px;
+      padding: 8px 14px;
+      min-height: 36px;
+    }
+
+    .results-hero {
+      text-align: center;
+      padding: 8px 0 20px;
+      animation: brandIn 0.7s var(--ease) both;
+    }
+
+    .results-hero .score-label {
+      margin: 0 0 4px;
+      font-size: 0.72rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(232, 245, 239, 0.55);
+    }
+
+    .results-hero .score-value {
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: clamp(4.5rem, 20vw, 7rem);
+      letter-spacing: -0.06em;
+      line-height: 0.85;
+      margin: 0;
+      color: var(--mint);
+      text-shadow: 0 0 40px rgba(94, 240, 168, 0.35);
+    }
+
+    .results-hero .score-meta {
+      margin: 12px 0 0;
+      color: rgba(232, 245, 239, 0.7);
+    }
+
+    .results-bars {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .graph-block {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      animation: brandIn 0.85s var(--ease) 0.06s both;
+    }
+
+    .graph-block h2 {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.25rem, 4vw, 1.55rem);
+      letter-spacing: -0.03em;
+      margin: 0 0 6px;
+    }
+
+    .graph-block > p {
+      margin: 0 0 14px;
+      color: rgba(232, 245, 239, 0.62);
+      line-height: 1.4;
+      font-size: 0.92rem;
+    }
+
+    .period-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .period-tabs button {
+      min-height: 40px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      background: transparent;
+      color: var(--foam);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .period-tabs button[aria-selected="true"] {
+      background: var(--mint);
+      color: #042016;
+      box-shadow: none;
+    }
+
+    .graph-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      max-height: 240px;
+      background: rgba(13, 28, 24, 0.65);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .graph-wrap canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .graph-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: rgba(232, 245, 239, 0.55);
+    }
+
+    .graph-legend i {
+      display: inline-block;
+      width: 18px;
+      height: 3px;
+      margin-right: 6px;
+      vertical-align: middle;
+      background: var(--mint);
+    }
+
+    .graph-legend i.base {
+      background: rgba(232, 245, 239, 0.35);
+    }
+
+    .delta-callout {
+      margin: 14px 0 0;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .delta-callout em {
+      font-style: normal;
+      color: var(--mint);
+    }
+
+    .delta-note {
+      margin: 6px 0 0;
+      font-size: 0.8rem;
+      color: rgba(232, 245, 239, 0.45);
+      line-height: 1.4;
+    }
+
+    .narrative {
+      margin: 0 0 18px;
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--line);
+      color: rgba(232, 245, 239, 0.78);
+      line-height: 1.55;
+      font-size: 0.98rem;
+    }
+
+    .narrative strong { color: var(--foam); }
+
+    /* Accordion */
+    details.acc {
+      border-top: 1px solid var(--line);
+      margin: 0;
+    }
+
+    details.acc:last-child { border-bottom: 1px solid var(--line); }
+
+    details.acc > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 0;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    details.acc > summary::-webkit-details-marker { display: none; }
+
+    details.acc > summary .chev {
+      flex-shrink: 0;
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid var(--mint);
+      border-bottom: 2px solid var(--mint);
+      transform: rotate(-45deg);
+      transition: transform 0.25s var(--ease);
+      margin-right: 4px;
+    }
+
+    details.acc[open] > summary .chev {
+      transform: rotate(45deg);
+      margin-top: -4px;
+    }
+
+    details.acc .acc-body {
+      padding: 0 0 16px;
+      color: rgba(232, 245, 239, 0.72);
+      line-height: 1.5;
+      font-size: 0.92rem;
+    }
+
+    details.acc .acc-body p { margin: 0 0 10px; }
+
+    .product-list {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .product-list li {
+      padding: 10px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .product-list li:first-child { border-top: 0; }
+
+    .product-list strong {
+      display: block;
+      font-family: Syne, sans-serif;
+      color: var(--foam);
+      margin-bottom: 3px;
+    }
+
+    .ing {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+      color: var(--mint-dim);
+    }
+
+    .cite {
+      display: block;
+      margin-top: 8px;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      color: rgba(232, 245, 239, 0.38);
+    }
+
+    /* Auth + settings — oval utility chips */
+    .hero-tools {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    button.auth-chip,
+    button.settings-chip {
+      margin: 0;
+      min-height: 34px;
+      height: 34px;
+      padding: 0 16px;
+      font-family: Figtree, sans-serif;
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      border-radius: 999px;
+      background: rgba(232, 245, 239, 0.04);
+      color: rgba(232, 245, 239, 0.82);
+      box-shadow: inset 0 0 0 1px rgba(232, 245, 239, 0.18);
+      transform: none;
+      white-space: nowrap;
+    }
+
+    button.auth-chip.primary-chip {
+      background: rgba(94, 240, 168, 0.16);
+      color: var(--foam);
+      box-shadow: inset 0 0 0 1px rgba(94, 240, 168, 0.45);
+    }
+
+    button.auth-chip:hover,
+    button.settings-chip:hover {
+      filter: none;
+      transform: none;
+      background: rgba(94, 240, 168, 0.1);
+      color: var(--foam);
+      box-shadow: inset 0 0 0 1px rgba(94, 240, 168, 0.4);
+    }
+
+    button.auth-chip:active,
+    button.settings-chip:active {
+      transform: none;
+      background: rgba(94, 240, 168, 0.16);
+    }
+
+    button.auth-chip[hidden],
+    button.profile-avatar-btn[hidden],
+    button.settings-chip[hidden] {
+      display: none !important;
+    }
+
+    button.profile-avatar-btn {
+      margin: 0;
+      width: 36px;
+      height: 36px;
+      min-height: 36px;
+      padding: 0;
+      border-radius: 50%;
+      overflow: hidden;
+      background: rgba(94, 240, 168, 0.12);
+      box-shadow: inset 0 0 0 1px rgba(94, 240, 168, 0.4);
+      transform: none;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    button.profile-avatar-btn:hover,
+    button.profile-avatar-btn:active {
+      filter: none;
+      transform: none;
+      box-shadow: inset 0 0 0 2px var(--mint);
+    }
+
+    button.profile-avatar-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    button.profile-avatar-btn .avatar-fallback {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--mint);
+      letter-spacing: 0.02em;
+    }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0 12px;
+      color: rgba(232, 245, 239, 0.4);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .google-btn {
+      width: 100%;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-radius: 999px;
+      background: #fff;
+      color: #1f1f1f;
+      font-family: Figtree, sans-serif;
+      font-weight: 600;
+      font-size: 0.92rem;
+      box-shadow: none;
+    }
+
+    .google-btn:hover { filter: brightness(0.97); transform: none; }
+    .google-btn svg { width: 18px; height: 18px; flex: 0 0 auto; }
+
+    .profile-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .profile-avatar-edit {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: rgba(94, 240, 168, 0.12);
+      box-shadow: inset 0 0 0 1px rgba(94, 240, 168, 0.35);
+      cursor: pointer;
+      padding: 0;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      transform: none;
+    }
+
+    .profile-avatar-edit:hover,
+    .profile-avatar-edit:active {
+      filter: none;
+      transform: none;
+    }
+
+    .profile-avatar-edit img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .profile-avatar-edit .avatar-fallback {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 2rem;
+      color: var(--mint);
+    }
+
+    .profile-avatar-edit .edit-badge {
+      position: absolute;
+      inset: auto 0 0 0;
+      padding: 6px 0;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(7, 17, 15, 0.72);
+      color: var(--foam);
+      font-family: Figtree, sans-serif;
+      font-weight: 600;
+    }
+
+    .gsi-parent {
+      display: none !important;
+    }
+
+    .account-picker {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 14px;
+    }
+
+    .account-picker[hidden] { display: none !important; }
+
+    .account-picker-label {
+      margin: 0;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: Figtree, sans-serif;
+      font-weight: 600;
+    }
+
+    .account-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .account-list li button {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 40px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(232, 245, 239, 0.14);
+      background: rgba(7, 17, 15, 0.45);
+      color: var(--foam);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .account-list li button:hover {
+      border-color: rgba(94, 240, 168, 0.45);
+      background: rgba(94, 240, 168, 0.08);
+    }
+
+    .account-list li button.is-selected {
+      border-color: var(--mint);
+      box-shadow: inset 0 0 0 1px rgba(94, 240, 168, 0.35);
+    }
+
+    .account-list .acc-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      background: rgba(94, 240, 168, 0.12);
+      color: var(--mint);
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .account-list .acc-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .account-list .acc-meta {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+
+    .account-list .acc-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .account-list .acc-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .account-list .acc-badge {
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid rgba(232, 245, 239, 0.16);
+      border-radius: 999px;
+      padding: 4px 8px;
+    }
+
+    body.hide-products .product-list { display: none !important; }
+    body.hide-citations .cite { display: none !important; }
+    body.hide-foundation #foundation { display: none !important; }
+    body.hide-graph .graph-block { display: none !important; }
+    body.reduce-motion *,
+    body.reduce-motion *::before,
+    body.reduce-motion *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+    body.compact-plan .product-list li:nth-child(n + 2) { display: none; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(7, 17, 15, 0.82);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .modal-backdrop[hidden] { display: none !important; }
+
+    .modal {
+      width: min(100%, 26rem);
+      max-height: min(92dvh, 40rem);
+      overflow-y: auto;
+      background: var(--ink-2);
+      box-shadow: inset 0 0 0 1px var(--line);
+      padding: 22px 20px;
+      animation: brandIn 0.45s var(--ease) both;
+    }
+
+    .modal.modal-wide { width: min(100%, 28rem); }
+
+    .setting-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .setting-row:first-of-type { border-top: 0; padding-top: 0; }
+
+    .setting-row .setting-copy {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .setting-row strong {
+      display: block;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .setting-row span {
+      display: block;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: rgba(232, 245, 239, 0.55);
+    }
+
+    .setting-row select {
+      min-height: 40px;
+      min-width: 7.5rem;
+      padding: 8px 10px;
+      border: 0;
+      background: var(--ink);
+      color: var(--foam);
+      font: 500 0.9rem Figtree, sans-serif;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .switch {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      flex: 0 0 auto;
+      margin-top: 2px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .switch i {
+      position: absolute;
+      inset: 0;
+      background: rgba(232, 245, 239, 0.12);
+      box-shadow: inset 0 0 0 1px var(--line);
+      transition: background 0.2s var(--ease);
+      cursor: pointer;
+    }
+
+    .switch i::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      background: var(--foam);
+      transition: transform 0.2s var(--ease);
+    }
+
+    .switch input:checked + i { background: rgba(94, 240, 168, 0.35); }
+    .switch input:checked + i::after {
+      transform: translateX(20px);
+      background: var(--mint);
+    }
+
+    .modal-tabs {
+      display: flex;
+      gap: 6px;
+      margin: 0 0 14px;
+    }
+
+    .modal-tabs button {
+      flex: 1;
+      min-height: 40px;
+      font-size: 0.82rem;
+      background: transparent;
+      color: rgba(232, 245, 239, 0.65);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .modal-tabs button[aria-selected="true"] {
+      background: rgba(94, 240, 168, 0.14);
+      color: var(--foam);
+      box-shadow: inset 0 0 0 1px rgba(94, 240, 168, 0.45);
+    }
+
+    .modal h2 {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+    }
+
+    .modal .privacy {
+      margin: 0 0 16px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: rgba(232, 245, 239, 0.55);
+    }
+
+    .modal label {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(232, 245, 239, 0.45);
+      margin: 12px 0 6px;
+    }
+
+    .modal input {
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 14px;
+      border: 0;
+      background: var(--ink);
+      color: var(--foam);
+      font: 500 1rem Figtree, sans-serif;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .modal .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .modal .err {
+      margin: 10px 0 0;
+      color: var(--warn);
+      font-size: 0.85rem;
+    }
+
+    .history-list {
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .history-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+      cursor: pointer;
+    }
+
+    .history-list li:hover { color: var(--mint); }
+
+    .history-list .h-score {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      color: var(--mint);
     }
 
     button {
@@ -345,6 +1205,54 @@
       width: min(100% - 16px, 28rem);
     }
 
+    .score-panel-inner {
+      transition: filter 0.35s var(--ease), opacity 0.35s var(--ease);
+    }
+
+    .score-panel.is-locked .score-panel-inner {
+      filter: blur(14px);
+      opacity: 0.55;
+      user-select: none;
+    }
+
+    .score-auth-gate {
+      position: absolute;
+      inset: auto 0 -4px 0;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 18px 16px;
+      pointer-events: auto;
+      background: linear-gradient(
+        180deg,
+        rgba(7, 17, 15, 0.15) 0%,
+        rgba(7, 17, 15, 0.72) 45%,
+        rgba(7, 17, 15, 0.88) 100%
+      );
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .score-auth-gate[hidden] { display: none !important; }
+
+    .score-auth-gate p {
+      margin: 0;
+      max-width: 16rem;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      color: rgba(232, 245, 239, 0.86);
+    }
+
+    .score-auth-gate button {
+      border-radius: 999px;
+      min-height: 44px;
+      padding: 0 22px;
+      font-size: 0.9rem;
+    }
+
     .score-label {
       margin: 0 0 4px;
       font-size: 0.68rem;
@@ -370,11 +1278,53 @@
       transform: scale(1.04);
     }
 
+    .score-value.tier-subhuman { font-size: clamp(2.2rem, 10vw, 3.6rem); letter-spacing: -0.03em; }
+    .score-value.tier-normie { font-size: clamp(2.4rem, 11vw, 4rem); letter-spacing: -0.03em; }
+    .score-value.tier-chadlite { font-size: clamp(2.2rem, 10vw, 3.6rem); letter-spacing: -0.03em; }
+    .score-value.tier-chad {
+      font-size: clamp(2.6rem, 12vw, 4.4rem);
+      letter-spacing: -0.03em;
+      color: var(--mint);
+    }
+
     .score-meta {
       margin: 10px 0 0;
       font-size: 0.85rem;
       color: rgba(232, 245, 239, 0.7);
       min-height: 1.25em;
+    }
+
+    .psl-scale {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .psl-scale span {
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 8px;
+      border-radius: 999px;
+      color: rgba(232, 245, 239, 0.42);
+      box-shadow: inset 0 0 0 1px rgba(232, 245, 239, 0.12);
+      font-family: Figtree, sans-serif;
+      font-weight: 600;
+    }
+
+    .psl-scale span.on {
+      color: var(--ink);
+      background: var(--mint);
+      box-shadow: none;
+    }
+
+    .results-hero .score-value.tier-subhuman,
+    .results-hero .score-value.tier-normie,
+    .results-hero .score-value.tier-chadlite,
+    .results-hero .score-value.tier-chad {
+      font-size: clamp(2.4rem, 12vw, 4.2rem);
     }
 
     .bars {
@@ -488,6 +1438,28 @@
       .gate-copy .actions { flex-direction: column; }
       .gate-copy .actions button { width: 100%; }
       .home-cta button { flex: 1; min-width: 8rem; }
+
+      .results-bar {
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+          "back tools"
+          "brand brand";
+        row-gap: 10px;
+      }
+
+      .results-bar .back-btn { grid-area: back; justify-self: start; }
+      .results-bar .hero-tools { grid-area: tools; }
+      .results-bar .brand {
+        grid-area: brand;
+        justify-self: start;
+        text-align: left;
+      }
+
+      button.auth-chip,
+      button.settings-chip {
+        padding: 0 14px;
+        font-size: 0.74rem;
+      }
     }
 
     @media (orientation: landscape) and (max-height: 500px) {
@@ -510,88 +1482,68 @@
   <div class="grain" aria-hidden="true"></div>
 
   <main id="home" class="view" aria-label="Home">
-    <div class="home-hero">
-      <h1 class="brand">LOOK</h1>
-      <p class="home-lead">Rate your face with on-device mocap — then use what research says actually moves the needle.</p>
-      <div class="home-cta">
-        <button type="button" id="goScanBtn">Scan my face</button>
-        <button type="button" class="ghost" id="goTipsBtn">Tips &amp; routines</button>
+    <div class="top-utility" aria-label="Account tools">
+      <div class="hero-tools" id="authToolsHome">
+        <button type="button" class="settings-chip" id="settingsBtn">Settings</button>
+        <button type="button" class="auth-chip" id="loginBtn" hidden>Log in</button>
+        <button type="button" class="auth-chip primary-chip" id="signupBtn" hidden>Sign up</button>
+        <button type="button" class="profile-avatar-btn" id="profileBtn" hidden aria-label="Open profile">
+          <span class="avatar-fallback" id="profileFallback">?</span>
+          <img id="profileImg" alt="" hidden>
+        </button>
       </div>
     </div>
+    <div class="home-hero">
+      <h1 class="brand">LOOK</h1>
+      <p class="home-lead">Scan → PSL score → improvement graph → a day-by-day plan with products and ingredients matched to your read.</p>
+      <div class="home-cta">
+        <button type="button" id="goScanBtn">Scan my face</button>
+        <button type="button" class="ghost" id="goTipsBtn">Last results</button>
+      </div>
+      <p class="build-stamp" id="buildStamp">On-device account · no face uploads</p>
+      <p id="accountStatus" class="build-stamp" style="text-transform:none;letter-spacing:0.02em"></p>
+    </div>
+
+    <section class="section" id="historySection" hidden aria-labelledby="history-title">
+      <h2 id="history-title">Previous results</h2>
+      <p>Encrypted on this device only. Tap a row to reopen that plan.</p>
+      <ul class="history-list" id="historyList"></ul>
+    </section>
 
     <section class="section" id="tips" aria-labelledby="tips-title">
-      <h2 id="tips-title">What research supports</h2>
-      <p>Bone structure is mostly fixed. Appearance ratings still shift with sleep, skin health, grooming, expression, and body composition — factors studied in psychology and dermatology.</p>
-
-      <article class="tip">
-        <h3>Sleep shows on your face</h3>
-        <p>Observers rate well-rested faces as more attractive and healthier. Short sleep increases under-eye puffiness, dullness, and droop that read as fatigue within hours.</p>
-        <span class="cite">Axelsson et al., Royal Society Open Science / sleep &amp; facial attractiveness literature</span>
-      </article>
-
-      <article class="tip">
-        <h3>Skin clarity beats contour myths</h3>
-        <p>Even skin tone and low inflammation are strong attractiveness cues across cultures. Daily broad-spectrum sunscreen, gentle cleansing, and treating acne/eczema with evidence-based care outperform unproven “face exercises.”</p>
-        <span class="cite">Dermatology consensus; Fink / Jones facial skin homogeneity studies</span>
-      </article>
-
-      <article class="tip">
-        <h3>Smile and warmth score high</h3>
-        <p>Genuine smiles raise attractiveness and approachability ratings more than a neutral face with “ideal” proportions. LOOK’s scorer already boosts mild smile blendshapes for this reason.</p>
-        <span class="cite">O’Doherty / social perception research on positive expression</span>
-      </article>
-
-      <article class="tip">
-        <h3>Grooming is high leverage</h3>
-        <p>A haircut that fits your face shape, managed brows, clean facial hair lines, and whitened/healthy teeth change ratings without changing bone. These are among the largest controllable deltas in appearance studies and consumer trials.</p>
-        <span class="cite">Grooming &amp; dental aesthetics literature; dental smile attractiveness reviews</span>
-      </article>
-
-      <article class="tip">
-        <h3>Body fat and fitness reshape the face</h3>
-        <p>Lower body fat and higher fitness often sharpen jaw/cheek definition. Resistance training plus a sustainable calorie plan affects facial adiposity more reliably than viral “mewing” claims, which lack strong clinical evidence.</p>
-        <span class="cite">Body composition &amp; facial adiposity; clinical skepticism of mewing RCTs</span>
-      </article>
-
-      <article class="tip">
-        <h3>Skip smoke, cut heavy alcohol</h3>
-        <p>Smoking accelerates skin aging (wrinkles, sallowness). Heavy alcohol dehydrates and inflames skin. Quitting is one of the best long-term face investments.</p>
-        <span class="cite">Dermatologic aging / tobacco literature</span>
-      </article>
+      <h2 id="tips-title">Your plan</h2>
+      <div id="personalBanner" class="personal-banner">
+        <p class="empty-plan" id="planEmpty">No scan yet. Sign in, hit <strong>Scan my face</strong>, then <strong>Lock PSL</strong> for your graph, daily plan, and product guide.</p>
+      </div>
+      <div id="focusChips" class="focus-chips" hidden></div>
+      <div id="personalTips"></div>
     </section>
 
     <section class="section" id="routines" aria-labelledby="routines-title">
-      <h2 id="routines-title">Routines that compound</h2>
-      <p>Small daily habits beat one-off products. Adapt to your skin type and talk to a clinician before prescriptions (retinoids, acne meds).</p>
+      <h2 id="routines-title">Your 7-day plan</h2>
+      <p id="routineLead">After a scan, each day expands with AM/PM steps, products, and ingredients.</p>
+      <div id="personalRoutine"></div>
+      <p class="disclaimer">LOOK personalizes from on-device landmark geometry (symmetry / proportion / harmony / smile). It is not a medical or beauty diagnosis. Research citations describe general evidence; adapt care to your skin and clinician advice.</p>
+    </section>
 
-      <ol class="routine">
-        <li>
-          <strong>Morning — protect</strong>
-          <span>Rinse or gentle cleanse → moisturizer → SPF 30+ every day, including cloudy days. UV is the main preventable driver of visible skin aging.</span>
-        </li>
-        <li>
-          <strong>Night — repair</strong>
-          <span>Cleanse → treatment (adapalene/retinol if tolerated, or prescribed acne care) → moisturizer. Start slow to avoid irritation that worsens redness.</span>
-        </li>
-        <li>
-          <strong>Sleep — 7–9 hours</strong>
-          <span>Fixed wake time, dim screens late, cool dark room. Re-rate your LOOK score after a week of consistent sleep — fatigue drops fast when rest returns.</span>
-        </li>
-        <li>
-          <strong>Train — 3× strength / week</strong>
-          <span>Full-body lifts plus daily walking. Face definition often follows overall fat loss and posture more than isolated facial workouts.</span>
-        </li>
-        <li>
-          <strong>Groom — weekly reset</strong>
-          <span>Trim/shape facial hair, tidy brows, clean glasses frames, fresh haircut every 3–6 weeks. Keep nails and collar lines sharp — framing matters in real photos.</span>
-        </li>
-        <li>
-          <strong>Smile practice — natural, not forced</strong>
-          <span>In photos and first meetings, a relaxed Duchenne-style smile (eyes involved) consistently outperforms a blank stare in attractiveness ratings.</span>
-        </li>
-      </ol>
-
-      <p class="disclaimer">LOOK’s 1–10 score is a geometry toy from facial landmarks — not a medical or beauty diagnosis. Tips summarize general research themes; they are not personalized medical advice.</p>
+    <section class="section" id="foundation" aria-labelledby="foundation-title">
+      <h2 id="foundation-title">Why these levers</h2>
+      <p>Bone structure is mostly fixed. Ratings still move with sleep, skin, grooming, expression, and body composition.</p>
+      <article class="tip">
+        <h3>Sleep &amp; recovery</h3>
+        <p>Well-rested faces are rated more attractive and healthier; fatigue shows in under-eyes and droop within hours.</p>
+        <span class="cite">Axelsson et al. / sleep &amp; facial attractiveness</span>
+      </article>
+      <article class="tip">
+        <h3>Skin clarity</h3>
+        <p>Even tone and low inflammation are strong cross-cultural cues — SPF and gentle care beat unproven face exercises.</p>
+        <span class="cite">Dermatology; Fink / Jones skin homogeneity</span>
+      </article>
+      <article class="tip">
+        <h3>Expression &amp; grooming</h3>
+        <p>Genuine smiles and sharp grooming change ratings without changing bone — often the largest controllable deltas.</p>
+        <span class="cite">Social perception &amp; dental aesthetics reviews</span>
+      </article>
     </section>
   </main>
 
@@ -607,13 +1559,25 @@
       <canvas id="mesh"></canvas>
 
       <div class="score-panel" id="scorePanel" hidden>
-        <p class="score-label">Your look</p>
-        <p class="score-value" id="scoreValue">—</p>
-        <p class="score-meta" id="scoreMeta">Hold still for a clean read</p>
-        <div class="bars" aria-hidden="true">
-          <div class="bar"><span>Symmetry</span><i id="barSym"></i></div>
-          <div class="bar"><span>Proportion</span><i id="barProp"></i></div>
-          <div class="bar"><span>Harmony</span><i id="barHarm"></i></div>
+        <div class="score-panel-inner" id="scorePanelInner">
+          <p class="score-label">PSL scale</p>
+          <p class="score-value" id="scoreValue">—</p>
+          <p class="score-meta" id="scoreMeta">Hold still for a clean PSL read</p>
+          <div class="psl-scale" id="pslScaleLive" aria-hidden="true">
+            <span data-tier="subhuman">Subhuman</span>
+            <span data-tier="normie">Normie</span>
+            <span data-tier="chadlite">Chadlite</span>
+            <span data-tier="chad">Chad</span>
+          </div>
+          <div class="bars" aria-hidden="true">
+            <div class="bar"><span>Symmetry</span><i id="barSym"></i></div>
+            <div class="bar"><span>Proportion</span><i id="barProp"></i></div>
+            <div class="bar"><span>Harmony</span><i id="barHarm"></i></div>
+          </div>
+        </div>
+        <div class="score-auth-gate" id="scoreAuthGate" hidden>
+          <p>Sign up or log in to reveal your PSL and lock it in.</p>
+          <button type="button" id="scoreAuthBtn">Sign up / Log in</button>
         </div>
       </div>
 
@@ -634,9 +1598,310 @@
       <p id="status">Ready when you are.</p>
       <div class="actions">
         <button type="button" class="ghost" id="flipBtn" disabled>Flip</button>
-        <button type="button" class="ghost" id="holdBtn" disabled>Hold score</button>
+        <button type="button" id="lockScoreBtn" disabled>Lock PSL</button>
       </div>
     </footer>
+  </div>
+
+  <div id="results" class="view" hidden aria-label="Results">
+    <div class="results-bar">
+      <button type="button" class="ghost back-btn" id="resultsBackBtn">← Back</button>
+      <h1 class="brand">LOOK</h1>
+      <div class="hero-tools" id="authToolsResults">
+        <button type="button" class="settings-chip" id="settingsBtnResults">Settings</button>
+        <button type="button" class="auth-chip" id="loginBtnResults" hidden>Log in</button>
+        <button type="button" class="auth-chip primary-chip" id="signupBtnResults" hidden>Sign up</button>
+        <button type="button" class="profile-avatar-btn" id="profileBtnResults" hidden aria-label="Open profile">
+          <span class="avatar-fallback" id="profileFallbackResults">?</span>
+          <img id="profileImgResults" alt="" hidden>
+        </button>
+      </div>
+    </div>
+
+    <div class="results-hero">
+      <p class="score-label">PSL scale</p>
+      <p class="score-value" id="resultsScore">—</p>
+      <p class="score-meta" id="resultsMeta">From your face scan</p>
+      <div class="psl-scale" id="pslScaleResults" aria-hidden="true">
+        <span data-tier="subhuman">Subhuman</span>
+        <span data-tier="normie">Normie</span>
+        <span data-tier="chadlite">Chadlite</span>
+        <span data-tier="chad">Chad</span>
+      </div>
+      <p class="narrative" id="resultsNarrative" hidden></p>
+      <div class="results-bars" aria-hidden="true">
+        <div class="bar"><span>Symmetry</span><i id="resBarSym"></i></div>
+        <div class="bar"><span>Proportion</span><i id="resBarProp"></i></div>
+        <div class="bar"><span>Harmony</span><i id="resBarHarm"></i></div>
+      </div>
+    </div>
+
+    <section class="graph-block" aria-labelledby="graph-title">
+      <h2 id="graph-title">Projected improvement</h2>
+      <p>If you follow your personalized routine, here’s a modeled climb from today’s read. Estimates assume sleep, grooming, expression, skin care, and training — not surgery or filters.</p>
+      <div class="period-tabs" role="tablist" aria-label="Time period">
+        <button type="button" data-weeks="2" aria-selected="false">2 weeks</button>
+        <button type="button" data-weeks="4" aria-selected="true">4 weeks</button>
+        <button type="button" data-weeks="12" aria-selected="false">12 weeks</button>
+      </div>
+      <div class="graph-wrap">
+        <canvas id="improveChart" width="640" height="400" aria-label="Score over time chart"></canvas>
+      </div>
+      <div class="graph-legend">
+        <span><i class="base"></i>Hold steady</span>
+        <span><i></i>With your plan</span>
+      </div>
+      <p class="delta-callout" id="deltaCallout">Potential: <em>—</em></p>
+      <p class="delta-note" id="deltaNote">Model estimate from your weakest bars — not a guarantee.</p>
+    </section>
+
+    <section class="section" id="resultsTips" aria-labelledby="results-tips-title">
+      <h2 id="results-tips-title">Your focus areas</h2>
+      <p style="margin:0 0 8px;color:rgba(232,245,239,0.62);font-size:0.92rem">Tap a row for the full why, products to look for, and key ingredients.</p>
+      <div id="resultsTipList"></div>
+    </section>
+
+    <section class="section" id="resultsRoutine" aria-labelledby="results-routine-title">
+      <h2 id="results-routine-title">Your 7-day plan</h2>
+      <p id="resultsRoutineLead">Each day expands with steps, product types, and ingredients.</p>
+      <div id="resultsRoutineList"></div>
+      <p class="disclaimer">Projections and product ideas are educational, not medical advice or prescriptions. Patch-test actives; ask a clinician before retinoids/acids if you are pregnant, on meds, or have reactive skin. LOOK never uploads your face or scores — account data stays encrypted on this device.</p>
+      <div class="home-cta" style="margin-top:18px">
+        <button type="button" id="rescanBtn">Scan again</button>
+        <button type="button" class="ghost" id="saveAccountBtn">Save to account</button>
+        <button type="button" class="ghost" id="resultsHomeBtn">Home</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="authModal" hidden>
+    <div class="modal" role="dialog" aria-labelledby="authModalTitle" aria-modal="true">
+      <h2 id="authModalTitle">Sign up</h2>
+      <p class="privacy" id="authPrivacy">
+        Create a LOOK account on this device. Scores stay encrypted in your browser (PBKDF2 + AES-GCM).
+        Face scans are never uploaded. Each device can hold many accounts; Google identities unlock independently per device.
+      </p>
+
+      <div class="account-picker" id="accountPicker" hidden>
+        <p class="account-picker-label">Accounts on this device</p>
+        <ul class="account-list" id="accountList"></ul>
+      </div>
+
+      <button type="button" class="google-btn" id="googleAuthBtn">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="gsi-parent" id="gsiButtonParent" hidden aria-hidden="true"></div>
+      <div id="googleSetup" hidden>
+        <label for="googleClientIdInput">Google Web Client ID</label>
+        <input id="googleClientIdInput" autocomplete="off" spellcheck="false" placeholder="123456789-abc.apps.googleusercontent.com">
+        <p class="privacy" style="margin:8px 0 0">
+          Create an OAuth <strong>Web application</strong> client in Google Cloud Console.
+          Authorized JavaScript origin: <strong id="googleOriginHint">this site</strong>.
+          Then tap Continue with Google again.
+        </p>
+        <div class="modal-actions" style="margin-top:12px">
+          <button type="button" id="googleClientIdSave">Save &amp; continue</button>
+        </div>
+      </div>
+      <div class="auth-divider" id="authPasswordDivider">or use a password</div>
+
+      <div id="authSignupFields">
+        <label for="accName">Display name</label>
+        <input id="accName" autocomplete="nickname" maxlength="40" placeholder="e.g. Alex">
+        <label for="accPass">Password (min 8)</label>
+        <input id="accPass" type="password" autocomplete="new-password" placeholder="••••••••">
+        <label for="accPass2">Confirm password</label>
+        <input id="accPass2" type="password" autocomplete="new-password" placeholder="••••••••">
+      </div>
+      <div id="authLoginFields" hidden>
+        <label for="accUnlock">Password for <span id="accUnlockName">your account</span></label>
+        <input id="accUnlock" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <p class="err" id="authErr" hidden></p>
+      <div class="modal-actions">
+        <button type="button" id="authSubmit">Sign up</button>
+        <button type="button" class="ghost" id="authSwitch">Have an account? Log in</button>
+        <button type="button" class="ghost" id="authCancel">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="profileModal" hidden>
+    <div class="modal modal-wide" role="dialog" aria-labelledby="profileModalTitle" aria-modal="true">
+      <h2 id="profileModalTitle">Your profile</h2>
+      <p class="privacy">Customize how you appear in LOOK. Profile photo and details stay on this device (Google photo URL may load from Google when online).</p>
+
+      <div class="profile-hero">
+        <button type="button" class="profile-avatar-edit" id="profileAvatarEdit" aria-label="Change profile photo">
+          <span class="avatar-fallback" id="profileEditFallback">?</span>
+          <img id="profileEditImg" alt="" hidden>
+          <span class="edit-badge">Edit</span>
+        </button>
+        <input type="file" id="profileAvatarInput" accept="image/*" hidden>
+        <p id="profileProviderNote" class="build-stamp" style="text-transform:none;letter-spacing:0.02em;margin:0"></p>
+      </div>
+
+      <label for="profName">Display name</label>
+      <input id="profName" maxlength="40" autocomplete="nickname">
+      <label for="profPronouns">Pronouns</label>
+      <input id="profPronouns" maxlength="40" placeholder="optional">
+      <label for="profBio">Bio</label>
+      <input id="profBio" maxlength="280" placeholder="A short line about your goals">
+      <label for="profGoal">Focus goal</label>
+      <input id="profGoal" maxlength="120" placeholder="e.g. Clearer skin, better sleep">
+      <label for="profLocation">Location</label>
+      <input id="profLocation" maxlength="80" placeholder="optional">
+      <label for="profWebsite">Link</label>
+      <input id="profWebsite" maxlength="120" placeholder="optional">
+      <label for="profAccent">Accent</label>
+      <select id="profAccent">
+        <option value="mint">Mint</option>
+        <option value="amber">Amber</option>
+        <option value="foam">Foam</option>
+      </select>
+
+      <p class="err" id="profileErr" hidden></p>
+      <div class="modal-actions">
+        <button type="button" id="profileSave">Save profile</button>
+        <button type="button" class="ghost" id="profileSwitchAccount">Switch account</button>
+        <button type="button" class="ghost" id="profileOpenSettings">Settings</button>
+        <button type="button" class="ghost" id="profileExport">Export backup</button>
+        <button type="button" class="ghost" id="profileSignOut">Sign out</button>
+        <button type="button" class="ghost" id="profileDeleteAccount">Delete this account</button>
+        <button type="button" class="ghost" id="profileCancel">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="settingsModal" hidden>
+    <div class="modal modal-wide" role="dialog" aria-labelledby="settingsModalTitle" aria-modal="true">
+      <h2 id="settingsModalTitle">Settings</h2>
+      <p class="privacy">Customize how LOOK presents scores, plans, and the scan. Preferences stay on this device — they are not uploaded.</p>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Default projection window</strong>
+          <span>Starting tab on the improvement graph after a scan.</span>
+        </div>
+        <select id="setChartWeeks" aria-label="Default projection weeks">
+          <option value="2">2 weeks</option>
+          <option value="4">4 weeks</option>
+          <option value="12">12 weeks</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Plan voice</strong>
+          <span>Coach is warmer; clinical is more measured and sparse.</span>
+        </div>
+        <select id="setPlanTone" aria-label="Plan voice">
+          <option value="coach">Coach</option>
+          <option value="clinical">Clinical</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Tip detail</strong>
+          <span>Brief shortens focus-area copy; full keeps the research-style writeups.</span>
+        </div>
+        <select id="setTipDetail" aria-label="Tip detail">
+          <option value="full">Full</option>
+          <option value="brief">Brief</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Score decimals</strong>
+          <span>Whole numbers or one decimal place on locked scores.</span>
+        </div>
+        <select id="setScoreDecimals" aria-label="Score decimals">
+          <option value="1">6.0 style</option>
+          <option value="0">6 style</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Product recommendations</strong>
+          <span>Show product types and “look for” ingredients in tips and daily plans.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setShowProducts"><i></i></label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Compact product lists</strong>
+          <span>Show only the top product per tip or day.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setCompactPlan"><i></i></label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Research citations</strong>
+          <span>Show citation lines under focus tips.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setShowCitations"><i></i></label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Improvement graph</strong>
+          <span>Show the projected climb chart on results.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setShowGraph"><i></i></label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Auto-expand first plan rows</strong>
+          <span>Open the first tip and first day when results load.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setAutoExpand"><i></i></label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Face mesh overlay</strong>
+          <span>Draw landmark mesh while scanning.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setShowMesh"><i></i></label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Reduce motion</strong>
+          <span>Turn off entrance animations and transitions.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setReduceMotion"><i></i></label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>“Why these levers” section</strong>
+          <span>Show the educational foundation block on Home.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setShowFoundation"><i></i></label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Auto-save to Account</strong>
+          <span>When Account is unlocked, save each locked score automatically.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setAutoSave"><i></i></label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="settingsSave">Done</button>
+        <button type="button" class="ghost" id="settingsReset">Reset defaults</button>
+        <button type="button" class="ghost" id="settingsCancel">Close</button>
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -644,10 +1909,26 @@
       FaceLandmarker,
       FilesetResolver
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/+esm";
+    import * as Vault from "./vault.js";
+    import * as Settings from "./settings.js";
+    import { GOOGLE_CLIENT_ID as CONFIG_GOOGLE_CLIENT_ID } from "./config.js";
 
     const MP_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm";
     const MODEL =
       "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+
+    let userSettings = Settings.applyDocumentSettings(Settings.loadSettings());
+    let googleClientId = (CONFIG_GOOGLE_CLIENT_ID || "").trim();
+    let googleReady = null;
+    let googleTokenClient = null;
+    let authMode = "signup"; // signup | login
+
+    function resolveGoogleClientId() {
+      // Baked config first; optional local override for owners testing a new client ID.
+      const local = (localStorage.getItem("look.googleClientId") || "").trim();
+      googleClientId = (CONFIG_GOOGLE_CLIENT_ID || local || "").trim();
+      return googleClientId;
+    }
 
     const L = {
       forehead: 10, chin: 152, noseTip: 1, noseBridge: 6,
@@ -665,9 +1946,34 @@
 
     const home = document.getElementById("home");
     const scan = document.getElementById("scan");
+    const results = document.getElementById("results");
     const goScanBtn = document.getElementById("goScanBtn");
     const goTipsBtn = document.getElementById("goTipsBtn");
     const backBtn = document.getElementById("backBtn");
+    const lockScoreBtn = document.getElementById("lockScoreBtn");
+    const resultsBackBtn = document.getElementById("resultsBackBtn");
+    const rescanBtn = document.getElementById("rescanBtn");
+    const resultsHomeBtn = document.getElementById("resultsHomeBtn");
+    const personalBanner = document.getElementById("personalBanner");
+    const personalTips = document.getElementById("personalTips");
+    const personalRoutine = document.getElementById("personalRoutine");
+    const routineLead = document.getElementById("routineLead");
+    const focusChips = document.getElementById("focusChips");
+    const resultsScore = document.getElementById("resultsScore");
+    const resultsMeta = document.getElementById("resultsMeta");
+    const resultsTipList = document.getElementById("resultsTipList");
+    const resultsRoutineList = document.getElementById("resultsRoutineList");
+    const resultsRoutineLead = document.getElementById("resultsRoutineLead");
+    const improveChart = document.getElementById("improveChart");
+    const deltaCallout = document.getElementById("deltaCallout");
+    const deltaNote = document.getElementById("deltaNote");
+    const resBarSym = document.getElementById("resBarSym");
+    const resBarProp = document.getElementById("resBarProp");
+    const resBarHarm = document.getElementById("resBarHarm");
+    const PLAN_KEY = "look.personalPlan.v3";
+    let accountSession = null; // { accountId, displayName, key, profile, provider, email }
+    let selectedAccountId = null;
+    let cachedAccounts = [];
 
     const video = document.getElementById("cam");
     const canvas = document.getElementById("mesh");
@@ -681,7 +1987,6 @@
     const demoBtn = document.getElementById("demoBtn");
     const demoImg = document.getElementById("demoImg");
     const flipBtn = document.getElementById("flipBtn");
-    const holdBtn = document.getElementById("holdBtn");
     const barSym = document.getElementById("barSym");
     const barProp = document.getElementById("barProp");
     const barHarm = document.getElementById("barHarm");
@@ -693,10 +1998,169 @@
     let lastVideoTime = -1;
     let holdScore = false;
     let held = null;
-    let smooth = { score: 5, sym: 0.5, prop: 0.5, harm: 0.5 };
+    let smooth = { score: 5, sym: 0.5, prop: 0.5, harm: 0.5, smile: 0, tier: "normie", tierLabel: "Normie" };
     let mode = "live";
     let runningMode = "VIDEO";
     let view = "home";
+    let chartWeeks = userSettings.chartWeeks || 4;
+    let activePlan = null;
+
+    const TIP_BANK = {
+      sleep: {
+        id: "sleep",
+        title: "Rebuild symmetry cues with sleep debt payoff",
+        body: "Your symmetry bar is underperforming relative to the rest of your read. Short sleep drives uneven under-eye fluid, dull tone, and micro-asymmetry that both humans and landmark models punish. A fixed wake time for 7 nights is the highest-ROI move before you chase products.",
+        cite: "Axelsson et al. — sleep & facial attractiveness",
+        products: [
+          {
+            name: "Blue-light dimmer / night mode after sunset",
+            why: "Helps melatonin onset so sleep is easier to hit.",
+            ingredients: "Habit tool — not topical; pair with cool dark room"
+          },
+          {
+            name: "Magnesium glycinate (if your clinician okays it)",
+            why: "Some people find evening magnesium supports wind-down; not a beauty drug.",
+            ingredients: "Magnesium glycinate (avoid oxide if it upsets your stomach)"
+          }
+        ]
+      },
+      lighting: {
+        id: "lighting",
+        title: "Standardize light so your score is about you",
+        body: "Side lighting exaggerates landmark asymmetry. For every re-scan, use the same front window or ring light at eye level. That way week-to-week changes reflect habits, not lamp position.",
+        cite: "Imaging / pose bias in face tracking",
+        products: [
+          {
+            name: "Ring light or clamp LED (3000–4000K)",
+            why: "Even fill reduces false asymmetry in mocap and selfies.",
+            ingredients: "Hardware — look for CRI 90+ if listed"
+          }
+        ]
+      },
+      smile: {
+        id: "smile",
+        title: "Unlock harmony with a genuine eye-smile",
+        body: "Your harmony / smile signal is the fastest controllable lever. Neutral faces under-rate even when bone ratios are fine. Practice a soft Duchenne smile (cheeks lift, eyes soften) before locking a score or taking photos.",
+        cite: "Social perception — positive expression & attractiveness",
+        products: [
+          {
+            name: "Lip balm with humectants",
+            why: "Comfortable lips make a natural smile easier on camera.",
+            ingredients: "Hyaluronic acid, glycerin, shea / squalane; avoid heavy fragrance if sensitive"
+          },
+          {
+            name: "Gentle whitening toothpaste (peroxide-based, enamel-safe)",
+            why: "Dental aesthetics strongly affect smile ratings.",
+            ingredients: "Hydrated silica + low-dose hydrogen peroxide; skip abrasive charcoal pastes"
+          }
+        ]
+      },
+      grooming: {
+        id: "grooming",
+        title: "Reframe proportion with a silhouette reset",
+        body: "Hair length, brow density, and facial-hair edges change how wide/long the face reads — without changing bone. A barber who understands your face shape plus tidy brows usually moves perceived proportion more than a new serum this month.",
+        cite: "Grooming & dental aesthetics literature",
+        products: [
+          {
+            name: "Brow gel or clear mascara",
+            why: "Lifts and sets brows so the upper third looks intentional.",
+            ingredients: "Film-formers + panthenol; fragrance-free preferred"
+          },
+          {
+            name: "Beard / edge trimmer + balm",
+            why: "Clean cheek and neck lines sharpen jaw framing.",
+            ingredients: "Plant oils + vitamin E balm after trimming"
+          }
+        ]
+      },
+      fitness: {
+        id: "fitness",
+        title: "Sharpen facial definition via body composition",
+        body: "Softer cheek/jaw balance in your proportion read often tracks facial adiposity. Progressive strength training and a slight calorie deficit (if appropriate for you) outperform viral “face yoga” for lasting contour changes.",
+        cite: "Body composition & facial adiposity",
+        products: [
+          {
+            name: "Protein-forward meals or powder",
+            why: "Supports training recovery while in a mild deficit.",
+            ingredients: "Whey or pea protein isolate; creatine monohydrate 3–5g if you train"
+          }
+        ]
+      },
+      skin: {
+        id: "skin",
+        title: "Raise clarity — the cue people rate as “healthy”",
+        body: "Even tone and low inflammation punch above raw geometry. Daily broad-spectrum SPF plus a short evening routine (barrier first, then one active) protects the traits both raters and cameras reward.",
+        cite: "Dermatology; skin homogeneity studies",
+        products: [
+          {
+            name: "Mineral or hybrid SPF 30–50",
+            why: "UV is the main preventable driver of uneven tone and aging.",
+            ingredients: "Zinc oxide and/or avobenzone + octocrylene; Tinosorb filters where available"
+          },
+          {
+            name: "Niacinamide serum 5%",
+            why: "Supports barrier and more even-looking tone with low irritation for most.",
+            ingredients: "Niacinamide (vitamin B3) 4–5%, glycerin"
+          },
+          {
+            name: "Night retinoid (start slow)",
+            why: "Evidence-backed for texture and photoaging — introduce 2–3 nights/week.",
+            ingredients: "Adapalene 0.1% (OTC) or retinol 0.2–0.3%; buffer with moisturizer"
+          }
+        ]
+      },
+      posture: {
+        id: "posture",
+        title: "Neutral head pose for honest proportions",
+        body: "Chin-down phone posture shortens the midface in captures. For scans and photos: camera at eye height, ears over shoulders, soft chin.",
+        cite: "Pose effects on facial metrics",
+        products: [
+          {
+            name: "Laptop riser or phone tripod",
+            why: "Keeps daily camera angle at eye level so you do not train a downward tilt.",
+            ingredients: "—"
+          }
+        ]
+      },
+      hydration: {
+        id: "hydration",
+        title: "Reduce overnight puff that blurs symmetry",
+        body: "Late alcohol and salty meals amplify asymmetric morning puff. Front-load water earlier, ease late drinks, and sleep slightly elevated if you are prone to under-eye fluid.",
+        cite: "Lifestyle / dermatologic aging",
+        products: [
+          {
+            name: "Caffeine eye gel (optional AM)",
+            why: "Temporary de-puff for scans/photos — cosmetic, not structural.",
+            ingredients: "Caffeine + glycerin or hyaluronic acid"
+          },
+          {
+            name: "Humectant moisturizer",
+            why: "Keeps barrier happy so skin does not look tight or dull.",
+            ingredients: "Hyaluronic acid, ceramides (NP/AP), cholesterol, glycerin"
+          }
+        ]
+      },
+      maintain: {
+        id: "maintain",
+        title: "Protect a strong baseline",
+        body: "Your geometry is already working. Consistency beats novelty: SPF, sleep schedule, and a monthly grooming appointment keep scores stable across lighting and days.",
+        cite: "Maintenance of appearance cues",
+        products: [
+          {
+            name: "Daily SPF you will actually reapply",
+            why: "The best sunscreen is the one that fits your texture preference.",
+            ingredients: "Zinc oxide and/or modern organic UV filters; PA+++ or equivalent"
+          },
+          {
+            name: "Azelaic acid 10% (optional)",
+            why: "Helps redness / uneven tone for many without heavy irritation.",
+            ingredients: "Azelaic acid 10%"
+          }
+        ]
+      }
+    };
+
+    const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
     function setStatus(text, tone) {
       statusEl.textContent = text || "";
@@ -704,15 +2168,592 @@
       else delete statusEl.dataset.tone;
     }
 
-    function showHome() {
+    function loadPlan() {
+      try {
+        return JSON.parse(localStorage.getItem(PLAN_KEY) || "null");
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function savePlan(plan) {
+      localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
+    }
+
+    function buildPersonalPlan(result) {
+      const score = result.score;
+      const sym = result.sym;
+      const prop = result.prop;
+      const harm = result.harm;
+      const smile = result.smile || 0;
+      const tierInfo = pslTierFromScore(score);
+      const tier = result.tier || tierInfo.tier;
+      const tierLabel = result.tierLabel || tierInfo.label;
+      const focuses = [];
+      const tipIds = [];
+
+      const pushFocus = (label, tipId, weak) => {
+        focuses.push({ label, weak: !!weak });
+        if (tipId && tipIds.indexOf(tipId) === -1) tipIds.push(tipId);
+      };
+
+      if (sym < 0.62) pushFocus("Symmetry", "sleep", true);
+      else pushFocus("Symmetry", null, false);
+      if (prop < 0.58) pushFocus("Proportion", "fitness", true);
+      else pushFocus("Proportion", null, false);
+      if (harm < 0.58 || smile < 0.25) pushFocus("Harmony", "smile", true);
+      else pushFocus("Harmony", null, false);
+
+      if (sym < 0.62) tipIds.push("lighting", "hydration");
+      if (prop < 0.58) tipIds.push("grooming", "posture");
+      if (harm < 0.58 || smile < 0.25) tipIds.push("smile", "grooming");
+      if (score < 6.5) tipIds.push("skin", "sleep");
+      if (score >= 7.5 && tipIds.length < 2) tipIds.push("maintain", "skin");
+
+      const seen = {};
+      const ordered = [];
+      tipIds.forEach((id) => {
+        if (TIP_BANK[id] && !seen[id]) {
+          seen[id] = true;
+          ordered.push(id);
+        }
+      });
+      while (ordered.length < 3) {
+        ["skin", "sleep", "grooming"].forEach((id) => {
+          if (ordered.length < 4 && !seen[id]) {
+            seen[id] = true;
+            ordered.push(id);
+          }
+        });
+      }
+
+      const tips = ordered.slice(0, 4).map((id) => TIP_BANK[id]);
+      const routine = [];
+      const weakSym = sym < 0.62;
+      const weakProp = prop < 0.58;
+      const weakHarm = harm < 0.58 || smile < 0.25;
+
+      routine.push({
+        title: "Morning — protect",
+        detail: weakSym
+          ? "Cool splash, caffeine sparingly, SPF 30+. Extra sleep last night pays off most in the symmetry bar."
+          : "Gentle cleanse → moisturizer → SPF 30+ every day, clouds included."
+      });
+      routine.push({
+        title: "Day — posture & light",
+        detail: weakProp
+          ? "Phone/camera at eye level; walk 8–10k steps. Framing and lower facial adiposity move proportion."
+          : "Two short outdoor walks; keep screens at eye height to avoid a constant downward tilt."
+      });
+      routine.push({
+        title: "Expression reps",
+        detail: weakHarm
+          ? "Before photos or a re-scan: one genuine smile in a mirror (eyes soft). Warmth is your fastest harmony lift."
+          : "Keep a natural smile in first-meet photos — don’t force a wide grin."
+      });
+      routine.push({
+        title: "Night — repair",
+        detail: score < 6.8
+          ? "Cleanse → simple treatment → moisturizer. Skip late alcohol; aim for 7–9 hours with a fixed wake time."
+          : "Cleanse → treatment if you use one → moisturizer. Protect the baseline with sleep."
+      });
+      routine.push({
+        title: weakProp ? "Train — 3× this week" : "Groom — this week",
+        detail: weakProp
+          ? "Full-body strength 3× and protein-forward meals. Recheck LOOK in 14 days for proportion drift."
+          : "Haircut/trim, brows, facial hair lines, clean glasses. Re-scan after the reset."
+      });
+      routine.push({
+        title: "Sunday — re-scan",
+        detail:
+          "Same room light, eye-level camera, soft smile. Compare symmetry / proportion / harmony bars — not just the headline number."
+      });
+
+      const tone = userSettings.planTone === "clinical" ? "clinical" : "coach";
+      let summary =
+        tone === "clinical"
+          ? "PSL tier <strong>" +
+            tierLabel +
+            "</strong>. Prioritized interventions map to your lowest landmark-derived bars."
+          : "You’re on the PSL black-pill scale as <strong>" +
+            tierLabel +
+            "</strong>. We ranked habits by your weakest bars — climb the ladder with the plan below.";
+      if (tier === "chad") {
+        summary =
+          tone === "clinical"
+            ? "PSL tier Chad — maintenance emphasis on sleep, photoprotection, and grooming consistency."
+            : "PSL tier <strong>Chad</strong> — protect the baseline with sleep, SPF, and sharp grooming.";
+      } else if (tier === "chadlite") {
+        summary =
+          tone === "clinical"
+            ? "PSL tier Chadlite — polish and consistency are the nearest rung to Chad."
+            : "PSL tier <strong>Chadlite</strong> — expression, skin, and grooming can push you toward Chad.";
+      } else if (tier === "normie") {
+        summary =
+          tone === "clinical"
+            ? "PSL tier Normie — recovery, framing, and body-composition levers dominate near-term mobility."
+            : "PSL tier <strong>Normie</strong> — sleep, silhouette, and smile are your fastest climb levers.";
+      } else {
+        summary =
+          tone === "clinical"
+            ? "PSL tier Subhuman — prioritize sleep debt payoff, even lighting, and barrier-first skin."
+            : "PSL tier <strong>Subhuman</strong> — start with sleep, light, and basic grooming before chasing maxes.";
+      }
+
+      const scoreTxt = Settings.formatScore(score, userSettings.scoreDecimals);
+      const narrative =
+        (tone === "clinical" ? "Locked PSL: <strong>" : "Locked PSL: <strong>") +
+        tierLabel +
+        "</strong> (PSL " +
+        scoreTxt +
+        "). Symmetry <strong>" +
+        Math.round(sym * 100) +
+        "%</strong>, proportion <strong>" +
+        Math.round(prop * 100) +
+        "%</strong>, harmony <strong>" +
+        Math.round(harm * 100) +
+        "%</strong>" +
+        (smile < 0.25
+          ? tone === "clinical"
+            ? "; smile / expression signal is low."
+            : ", with a low smile signal — meaning warmth is underused."
+          : smile > 0.45
+            ? tone === "clinical"
+              ? "; smile signal supports harmony."
+              : ", and your smile is already helping harmony."
+            : ".") +
+        " " +
+        (weakSym
+          ? tone === "clinical"
+            ? "Asymmetry-sensitive covariates (sleep debt, fluid retention, uneven illumination) dominate. "
+            : "Asymmetry-sensitive cues (sleep, puff, uneven light) are your first constraint. "
+          : tone === "clinical"
+            ? "Symmetry is stable relative to peers in this capture. "
+            : "Symmetry is relatively stable, so we will not over-rotate on “fixing bone.” ") +
+        (weakProp
+          ? tone === "clinical"
+            ? "Proportion index suggests silhouette and body-composition levers over contour devices. "
+            : "Proportion has room: silhouette grooming and body-composition habits matter more than new contour gadgets. "
+          : tone === "clinical"
+            ? "Proportion is within a favorable band — hold framing constant on retest. "
+            : "Proportion is holding — keep framing consistent when you re-scan. ") +
+        (weakHarm
+          ? tone === "clinical"
+            ? "Harmony remains the most plastic short-horizon domain (expression, lip condition, polish)."
+            : "Harmony is the open door: expression, lips, and polish can move the number this week without changing structure."
+          : tone === "clinical"
+            ? "Harmony is adequate — maintain photoprotection and natural expression at lock-in."
+            : "Harmony is solid — protect it with SPF and a natural smile on lock-in.");
+
+      // Controllable headroom (honest caps — not surgery/filters)
+      const fast =
+        (weakHarm || smile < 0.3 ? 0.45 : 0.15) +
+        (weakSym ? 0.25 : 0.08) +
+        0.15;
+      const mid = (score < 7 ? 0.35 : 0.18) + (weakSym ? 0.12 : 0.05);
+      const slow = weakProp ? 0.55 : 0.2;
+      const totalLift = Math.min(2.2, Math.max(0.35, fast + mid + slow) * (score >= 8.5 ? 0.55 : 1));
+      const target = clamp(score + totalLift, score, 9.7);
+
+      const primary = tips[0] || TIP_BANK.skin;
+      const secondary = tips[1] || TIP_BANK.sleep;
+      const days = DAY_NAMES.map(function (name, idx) {
+        const focusTip = idx % 2 === 0 ? primary : secondary;
+        const products = (focusTip.products || []).slice(0, 2);
+        let am = "Cleanse gently → moisturizer → SPF 30+ (zinc oxide and/or avobenzone).";
+        let pm = "Cleanse → one active max → moisturizer with ceramides.";
+        let habit = "7–9 hours sleep; water earlier in the evening.";
+        if (idx === 0) {
+          habit = weakSym
+            ? "Set a fixed wake alarm for the next 7 days; cool dark room tonight."
+            : "Photo/scan baseline in even front light at eye level.";
+        } else if (idx === 1) {
+          am = weakHarm
+            ? "SPF, then lip balm (glycerin / HA). Practice one soft eye-smile in the mirror."
+            : am;
+          products.push({
+            name: "Niacinamide 5% (AM after water-based serum)",
+            why: "Tone evenness supports “healthy” ratings.",
+            ingredients: "Niacinamide 4–5%"
+          });
+        } else if (idx === 2) {
+          habit = weakProp
+            ? "Strength session (full body) + 8k steps. Protein at each meal."
+            : "Walk after lunch; check posture when on your phone.";
+          pm = "Skip new actives if you trained hard — barrier cream only (ceramides + cholesterol).";
+        } else if (idx === 3) {
+          habit = "Grooming pass: brows, hairline, facial hair edges, clean glasses.";
+          products.push({
+            name: "Brow gel + trimmer",
+            why: "Silhouette cleanup for proportion.",
+            ingredients: "Panthenol gel; wipe edges with fragrance-free balm"
+          });
+        } else if (idx === 4) {
+          pm = weakHarm || score < 7
+            ? "Introduce adapalene 0.1% or retinol on two pea-size dots (buffer with moisturizer). Not on broken skin."
+            : pm;
+          products.push({
+            name: "Adapalene 0.1% gel (OTC) — 2–3 nights/week",
+            why: "Texture / photoaging evidence; go slow.",
+            ingredients: "Adapalene 0.1%"
+          });
+        } else if (idx === 5) {
+          habit = "Social day: natural smile in photos; even window light. Optional caffeine eye gel if puffy.";
+          am = "SPF reapply if outdoors; mineral stick for easy touch-ups (zinc oxide).";
+        } else {
+          habit = "Re-scan LOOK in the same room light. Compare bars, not just the headline score.";
+          pm = "Recovery: no new acids. Ceramide moisturizer + early night.";
+        }
+        // dedupe products by name
+        const seenP = {};
+        const uniq = [];
+        products.forEach((p) => {
+          if (p && p.name && !seenP[p.name]) {
+            seenP[p.name] = true;
+            uniq.push(p);
+          }
+        });
+        return {
+          name,
+          title: name + " — " + focusTip.title.split(" ").slice(0, 4).join(" "),
+          focus: focusTip.title,
+          am,
+          pm,
+          habit,
+          products: uniq.slice(0, 3),
+          why: focusTip.body
+        };
+      });
+
+      return {
+        score,
+        sym,
+        prop,
+        harm,
+        smile,
+        label: tierLabel,
+        tier,
+        tierLabel,
+        focuses,
+        tips,
+        routine,
+        days,
+        narrative,
+        summary,
+        lift: { fast, mid, slow, total: totalLift, target },
+        at: Date.now()
+      };
+    }
+
+    /** Series of weekly scores for baseline + with-plan curves */
+    function projectionSeries(plan, weeks) {
+      const start = plan.score;
+      const target = plan.lift.target;
+      const room = target - start;
+      const baseline = [];
+      const improved = [];
+      for (let w = 0; w <= weeks; w++) {
+        baseline.push(start);
+        // Ease-out: fast early (smile/sleep/groom), slower later (fitness)
+        const t = w / weeks;
+        const eased = 1 - Math.pow(1 - t, 1.65);
+        // Front-load ~55% of lift in first third of the window
+        const front = Math.min(1, t / 0.34);
+        const mix = eased * 0.55 + front * 0.45;
+        improved.push(clamp(start + room * mix, start, target));
+      }
+      return { baseline, improved, weeks };
+    }
+
+    function paintResBars(sym, prop, harm) {
+      const apply = (el, v) => {
+        el.replaceChildren();
+        const fill = document.createElement("b");
+        fill.style.cssText =
+          "display:block;height:100%;width:" +
+          (v * 100).toFixed(1) +
+          "%;background:linear-gradient(90deg, rgba(94,240,168,0.55), #5ef0a8)";
+        el.appendChild(fill);
+      };
+      apply(resBarSym, sym);
+      apply(resBarProp, prop);
+      apply(resBarHarm, harm);
+    }
+
+    function drawImproveChart(plan, weeks) {
+      const canvasEl = improveChart;
+      const rect = canvasEl.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(280, Math.round(rect.width * dpr));
+      const h = Math.max(160, Math.round(rect.height * dpr));
+      canvasEl.width = w;
+      canvasEl.height = h;
+      const g = canvasEl.getContext("2d");
+      const pad = { l: 36 * dpr, r: 16 * dpr, t: 16 * dpr, b: 28 * dpr };
+      const series = projectionSeries(plan, weeks);
+      const minY = Math.max(1, Math.floor(plan.score) - 1);
+      const maxY = Math.min(10, Math.ceil(plan.lift.target) + 0.5);
+      const plotW = w - pad.l - pad.r;
+      const plotH = h - pad.t - pad.b;
+
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = "rgba(232,245,239,0.08)";
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + (plotH * i) / 4;
+        g.fillRect(pad.l, y, plotW, 1 * dpr);
+      }
+
+      g.fillStyle = "rgba(232,245,239,0.45)";
+      g.font = 11 * dpr + "px Figtree, sans-serif";
+      g.textAlign = "right";
+      g.fillText(maxY.toFixed(1), pad.l - 6 * dpr, pad.t + 4 * dpr);
+      g.fillText(minY.toFixed(1), pad.l - 6 * dpr, pad.t + plotH);
+      g.textAlign = "center";
+      g.fillText("Now", pad.l, h - 8 * dpr);
+      g.fillText("Week " + weeks, pad.l + plotW, h - 8 * dpr);
+
+      function xAt(i) {
+        return pad.l + (plotW * i) / weeks;
+      }
+      function yAt(v) {
+        return pad.t + plotH * (1 - (v - minY) / (maxY - minY));
+      }
+
+      function strokeSeries(arr, color, width) {
+        g.strokeStyle = color;
+        g.lineWidth = width;
+        g.lineJoin = "round";
+        g.beginPath();
+        arr.forEach((v, i) => {
+          const x = xAt(i);
+          const y = yAt(v);
+          if (i === 0) g.moveTo(x, y);
+          else g.lineTo(x, y);
+        });
+        g.stroke();
+      }
+
+      strokeSeries(series.baseline, "rgba(232,245,239,0.35)", 2 * dpr);
+      strokeSeries(series.improved, "#5ef0a8", 3 * dpr);
+
+      // End dot
+      const last = series.improved[series.improved.length - 1];
+      g.fillStyle = "#5ef0a8";
+      g.beginPath();
+      g.arc(xAt(weeks), yAt(last), 5 * dpr, 0, Math.PI * 2);
+      g.fill();
+
+      const delta = last - plan.score;
+      deltaCallout.innerHTML =
+        "In " +
+        weeks +
+        " weeks: <em>" +
+        Settings.formatScore(plan.score, userSettings.scoreDecimals) +
+        " → " +
+        Settings.formatScore(last, userSettings.scoreDecimals) +
+        "</em> (+" +
+        Settings.formatScore(delta, userSettings.scoreDecimals) +
+        ")";
+      deltaNote.textContent =
+        "Modeled from your gaps — smile/sleep/grooming early, skin mid-way, fitness later. Re-scan to measure the real curve.";
+    }
+
+    function chevron() {
+      return '<span class="chev" aria-hidden="true"></span>';
+    }
+
+    function renderProducts(products) {
+      if (!userSettings.showProducts || !products || !products.length) return "";
+      const list = userSettings.compactPlan ? products.slice(0, 1) : products;
+      return (
+        '<ul class="product-list">' +
+        list
+          .map(function (p) {
+            return (
+              "<li><strong>" +
+              p.name +
+              "</strong>" +
+              (p.why ? "<span>" + p.why + "</span>" : "") +
+              (p.ingredients ? '<span class="ing">Look for: ' + p.ingredients + "</span>" : "") +
+              "</li>"
+            );
+          })
+          .join("") +
+        "</ul>"
+      );
+    }
+
+    function tipBodyText(t) {
+      if (userSettings.tipDetail !== "brief") return t.body;
+      const cut = t.body.split(". ");
+      return cut.slice(0, 2).join(". ") + (cut.length > 2 ? "." : "");
+    }
+
+    function renderTipsInto(el, plan) {
+      const openFirst = userSettings.autoExpandPlan;
+      el.innerHTML = plan.tips
+        .map(function (t, i) {
+          return (
+            '<details class="acc"' +
+            (openFirst && i === 0 ? " open" : "") +
+            "><summary><span>" +
+            t.title +
+            "</span>" +
+            chevron() +
+            '</summary><div class="acc-body"><p>' +
+            tipBodyText(t) +
+            "</p>" +
+            renderProducts(t.products) +
+            (userSettings.showCitations
+              ? '<span class="cite">' + t.cite + "</span>"
+              : "") +
+            "</div></details>"
+          );
+        })
+        .join("");
+    }
+
+    function renderRoutineInto(el, plan) {
+      const days = plan.days || [];
+      const openFirst = userSettings.autoExpandPlan;
+      if (!days.length && plan.routine) {
+        el.innerHTML =
+          '<ol class="routine">' +
+          plan.routine
+            .map(function (step) {
+              return "<li><strong>" + step.title + "</strong><span>" + step.detail + "</span></li>";
+            })
+            .join("") +
+          "</ol>";
+        return;
+      }
+      el.innerHTML = days
+        .map(function (d, i) {
+          return (
+            '<details class="acc"' +
+            (openFirst && i === 0 ? " open" : "") +
+            "><summary><span>" +
+            d.name +
+            "</span>" +
+            chevron() +
+            '</summary><div class="acc-body">' +
+            "<p><strong>Focus:</strong> " +
+            d.focus +
+            "</p>" +
+            "<p>" +
+            d.why +
+            "</p>" +
+            "<p><strong>AM:</strong> " +
+            d.am +
+            "</p>" +
+            "<p><strong>PM:</strong> " +
+            d.pm +
+            "</p>" +
+            "<p><strong>Habit:</strong> " +
+            d.habit +
+            "</p>" +
+            (userSettings.showProducts
+              ? "<p><strong>Products &amp; ingredients</strong></p>" + renderProducts(d.products)
+              : "") +
+            "</div></details>"
+          );
+        })
+        .join("");
+    }
+
+    function renderPlan(plan) {
+      if (!plan) {
+        personalBanner.innerHTML =
+          '<p class="empty-plan">No scan yet. Tap <strong>Scan my face</strong>, lock your score, then see your graph and plan.</p>';
+        personalTips.innerHTML = "";
+        personalRoutine.innerHTML = "";
+        focusChips.hidden = true;
+        focusChips.innerHTML = "";
+        routineLead.textContent = "After a scan, this becomes a checklist tuned to your weakest scores.";
+        return;
+      }
+
+      const rounded = Settings.formatScore(plan.score, userSettings.scoreDecimals);
+      const target = Settings.formatScore(plan.lift.target, userSettings.scoreDecimals);
+      const lastTier = plan.tierLabel || pslTierFromScore(plan.score).label;
+      personalBanner.innerHTML =
+        '<p class="score-line">Last PSL <em>' +
+        lastTier +
+        "</em> · " +
+        rounded +
+        " → target <em>" +
+        target +
+        "</em></p><p>" +
+        plan.summary +
+        (accountSession
+          ? ' <button type="button" class="ghost" id="openLastResults" style="margin-top:10px;min-height:40px;padding:8px 12px;font-size:0.85rem">Open full results</button>'
+          : ' <button type="button" class="ghost" id="openLastResults" style="margin-top:10px;min-height:40px;padding:8px 12px;font-size:0.85rem">Sign up / Log in</button>') +
+        "</p>";
+
+      focusChips.hidden = false;
+      focusChips.innerHTML = plan.focuses
+        .map(function (f) {
+          return '<span class="' + (f.weak ? "" : "dim") + '">' + f.label + (f.weak ? " focus" : " ok") + "</span>";
+        })
+        .join("");
+
+      renderTipsInto(personalTips, plan);
+      routineLead.textContent =
+        "Symmetry " +
+        Math.round(plan.sym * 100) +
+        "% · Proportion " +
+        Math.round(plan.prop * 100) +
+        "% · Harmony " +
+        Math.round(plan.harm * 100) +
+        "%";
+      renderRoutineInto(personalRoutine, plan);
+
+      const openBtn = document.getElementById("openLastResults");
+      if (openBtn) openBtn.addEventListener("click", () => showResults(plan));
+    }
+
+    function fillResults(plan) {
+      activePlan = plan;
+      chartWeeks = userSettings.chartWeeks || chartWeeks;
+      const tierInfo = pslTierFromScore(plan.score);
+      const tier = plan.tier || tierInfo.tier;
+      const tierLabel = plan.tierLabel || plan.label || tierInfo.label;
+      resultsScore.textContent = String(tierLabel).toUpperCase();
+      resultsMeta.textContent =
+        "PSL " +
+        Settings.formatScore(plan.score, userSettings.scoreDecimals) +
+        " · black-pill scale · locked";
+      applyTierClass(resultsScore, tier);
+      paintPslScale(document.getElementById("pslScaleResults"), tier);
+      const narr = document.getElementById("resultsNarrative");
+      if (narr) {
+        narr.hidden = !plan.narrative;
+        narr.innerHTML = plan.narrative || "";
+      }
+      paintResBars(plan.sym, plan.prop, plan.harm);
+      renderTipsInto(resultsTipList, plan);
+      resultsRoutineLead.textContent =
+        "Day-by-day plan aimed at about +" +
+        Settings.formatScore(plan.lift.total, userSettings.scoreDecimals) +
+        " over the coming weeks if you stay consistent.";
+      renderRoutineInto(resultsRoutineList, plan);
+      document.querySelectorAll(".period-tabs button").forEach((btn) => {
+        btn.setAttribute("aria-selected", String(Number(btn.dataset.weeks) === chartWeeks));
+      });
+      if (userSettings.showGraph) {
+        requestAnimationFrame(() => drawImproveChart(plan, chartWeeks));
+      }
+      refreshAccountChrome();
+    }
+
+    function showHome(opts) {
       view = "home";
       cancelAnimationFrame(raf);
       raf = 0;
       stopCamera();
       holdScore = false;
-      holdBtn.textContent = "Hold score";
-      holdBtn.disabled = true;
       flipBtn.disabled = true;
+      lockScoreBtn.disabled = true;
       scorePanel.hidden = true;
       gate.hidden = false;
       demoImg.hidden = true;
@@ -721,29 +2762,899 @@
       setStatus("Ready when you are.");
       home.hidden = false;
       scan.hidden = true;
-      document.body.classList.remove("mode-scan");
+      results.hidden = true;
+      document.body.classList.remove("mode-scan", "mode-results");
       document.body.classList.add("mode-home");
       history.replaceState({ view: "home" }, "", "#home");
+      renderPlan(loadPlan());
+      if (opts && opts.scrollToPlan) {
+        setTimeout(function () {
+          document.getElementById("tips").scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 50);
+      }
     }
 
     function showScan() {
       view = "scan";
       home.hidden = true;
       scan.hidden = false;
-      document.body.classList.remove("mode-home");
+      results.hidden = true;
+      document.body.classList.remove("mode-home", "mode-results");
       document.body.classList.add("mode-scan");
       history.replaceState({ view: "scan" }, "", "#scan");
-      setStatus("Allow the camera or try the sample face.");
+      setStatus(
+        accountSession
+          ? "Allow the camera, center your face, then Lock PSL."
+          : "Allow the camera — sign up or log in to reveal and lock your PSL."
+      );
     }
+
+    function showResults(plan) {
+      if (!accountSession) {
+        openSignup();
+        setStatus("Sign up or log in to view your PSL results.", "warn");
+        return;
+      }
+      if (!plan) {
+        plan = loadPlan();
+      }
+      if (!plan) {
+        showScan();
+        setStatus("Scan first to unlock results.", "warn");
+        return;
+      }
+      view = "results";
+      cancelAnimationFrame(raf);
+      raf = 0;
+      stopCamera();
+      home.hidden = true;
+      scan.hidden = true;
+      results.hidden = false;
+      document.body.classList.remove("mode-home", "mode-scan");
+      document.body.classList.add("mode-results");
+      history.replaceState({ view: "results" }, "", "#results");
+      fillResults(plan);
+      window.scrollTo(0, 0);
+    }
+
+    function updateScoreAuthGate() {
+      const gate = document.getElementById("scoreAuthGate");
+      if (!scorePanel || !gate) return;
+      const needsAuth = !accountSession;
+      scorePanel.classList.toggle("is-locked", needsAuth && !scorePanel.hidden);
+      gate.hidden = !(needsAuth && !scorePanel.hidden);
+      if (needsAuth) {
+        lockScoreBtn.disabled = true;
+        lockScoreBtn.title = "Sign up or log in to lock your PSL";
+      } else if (!scorePanel.hidden && smooth.score) {
+        lockScoreBtn.disabled = false;
+        lockScoreBtn.title = "";
+      }
+    }
+
+    async function lockAndShowResults() {
+      if (!accountSession) {
+        setStatus("Sign up or log in to reveal and lock your PSL.", "warn");
+        openSignup();
+        return;
+      }
+      const liveTier = pslTierFromScore(smooth.score);
+      const src =
+        held || {
+          score: smooth.score,
+          sym: smooth.sym,
+          prop: smooth.prop,
+          harm: smooth.harm,
+          smile: smooth.smile,
+          label: smooth.tierLabel || liveTier.label,
+          tier: smooth.tier || liveTier.tier,
+          tierLabel: smooth.tierLabel || liveTier.label
+        };
+      if (!src || !src.score || scorePanel.hidden) {
+        setStatus("Keep your face in frame until a PSL appears, then Lock PSL.", "warn");
+        return;
+      }
+      holdScore = true;
+      held = { ...src };
+      const plan = buildPersonalPlan(src);
+      savePlan(plan);
+      showResults(plan);
+      if (userSettings.autoSaveAccount && accountSession) {
+        try {
+          await Vault.saveScan(accountSession.key, plan, accountSession.accountId);
+          await renderHistory();
+        } catch (_) {
+          /* non-blocking */
+        }
+      }
+    }
+
+    const authModal = document.getElementById("authModal");
+    const profileModal = document.getElementById("profileModal");
+    const settingsModal = document.getElementById("settingsModal");
+    const settingsBtn = document.getElementById("settingsBtn");
+    const settingsBtnResults = document.getElementById("settingsBtnResults");
+    const loginBtn = document.getElementById("loginBtn");
+    const signupBtn = document.getElementById("signupBtn");
+    const loginBtnResults = document.getElementById("loginBtnResults");
+    const signupBtnResults = document.getElementById("signupBtnResults");
+    const profileBtn = document.getElementById("profileBtn");
+    const profileBtnResults = document.getElementById("profileBtnResults");
+    const accountStatus = document.getElementById("accountStatus");
+    const historySection = document.getElementById("historySection");
+    const historyList = document.getElementById("historyList");
+    const saveAccountBtn = document.getElementById("saveAccountBtn");
+    const authErr = document.getElementById("authErr");
+    const profileErr = document.getElementById("profileErr");
+
+    function showAuthErr(msg) {
+      if (!msg) {
+        authErr.hidden = true;
+        authErr.textContent = "";
+        return;
+      }
+      authErr.hidden = false;
+      authErr.textContent = msg;
+    }
+
+    function showProfileErr(msg) {
+      if (!msg) {
+        profileErr.hidden = true;
+        profileErr.textContent = "";
+        return;
+      }
+      profileErr.hidden = false;
+      profileErr.textContent = msg;
+    }
+
+    function initialsFrom(name) {
+      const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return "?";
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
+    function avatarSrc(profile, meta) {
+      if (profile && profile.avatarDataUrl) return profile.avatarDataUrl;
+      if (profile && profile.avatarRemoteUrl) return profile.avatarRemoteUrl;
+      if (meta && meta.avatarPublic) return meta.avatarPublic;
+      return "";
+    }
+
+    function paintAvatarButton(btn, img, fallback, src, name) {
+      if (!btn) return;
+      fallback.textContent = initialsFrom(name);
+      if (src) {
+        img.src = src;
+        img.hidden = false;
+        fallback.hidden = true;
+      } else {
+        img.removeAttribute("src");
+        img.hidden = true;
+        fallback.hidden = false;
+      }
+    }
+
+    function applyProfileAccent(profile) {
+      const accent = profile && profile.accent;
+      if (accent === "amber") document.documentElement.style.setProperty("--mint", "#ffb454");
+      else if (accent === "foam") document.documentElement.style.setProperty("--mint", "#e8f5ef");
+      else document.documentElement.style.setProperty("--mint", "#5ef0a8");
+    }
+
+    async function refreshAccountChrome() {
+      cachedAccounts = await Vault.listAccounts();
+      const exists = cachedAccounts.length > 0;
+      const loggedIn = !!accountSession;
+
+      [loginBtn, signupBtn, loginBtnResults, signupBtnResults].forEach((el) => {
+        if (el) el.hidden = loggedIn;
+      });
+      [profileBtn, profileBtnResults].forEach((el) => {
+        if (el) el.hidden = !loggedIn;
+      });
+
+      if (loggedIn) {
+        const name = accountSession.profile.displayName || accountSession.displayName;
+        const src = avatarSrc(accountSession.profile);
+        paintAvatarButton(
+          profileBtn,
+          document.getElementById("profileImg"),
+          document.getElementById("profileFallback"),
+          src,
+          name
+        );
+        paintAvatarButton(
+          profileBtnResults,
+          document.getElementById("profileImgResults"),
+          document.getElementById("profileFallbackResults"),
+          src,
+          name
+        );
+        applyProfileAccent(accountSession.profile);
+        const extra =
+          cachedAccounts.length > 1 ? " · " + cachedAccounts.length + " accounts on device" : "";
+        accountStatus.textContent =
+          "Signed in · " +
+          name +
+          (accountSession.provider === "google" ? " · Google" : " · on-device") +
+          extra;
+        await renderHistory();
+      } else if (exists) {
+        const n = cachedAccounts.length;
+        accountStatus.textContent =
+          n === 1
+            ? "1 account on this device · log in to unlock PSL"
+            : n + " accounts on this device · log in to unlock PSL";
+        historySection.hidden = true;
+      } else {
+        accountStatus.textContent = "Sign up to reveal PSL · face scans never leave this device";
+        historySection.hidden = true;
+      }
+      updateScoreAuthGate();
+      if (accountSession && !scorePanel.hidden && smooth.score) {
+        const disp = holdScore && held ? held : smooth;
+        const tInfo = pslTierFromScore(disp.score);
+        const tier = disp.tier || tInfo.tier;
+        const tierLabel = disp.tierLabel || tInfo.label;
+        scoreValue.textContent = tierLabel.toUpperCase();
+        scoreMeta.textContent =
+          (holdScore ? "Locked · " : "") +
+          "PSL " +
+          Settings.formatScore(disp.score, userSettings.scoreDecimals) +
+          " · black-pill scale";
+        applyTierClass(scoreValue, tier);
+        paintPslScale(document.getElementById("pslScaleLive"), tier);
+        paintBars(disp.sym || smooth.sym, disp.prop || smooth.prop, disp.harm || smooth.harm);
+        lockScoreBtn.disabled = false;
+      }
+    }
+
+    async function renderHistory() {
+      if (!accountSession) {
+        historySection.hidden = true;
+        return;
+      }
+      const rows = await Vault.listScans(accountSession.key, accountSession.accountId);
+      if (!rows.length) {
+        historySection.hidden = false;
+        historyList.innerHTML = "<li>No saved scans yet — lock a score and tap Save to account.</li>";
+        return;
+      }
+      historySection.hidden = false;
+      historyList.innerHTML = rows
+        .slice(0, 12)
+        .map(function (r) {
+          const d = new Date(r.at);
+          return (
+            '<li data-id="' +
+            r.id +
+            '"><span>' +
+            d.toLocaleString() +
+            " · " +
+            (r.tierLabel || r.label || pslTierFromScore(r.score).label) +
+            '</span><span class="h-score">' +
+            Settings.formatScore(r.score, userSettings.scoreDecimals) +
+            "</span></li>"
+          );
+        })
+        .join("");
+      historyList.querySelectorAll("li[data-id]").forEach(function (li) {
+        li.addEventListener("click", function () {
+          const id = Number(li.getAttribute("data-id"));
+          const hit = rows.find((x) => x.id === id);
+          if (hit) {
+            savePlan(hit);
+            showResults(hit);
+          }
+        });
+      });
+    }
+
+    function selectedAccountMeta() {
+      if (!selectedAccountId) return null;
+      return cachedAccounts.find((a) => a.id === selectedAccountId) || null;
+    }
+
+    function renderAccountPicker(accounts) {
+      const picker = document.getElementById("accountPicker");
+      const list = document.getElementById("accountList");
+      if (!picker || !list) return;
+      if (!accounts.length) {
+        picker.hidden = true;
+        list.innerHTML = "";
+        return;
+      }
+      picker.hidden = false;
+      list.innerHTML = accounts
+        .map((acc) => {
+          const isSel = acc.id === selectedAccountId;
+          const src = acc.avatarPublic || "";
+          const badge = acc.provider === "google" ? "Google" : "Password";
+          const sub = acc.email || (acc.provider === "google" ? "Continue with Google" : "Password unlock");
+          const avatarInner = src
+            ? '<img alt="" src="' + src.replace(/"/g, "&quot;") + '">'
+            : initialsFrom(acc.displayName);
+          return (
+            '<li><button type="button" data-account-id="' +
+            acc.id +
+            '" class="' +
+            (isSel ? "is-selected" : "") +
+            '" aria-pressed="' +
+            (isSel ? "true" : "false") +
+            '"><span class="acc-avatar">' +
+            avatarInner +
+            '</span><span class="acc-meta"><span class="acc-name">' +
+            (acc.displayName || "Looker").replace(/</g, "&lt;") +
+            '</span><span class="acc-sub">' +
+            String(sub).replace(/</g, "&lt;") +
+            '</span></span><span class="acc-badge">' +
+            badge +
+            "</span></button></li>"
+          );
+        })
+        .join("");
+      list.querySelectorAll("button[data-account-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          selectedAccountId = btn.getAttribute("data-account-id");
+          syncLoginFieldsForSelection();
+          renderAccountPicker(cachedAccounts);
+        });
+      });
+    }
+
+    function syncLoginFieldsForSelection() {
+      const meta = selectedAccountMeta();
+      const loginFields = document.getElementById("authLoginFields");
+      const submit = document.getElementById("authSubmit");
+      const unlockName = document.getElementById("accUnlockName");
+      if (authMode !== "login") return;
+      if (!meta) {
+        loginFields.hidden = true;
+        submit.hidden = true;
+        return;
+      }
+      unlockName.textContent = meta.displayName || "your account";
+      if (meta.provider === "google") {
+        loginFields.hidden = true;
+        submit.hidden = true;
+        showAuthErr("Selected account uses Google — tap Continue with Google.");
+      } else {
+        loginFields.hidden = false;
+        submit.hidden = false;
+        submit.textContent = "Log in";
+        showAuthErr("");
+      }
+    }
+
+    async function configureAuthModal(mode) {
+      showAuthErr("");
+      authMode = mode;
+      cachedAccounts = await Vault.listAccounts();
+      const title = document.getElementById("authModalTitle");
+      const submit = document.getElementById("authSubmit");
+      const switchBtn = document.getElementById("authSwitch");
+      const signupFields = document.getElementById("authSignupFields");
+      const loginFields = document.getElementById("authLoginFields");
+      const divider = document.getElementById("authPasswordDivider");
+      const privacy = document.getElementById("authPrivacy");
+
+      if (!selectedAccountId || !cachedAccounts.some((a) => a.id === selectedAccountId)) {
+        selectedAccountId = cachedAccounts[0] ? cachedAccounts[0].id : null;
+      }
+
+      showGoogleSetup(false);
+      const gsi = document.getElementById("gsiButtonParent");
+      if (gsi) {
+        gsi.innerHTML = "";
+        gsi.hidden = true;
+      }
+
+      if (mode === "login") {
+        title.textContent = "Log in";
+        switchBtn.textContent = "Need an account? Sign up";
+        signupFields.hidden = true;
+        divider.textContent = "or unlock with password";
+        privacy.textContent =
+          "Pick an account on this device, or Continue with Google. Each device keeps its own encrypted vaults — the same Google user can sign in on multiple devices.";
+        renderAccountPicker(cachedAccounts);
+        if (!cachedAccounts.length) {
+          loginFields.hidden = true;
+          submit.hidden = true;
+          showAuthErr("No accounts on this device yet — sign up or Continue with Google.");
+        } else {
+          syncLoginFieldsForSelection();
+        }
+      } else {
+        title.textContent = cachedAccounts.length ? "Add account" : "Sign up";
+        submit.textContent = "Sign up";
+        submit.hidden = false;
+        switchBtn.textContent = cachedAccounts.length
+          ? "Switch to an existing account"
+          : "Have an account? Log in";
+        signupFields.hidden = false;
+        loginFields.hidden = true;
+        divider.textContent = "or create a password account";
+        privacy.textContent =
+          "Add another LOOK account on this device. Scores stay encrypted here (PBKDF2 + AES-GCM). Face scans are never uploaded.";
+        renderAccountPicker([]);
+      }
+      authModal.hidden = false;
+      // Warm token client only — never render a second GSI button.
+      ensureGoogle({ renderOfficialButton: false }).catch(() => {});
+    }
+
+    function openSignup() {
+      profileModal.hidden = true;
+      configureAuthModal("signup");
+    }
+
+    function openLogin() {
+      profileModal.hidden = true;
+      configureAuthModal("login");
+    }
+
+    function fillProfileForm() {
+      const p = accountSession.profile;
+      document.getElementById("profName").value = p.displayName || "";
+      document.getElementById("profPronouns").value = p.pronouns || "";
+      document.getElementById("profBio").value = p.bio || "";
+      document.getElementById("profGoal").value = p.goal || "";
+      document.getElementById("profLocation").value = p.location || "";
+      document.getElementById("profWebsite").value = p.website || "";
+      document.getElementById("profAccent").value = p.accent || "mint";
+      document.getElementById("profileProviderNote").textContent =
+        accountSession.provider === "google"
+          ? "Signed in with Google" + (accountSession.email ? " · " + accountSession.email : "")
+          : "Password account · on this device only";
+      const src = avatarSrc(p);
+      paintAvatarButton(
+        document.getElementById("profileAvatarEdit"),
+        document.getElementById("profileEditImg"),
+        document.getElementById("profileEditFallback"),
+        src,
+        p.displayName
+      );
+    }
+
+    function openProfileModal() {
+      if (!accountSession) {
+        openLogin();
+        return;
+      }
+      showProfileErr("");
+      fillProfileForm();
+      authModal.hidden = true;
+      profileModal.hidden = false;
+    }
+
+    function loadGoogleScript() {
+      return new Promise((resolve, reject) => {
+        if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+          resolve();
+          return;
+        }
+        const existing = document.querySelector('script[data-look-gsi="1"]');
+        if (existing) {
+          existing.addEventListener("load", () => resolve());
+          existing.addEventListener("error", () => reject(new Error("Google script failed")));
+          return;
+        }
+        const s = document.createElement("script");
+        s.src = "https://accounts.google.com/gsi/client";
+        s.async = true;
+        s.defer = true;
+        s.dataset.lookGsi = "1";
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("Could not load Google Identity Services"));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function finishGoogleIdentity(identity) {
+      accountSession = await Vault.loginWithGoogleIdentity(identity);
+      authModal.hidden = true;
+      await refreshAccountChrome();
+      openProfileModal();
+    }
+
+    async function ensureGoogle(opts) {
+      const options = opts || {};
+      if (!resolveGoogleClientId()) return false;
+      if (!googleReady) {
+        googleReady = loadGoogleScript().then(() => {
+          // Token client powers the custom "Continue with Google" button.
+          // Do not initialize One Tap / renderButton — that duplicated the UI.
+          googleTokenClient = window.google.accounts.oauth2.initTokenClient({
+            client_id: googleClientId,
+            scope: "openid email profile",
+            callback: async (tokenResponse) => {
+              showAuthErr("");
+              if (tokenResponse && tokenResponse.error) {
+                showAuthErr(tokenResponse.error_description || tokenResponse.error || "Google sign-in cancelled");
+                return;
+              }
+              try {
+                const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                  headers: { Authorization: "Bearer " + tokenResponse.access_token }
+                });
+                if (!res.ok) throw new Error("Could not load Google profile");
+                const profile = await res.json();
+                await finishGoogleIdentity({
+                  sub: profile.sub,
+                  email: profile.email || "",
+                  name: profile.name || profile.given_name || "",
+                  picture: profile.picture || "",
+                  emailVerified: !!profile.email_verified
+                });
+              } catch (e) {
+                showAuthErr((e && e.message) || "Google sign-in failed");
+              }
+            },
+            error_callback: (err) => {
+              if (err && err.type === "popup_closed") {
+                showAuthErr("Google sign-in window was closed.");
+                return;
+              }
+              showAuthErr((err && (err.message || err.type)) || "Google sign-in unavailable");
+            }
+          });
+        });
+      }
+      await googleReady;
+      const parent = document.getElementById("gsiButtonParent");
+      if (parent) {
+        parent.innerHTML = "";
+        parent.hidden = true;
+      }
+      if (options.renderOfficialButton) {
+        // Kept for emergency fallback only — never shown in the normal auth modal.
+        return !!googleTokenClient;
+      }
+      return !!googleTokenClient;
+    }
+
+    function showGoogleSetup(show) {
+      const box = document.getElementById("googleSetup");
+      if (!box) return;
+      // Never surface Client ID paste UI when config already has a baked ID.
+      if (show && (CONFIG_GOOGLE_CLIENT_ID || "").trim()) {
+        box.hidden = true;
+        return;
+      }
+      box.hidden = !show;
+      if (show) {
+        document.getElementById("googleOriginHint").textContent = location.origin;
+        const input = document.getElementById("googleClientIdInput");
+        input.value = resolveGoogleClientId() || "";
+        input.focus();
+      }
+    }
+
+    async function startGoogleAuth() {
+      showAuthErr("");
+      if (!resolveGoogleClientId()) {
+        showGoogleSetup(true);
+        showAuthErr("Paste your Google OAuth Web Client ID below, then continue.");
+        return;
+      }
+      showGoogleSetup(false);
+      try {
+        await ensureGoogle({ renderOfficialButton: false });
+        if (!googleTokenClient) throw new Error("Google sign-in unavailable");
+        googleTokenClient.requestAccessToken({ prompt: "" });
+      } catch (e) {
+        showAuthErr((e && e.message) || "Google sign-in unavailable");
+      }
+    }
+
+    document.getElementById("googleClientIdSave").addEventListener("click", async () => {
+      const raw = document.getElementById("googleClientIdInput").value.trim();
+      if (!raw || !raw.includes(".apps.googleusercontent.com")) {
+        showAuthErr("Enter a valid Google Web Client ID ending in .apps.googleusercontent.com");
+        return;
+      }
+      localStorage.setItem("look.googleClientId", raw);
+      googleClientId = raw;
+      googleReady = null;
+      googleTokenClient = null;
+      showGoogleSetup(false);
+      showAuthErr("");
+      await startGoogleAuth();
+    });
+
+    function resizeImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Could not read image"));
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const size = 256;
+            const canvas = document.createElement("canvas");
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext("2d");
+            const scale = Math.max(size / img.width, size / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+            resolve(canvas.toDataURL("image/jpeg", 0.85));
+          };
+          img.onerror = () => reject(new Error("Invalid image"));
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function syncSettingsForm() {
+      document.getElementById("setChartWeeks").value = String(userSettings.chartWeeks);
+      document.getElementById("setPlanTone").value = userSettings.planTone;
+      document.getElementById("setTipDetail").value = userSettings.tipDetail;
+      document.getElementById("setScoreDecimals").value = String(userSettings.scoreDecimals);
+      document.getElementById("setShowProducts").checked = userSettings.showProducts;
+      document.getElementById("setCompactPlan").checked = userSettings.compactPlan;
+      document.getElementById("setShowCitations").checked = userSettings.showCitations;
+      document.getElementById("setShowGraph").checked = userSettings.showGraph;
+      document.getElementById("setAutoExpand").checked = userSettings.autoExpandPlan;
+      document.getElementById("setShowMesh").checked = userSettings.showMesh;
+      document.getElementById("setReduceMotion").checked = userSettings.reduceMotion;
+      document.getElementById("setShowFoundation").checked = userSettings.showFoundation;
+      document.getElementById("setAutoSave").checked = userSettings.autoSaveAccount;
+    }
+
+    function readSettingsForm() {
+      return {
+        chartWeeks: Number(document.getElementById("setChartWeeks").value) || 4,
+        planTone: document.getElementById("setPlanTone").value,
+        tipDetail: document.getElementById("setTipDetail").value,
+        scoreDecimals: Number(document.getElementById("setScoreDecimals").value) === 0 ? 0 : 1,
+        showProducts: document.getElementById("setShowProducts").checked,
+        compactPlan: document.getElementById("setCompactPlan").checked,
+        showCitations: document.getElementById("setShowCitations").checked,
+        showGraph: document.getElementById("setShowGraph").checked,
+        autoExpandPlan: document.getElementById("setAutoExpand").checked,
+        showMesh: document.getElementById("setShowMesh").checked,
+        reduceMotion: document.getElementById("setReduceMotion").checked,
+        showFoundation: document.getElementById("setShowFoundation").checked,
+        autoSaveAccount: document.getElementById("setAutoSave").checked
+      };
+    }
+
+    function commitSettings(partial) {
+      userSettings = Settings.applyDocumentSettings(Settings.saveSettings(partial || readSettingsForm()));
+      chartWeeks = userSettings.chartWeeks;
+      const plan = loadPlan();
+      if (plan) {
+        const rebuilt = buildPersonalPlan({
+          score: plan.score,
+          sym: plan.sym,
+          prop: plan.prop,
+          harm: plan.harm,
+          smile: plan.smile || 0,
+          label: plan.label
+        });
+        rebuilt.at = plan.at || rebuilt.at;
+        savePlan(rebuilt);
+        if (view === "results") fillResults(rebuilt);
+        else renderPlan(rebuilt);
+      } else {
+        renderPlan(null);
+      }
+      return userSettings;
+    }
+
+    function openSettingsModal() {
+      authModal.hidden = true;
+      profileModal.hidden = true;
+      syncSettingsForm();
+      settingsModal.hidden = false;
+    }
+
+    loginBtn.addEventListener("click", openLogin);
+    signupBtn.addEventListener("click", openSignup);
+    if (loginBtnResults) loginBtnResults.addEventListener("click", openLogin);
+    if (signupBtnResults) signupBtnResults.addEventListener("click", openSignup);
+    document.getElementById("scoreAuthBtn").addEventListener("click", () => {
+      openSignup();
+    });
+    profileBtn.addEventListener("click", openProfileModal);
+    if (profileBtnResults) profileBtnResults.addEventListener("click", openProfileModal);
+    settingsBtn.addEventListener("click", openSettingsModal);
+    if (settingsBtnResults) settingsBtnResults.addEventListener("click", openSettingsModal);
+
+    document.getElementById("authCancel").addEventListener("click", () => {
+      authModal.hidden = true;
+    });
+    document.getElementById("authSwitch").addEventListener("click", () => {
+      configureAuthModal(authMode === "login" ? "signup" : "login");
+    });
+    document.getElementById("googleAuthBtn").addEventListener("click", startGoogleAuth);
+    document.getElementById("authSubmit").addEventListener("click", async () => {
+      showAuthErr("");
+      try {
+        if (authMode === "signup") {
+          const name = document.getElementById("accName").value;
+          const p1 = document.getElementById("accPass").value;
+          const p2 = document.getElementById("accPass2").value;
+          if (p1 !== p2) throw new Error("Passwords do not match.");
+          accountSession = await Vault.createVault(name, p1);
+        } else {
+          const meta = selectedAccountMeta();
+          if (!meta) throw new Error("Choose an account to unlock.");
+          if (meta.provider === "google") {
+            throw new Error("This account uses Google. Tap Continue with Google.");
+          }
+          const p = document.getElementById("accUnlock").value;
+          accountSession = await Vault.unlockVault(p, meta.id);
+        }
+        authModal.hidden = true;
+        await refreshAccountChrome();
+        openProfileModal();
+      } catch (e) {
+        showAuthErr((e && e.message) || "Could not sign in");
+      }
+    });
+
+    document.getElementById("profileCancel").addEventListener("click", () => {
+      profileModal.hidden = true;
+    });
+    document.getElementById("profileOpenSettings").addEventListener("click", openSettingsModal);
+    document.getElementById("profileSwitchAccount").addEventListener("click", () => {
+      profileModal.hidden = true;
+      accountSession = null;
+      document.documentElement.style.setProperty("--mint", "#5ef0a8");
+      refreshAccountChrome().then(() => openLogin());
+    });
+    document.getElementById("profileSignOut").addEventListener("click", () => {
+      accountSession = null;
+      profileModal.hidden = true;
+      document.documentElement.style.setProperty("--mint", "#5ef0a8");
+      refreshAccountChrome();
+    });
+    document.getElementById("profileDeleteAccount").addEventListener("click", async () => {
+      if (!accountSession) return;
+      const name = accountSession.displayName || "this account";
+      if (!confirm("Delete “" + name + "” from this device? Encrypted history for this account will be removed. Other accounts stay.")) {
+        return;
+      }
+      try {
+        const id = accountSession.accountId;
+        await Vault.deleteAccount(id);
+        accountSession = null;
+        selectedAccountId = null;
+        profileModal.hidden = true;
+        document.documentElement.style.setProperty("--mint", "#5ef0a8");
+        await refreshAccountChrome();
+      } catch (e) {
+        showProfileErr((e && e.message) || "Could not delete account");
+      }
+    });
+    document.getElementById("profileExport").addEventListener("click", async () => {
+      try {
+        if (!accountSession) throw new Error("Sign in first.");
+        const blob = new Blob(
+          [JSON.stringify(await Vault.exportEncryptedBackup(accountSession.accountId), null, 2)],
+          { type: "application/json" }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "look-account-backup.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        showProfileErr((e && e.message) || "Export failed");
+      }
+    });
+    document.getElementById("profileAvatarEdit").addEventListener("click", () => {
+      document.getElementById("profileAvatarInput").click();
+    });
+    document.getElementById("profileAvatarInput").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file || !accountSession) return;
+      showProfileErr("");
+      try {
+        const dataUrl = await resizeImageFile(file);
+        accountSession.profile.avatarDataUrl = dataUrl;
+        fillProfileForm();
+      } catch (err) {
+        showProfileErr((err && err.message) || "Could not update photo");
+      }
+    });
+    document.getElementById("profileSave").addEventListener("click", async () => {
+      if (!accountSession) return;
+      showProfileErr("");
+      try {
+        const next = {
+          ...accountSession.profile,
+          displayName: document.getElementById("profName").value,
+          pronouns: document.getElementById("profPronouns").value,
+          bio: document.getElementById("profBio").value,
+          goal: document.getElementById("profGoal").value,
+          location: document.getElementById("profLocation").value,
+          website: document.getElementById("profWebsite").value,
+          accent: document.getElementById("profAccent").value
+        };
+        accountSession.profile = await Vault.saveProfile(
+          accountSession.key,
+          next,
+          accountSession.accountId
+        );
+        accountSession.displayName = accountSession.profile.displayName;
+        applyProfileAccent(accountSession.profile);
+        await refreshAccountChrome();
+        profileModal.hidden = true;
+      } catch (e) {
+        showProfileErr((e && e.message) || "Could not save profile");
+      }
+    });
+
+    document.getElementById("settingsSave").addEventListener("click", () => {
+      commitSettings();
+      settingsModal.hidden = true;
+    });
+    document.getElementById("settingsCancel").addEventListener("click", () => {
+      settingsModal.hidden = true;
+    });
+    document.getElementById("settingsReset").addEventListener("click", () => {
+      userSettings = Settings.applyDocumentSettings(Settings.resetSettings());
+      chartWeeks = userSettings.chartWeeks;
+      syncSettingsForm();
+      commitSettings(userSettings);
+    });
+
+    settingsModal.addEventListener("change", (e) => {
+      if (!e.target.closest("#settingsModal")) return;
+      commitSettings();
+      syncSettingsForm();
+    });
+
+    saveAccountBtn.addEventListener("click", async () => {
+      if (!activePlan) return;
+      if (!accountSession) {
+        openLogin();
+        showAuthErr("Log in or sign up to save this result on-device.");
+        return;
+      }
+      try {
+        await Vault.saveScan(accountSession.key, activePlan, accountSession.accountId);
+        await renderHistory();
+        saveAccountBtn.textContent = "Saved";
+        setTimeout(() => {
+          saveAccountBtn.textContent = "Save to account";
+        }, 1600);
+      } catch (e) {
+        alert((e && e.message) || "Could not save");
+      }
+    });
 
     goScanBtn.addEventListener("click", showScan);
     goTipsBtn.addEventListener("click", () => {
-      showHome();
-      document.getElementById("tips").scrollIntoView({ behavior: "smooth", block: "start" });
+      const plan = loadPlan();
+      if (plan) showResults(plan);
+      else showHome({ scrollToPlan: true });
     });
-    backBtn.addEventListener("click", showHome);
+    backBtn.addEventListener("click", () => showHome());
+    resultsBackBtn.addEventListener("click", () => showHome());
+    resultsHomeBtn.addEventListener("click", () => showHome());
+    rescanBtn.addEventListener("click", showScan);
+    lockScoreBtn.addEventListener("click", lockAndShowResults);
+
+    document.querySelectorAll(".period-tabs button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        chartWeeks = Number(btn.dataset.weeks) || 4;
+        document.querySelectorAll(".period-tabs button").forEach((b) => {
+          b.setAttribute("aria-selected", String(b === btn));
+        });
+        if (activePlan) drawImproveChart(activePlan, chartWeeks);
+      });
+    });
+
     window.addEventListener("popstate", () => {
       if (location.hash === "#scan") showScan();
+      else if (location.hash === "#results") showResults(loadPlan());
       else showHome();
     });
 
@@ -837,17 +3748,45 @@
       let score = 1 + Math.pow(composite, 0.92) * 8.4;
       score = clamp(score + ((noseTip.x * 17 + noseTip.y * 31) % 1) * 0.35 - 0.175, 1, 10);
 
-      let label = "Solid geometry";
-      if (score >= 9) label = "Striking balance";
-      else if (score >= 8) label = "Strong proportions";
-      else if (score >= 7) label = "Harmonious look";
-      else if (score >= 6) label = "Good symmetry";
-      else if (score >= 5) label = "Average read";
-      else if (score >= 4) label = "Soft proportions";
-      else label = "Keep facing the lens";
-      if (smile > 0.45) label = "Warm smile helps";
+      const tierInfo = pslTierFromScore(score);
+      let label = tierInfo.label;
+      if (smile > 0.45 && tierInfo.tier !== "chad") {
+        label = tierInfo.label + " · smile lift";
+      }
 
-      return { score, sym: symmetry, prop: proportion, harm: harmony, label };
+      return {
+        score,
+        sym: symmetry,
+        prop: proportion,
+        harm: harmony,
+        smile,
+        label,
+        tier: tierInfo.tier,
+        tierLabel: tierInfo.label
+      };
+    }
+
+    /** Looksmax / black-pill PSL tiers on a 1–10 read. */
+    function pslTierFromScore(score) {
+      const s = Number(score) || 0;
+      if (s < 5) return { tier: "subhuman", label: "Subhuman" };
+      if (s < 7) return { tier: "normie", label: "Normie" };
+      if (s < 8) return { tier: "chadlite", label: "Chadlite" };
+      return { tier: "chad", label: "Chad" };
+    }
+
+    function paintPslScale(el, tier) {
+      if (!el) return;
+      el.querySelectorAll("[data-tier]").forEach((node) => {
+        node.classList.toggle("on", node.getAttribute("data-tier") === tier);
+      });
+    }
+
+    function applyTierClass(el, tier) {
+      if (!el) return;
+      el.classList.remove("tier-subhuman", "tier-normie", "tier-chadlite", "tier-chad", "is-hot");
+      if (tier) el.classList.add("tier-" + tier);
+      if (tier === "chad") el.classList.add("is-hot");
     }
 
     function paintBars(sym, prop, harm) {
@@ -871,13 +3810,28 @@
       smooth.sym = lerp(smooth.sym, result.sym, t);
       smooth.prop = lerp(smooth.prop, result.prop, t);
       smooth.harm = lerp(smooth.harm, result.harm, t);
+      smooth.smile = lerp(smooth.smile || 0, result.smile || 0, t);
+      if (result.tier) smooth.tier = result.tier;
+      if (result.tierLabel) smooth.tierLabel = result.tierLabel;
       const display = holdScore && held ? held : smooth;
-      const rounded = Math.round(display.score * 10) / 10;
-      scoreValue.textContent = rounded.toFixed(1);
-      scoreMeta.textContent = holdScore ? "Held · " + (held.label || result.label) : result.label;
+      const tierInfo = pslTierFromScore(display.score);
+      const tier = display.tier || tierInfo.tier;
+      const tierLabel = display.tierLabel || tierInfo.label;
+      const loggedIn = !!accountSession;
+      scoreValue.textContent = loggedIn ? tierLabel.toUpperCase() : "••";
+      scoreMeta.textContent = loggedIn
+        ? (holdScore ? "Locked · " : "") +
+          "PSL " +
+          Settings.formatScore(display.score, userSettings.scoreDecimals) +
+          " · black-pill scale"
+        : "PSL hidden — sign up or log in";
       scorePanel.hidden = false;
-      scoreValue.classList.toggle("is-hot", rounded >= 8);
-      paintBars(display.sym, display.prop, display.harm);
+      applyTierClass(scoreValue, loggedIn ? tier : null);
+      paintPslScale(document.getElementById("pslScaleLive"), loggedIn ? tier : null);
+      if (loggedIn) paintBars(display.sym, display.prop, display.harm);
+      else paintBars(0.15, 0.15, 0.15);
+      lockScoreBtn.disabled = !loggedIn;
+      updateScoreAuthGate();
     }
 
     function resizeCanvas(w, h) {
@@ -909,7 +3863,7 @@
     function drawFrame(landmarks, frameW, frameH) {
       resizeCanvas(frameW, frameH);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (!landmarks || !landmarks.length) return;
+      if (!userSettings.showMesh || !landmarks || !landmarks.length) return;
       drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, "rgba(94, 240, 168, 0.2)", 0.6);
       drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, "rgba(94, 240, 168, 0.9)", 1.6);
       drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, "#e8f5ef", 1.3);
@@ -1012,8 +3966,12 @@
       await video.play();
       gate.hidden = true;
       flipBtn.disabled = false;
-      holdBtn.disabled = false;
-      setStatus("Face the camera — scoring live face mocap.");
+      lockScoreBtn.disabled = true;
+      setStatus(
+        accountSession
+          ? "Face the camera — when your PSL settles, tap Lock PSL."
+          : "Face the camera — sign up or log in to reveal and lock your PSL."
+      );
     }
 
     function loop() {
@@ -1059,7 +4017,6 @@
         const faces = result.faceLandmarks || [];
         gate.hidden = true;
         flipBtn.disabled = true;
-        holdBtn.disabled = false;
         if (!faces.length) {
           setStatus("Sample loaded, but no face was found.", "warn");
           return;
@@ -1071,7 +4028,15 @@
         }
         const rated = rateFace(faces[0], result.faceBlendshapes);
         held = { ...rated };
-        smooth = { score: rated.score, sym: rated.sym, prop: rated.prop, harm: rated.harm };
+        smooth = {
+          score: rated.score,
+          sym: rated.sym,
+          prop: rated.prop,
+          harm: rated.harm,
+          smile: rated.smile,
+          tier: rated.tier,
+          tierLabel: rated.tierLabel
+        };
         showScore(rated);
         setStatus("Sample face · MediaPipe Face Landmarker (IMAGE mode)");
       } catch (err) {
@@ -1112,14 +4077,10 @@
       facingMode = facingMode === "user" ? "environment" : "user";
       try { await startCamera(); } catch (_) { facingMode = "user"; }
     });
-    holdBtn.addEventListener("click", () => {
-      holdScore = !holdScore;
-      holdBtn.textContent = holdScore ? "Resume" : "Hold score";
-      if (holdScore && held) showScore(held);
-      setStatus(holdScore ? "Score held." : "Live scoring.");
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      if (view === "results" && activePlan) drawImproveChart(activePlan, chartWeeks);
     });
-
-    window.addEventListener("resize", () => resizeCanvas());
     window.addEventListener("orientationchange", () => setTimeout(() => resizeCanvas(), 250));
     window.addEventListener("error", (e) => setStatus(e.message || "Something went wrong.", "warn"));
     window.addEventListener("unhandledrejection", (e) => {
@@ -1128,10 +4089,20 @@
     });
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.update().catch(() => {}));
+      });
+      navigator.serviceWorker
+        .register("./sw.js?v=13")
+        .then((reg) => reg.update().catch(() => {}))
+        .catch(() => {});
     }
 
+    userSettings = Settings.applyDocumentSettings(userSettings);
+    refreshAccountChrome();
+    renderPlan(loadPlan());
     if (location.hash === "#scan") showScan();
+    else if (location.hash === "#results") showResults(loadPlan());
     else showHome();
   </script>
 </body>
