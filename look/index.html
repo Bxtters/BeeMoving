@@ -78,11 +78,18 @@
     /* —— Home —— */
     #home {
       padding:
-        calc(20px + var(--safe-t))
-        calc(18px + var(--safe-r))
-        calc(36px + var(--safe-b))
-        calc(18px + var(--safe-l));
-      max-width: 40rem;
+        calc(16px + var(--safe-t))
+        0
+        calc(40px + var(--safe-b))
+        0;
+      max-width: none;
+      margin: 0;
+    }
+
+    .home-shell {
+      padding-left: calc(18px + var(--safe-l));
+      padding-right: calc(18px + var(--safe-r));
+      max-width: 44rem;
       margin: 0 auto;
     }
 
@@ -92,23 +99,39 @@
       justify-content: flex-end;
       gap: 8px;
       min-height: 44px;
-      margin: 0 0 8px;
+      margin: 0 0 4px;
     }
 
     .home-hero {
-      min-height: min(68dvh, 520px);
+      min-height: min(72dvh, 560px);
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
-      gap: 18px;
-      padding-bottom: 28px;
+      gap: 16px;
+      padding: 24px 0 36px;
       animation: brandIn 0.85s var(--ease) both;
+      position: relative;
+    }
+
+    .home-hero::before {
+      content: "";
+      position: absolute;
+      left: -8%;
+      right: -8%;
+      bottom: 8%;
+      height: 55%;
+      background:
+        radial-gradient(ellipse 70% 80% at 30% 60%, rgba(94, 240, 168, 0.16), transparent 70%),
+        radial-gradient(ellipse 50% 60% at 78% 40%, rgba(45, 120, 95, 0.28), transparent 65%);
+      pointer-events: none;
+      z-index: -1;
+      animation: heroGlow 6s ease-in-out infinite alternate;
     }
 
     .brand {
       font-family: Syne, sans-serif;
       font-weight: 800;
-      font-size: clamp(3.4rem, 16vw, 5.5rem);
+      font-size: clamp(3.6rem, 17vw, 5.8rem);
       letter-spacing: -0.05em;
       line-height: 0.88;
       margin: 0;
@@ -118,19 +141,33 @@
       color: transparent;
     }
 
+    .home-headline {
+      margin: 0;
+      max-width: 18ch;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.35rem, 4.8vw, 1.85rem);
+      letter-spacing: -0.035em;
+      line-height: 1.15;
+      color: var(--foam);
+      animation: brandIn 0.9s var(--ease) 0.06s both;
+    }
+
     .home-lead {
       margin: 0;
-      max-width: 22rem;
-      font-size: 1.05rem;
-      line-height: 1.45;
-      color: rgba(232, 245, 239, 0.72);
+      max-width: 28rem;
+      font-size: 1.02rem;
+      line-height: 1.5;
+      color: rgba(232, 245, 239, 0.68);
+      animation: brandIn 0.95s var(--ease) 0.12s both;
     }
 
     .home-cta {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin-top: 6px;
+      margin-top: 4px;
+      animation: brandIn 1s var(--ease) 0.18s both;
     }
 
     .build-stamp {
@@ -139,6 +176,232 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: rgba(232, 245, 239, 0.35);
+    }
+
+    /* Example reads rail */
+    .examples {
+      margin-top: 8px;
+      padding-top: 32px;
+      border-top: 1px solid var(--line);
+      animation: brandIn 0.9s var(--ease) 0.1s both;
+    }
+
+    .examples-head {
+      padding-left: calc(18px + var(--safe-l));
+      padding-right: calc(18px + var(--safe-r));
+      max-width: 44rem;
+      margin: 0 auto 16px;
+    }
+
+    .examples-head h2 {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.35rem, 4vw, 1.7rem);
+      letter-spacing: -0.03em;
+      margin: 0 0 6px;
+    }
+
+    .examples-head p {
+      margin: 0;
+      color: rgba(232, 245, 239, 0.62);
+      line-height: 1.45;
+      max-width: 34rem;
+    }
+
+    .examples-rail {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding:
+        4px calc(18px + var(--safe-r)) 8px calc(18px + var(--safe-l));
+      scrollbar-width: thin;
+      scrollbar-color: rgba(94, 240, 168, 0.35) transparent;
+    }
+
+    .examples-rail::-webkit-scrollbar { height: 6px; }
+    .examples-rail::-webkit-scrollbar-thumb {
+      background: rgba(94, 240, 168, 0.3);
+      border-radius: 3px;
+    }
+
+    .example-read {
+      flex: 0 0 min(72vw, 11.5rem);
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: brandIn 0.8s var(--ease) both;
+    }
+
+    .example-read:nth-child(1) { animation-delay: 0.05s; }
+    .example-read:nth-child(2) { animation-delay: 0.12s; }
+    .example-read:nth-child(3) { animation-delay: 0.19s; }
+    .example-read:nth-child(4) { animation-delay: 0.26s; }
+    .example-read:nth-child(5) { animation-delay: 0.33s; }
+    .example-read:nth-child(6) { animation-delay: 0.4s; }
+
+    .example-face {
+      aspect-ratio: 3 / 4;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+      background: #0a1814;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .example-face::before {
+      content: "";
+      position: absolute;
+      inset: 12% 18% 8%;
+      border-radius: 48% 48% 42% 42%;
+      background:
+        radial-gradient(ellipse 55% 40% at 50% 28%, rgba(232, 245, 239, 0.18), transparent 70%),
+        linear-gradient(180deg, var(--skin-hi, #3a5a4e) 0%, var(--skin-lo, #1a3028) 100%);
+      opacity: 0.95;
+    }
+
+    .example-face::after {
+      content: "";
+      position: absolute;
+      left: 28%;
+      right: 28%;
+      top: 38%;
+      height: 22%;
+      background:
+        radial-gradient(ellipse 18% 10% at 28% 40%, rgba(7, 17, 15, 0.55), transparent 70%),
+        radial-gradient(ellipse 18% 10% at 72% 40%, rgba(7, 17, 15, 0.55), transparent 70%),
+        radial-gradient(ellipse 28% 14% at 50% 78%, rgba(7, 17, 15, 0.35), transparent 70%);
+      pointer-events: none;
+    }
+
+    .example-read[data-tone="warm"] .example-face {
+      --skin-hi: #5a6e4a;
+      --skin-lo: #24301c;
+    }
+
+    .example-read[data-tone="cool"] .example-face {
+      --skin-hi: #4a6a72;
+      --skin-lo: #1a2e34;
+    }
+
+    .example-read[data-tone="deep"] .example-face {
+      --skin-hi: #2e4638;
+      --skin-lo: #0e1a14;
+    }
+
+    .example-read[data-tone="fair"] .example-face {
+      --skin-hi: #6a8470;
+      --skin-lo: #2a4034;
+    }
+
+    .example-read[data-tone="olive"] .example-face {
+      --skin-hi: #5a7048;
+      --skin-lo: #24301c;
+    }
+
+    .example-read[data-tone="ash"] .example-face {
+      --skin-hi: #4e5e58;
+      --skin-lo: #1c2824;
+    }
+
+    .example-meta {
+      display: grid;
+      gap: 2px;
+    }
+
+    .example-meta .psl {
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+      color: var(--mint);
+      line-height: 1;
+    }
+
+    .example-meta .tier {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: -0.01em;
+      color: var(--foam);
+    }
+
+    .example-meta .who {
+      font-size: 0.78rem;
+      color: rgba(232, 245, 239, 0.45);
+      margin-top: 2px;
+    }
+
+    /* What LOOK does */
+    .how {
+      margin-top: 40px;
+      padding-top: 28px;
+      border-top: 1px solid var(--line);
+      animation: brandIn 0.9s var(--ease) 0.14s both;
+    }
+
+    .how h2 {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.35rem, 4vw, 1.7rem);
+      letter-spacing: -0.03em;
+      margin: 0 0 6px;
+    }
+
+    .how > p {
+      margin: 0 0 22px;
+      color: rgba(232, 245, 239, 0.62);
+      line-height: 1.45;
+      max-width: 34rem;
+    }
+
+    .how-steps {
+      display: grid;
+      gap: 0;
+      counter-reset: how;
+    }
+
+    .how-step {
+      counter-increment: how;
+      display: grid;
+      grid-template-columns: 2.5rem 1fr;
+      gap: 12px;
+      padding: 16px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .how-step:last-child { border-bottom: 1px solid var(--line); }
+
+    .how-step::before {
+      content: counter(how, decimal-leading-zero);
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: -0.03em;
+      color: var(--mint);
+      line-height: 1.2;
+      padding-top: 2px;
+    }
+
+    .how-step h3 {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin: 0 0 4px;
+      letter-spacing: -0.02em;
+    }
+
+    .how-step p {
+      margin: 0;
+      color: rgba(232, 245, 239, 0.68);
+      line-height: 1.45;
+      font-size: 0.94rem;
+    }
+
+    .how-cta {
+      margin-top: 22px;
     }
 
     .personal-banner {
@@ -1176,9 +1439,9 @@
     }
 
     video {
-      transform: scaleX(-1);
-      opacity: 0.92;
-      filter: saturate(0.85) contrast(1.05);
+      /* Hidden — live preview is painted to #mesh (front cam mirrored, rear not). */
+      opacity: 0;
+      pointer-events: none;
       background: #000;
     }
 
@@ -1189,9 +1452,11 @@
     }
 
     #mesh {
-      transform: scaleX(-1);
       z-index: 1;
       pointer-events: none;
+      transform: none;
+      filter: saturate(0.9) contrast(1.04);
+      background: #000;
     }
 
     .score-panel {
@@ -1278,11 +1543,13 @@
       transform: scale(1.04);
     }
 
-    .score-value.tier-subhuman { font-size: clamp(2.2rem, 10vw, 3.6rem); letter-spacing: -0.03em; }
-    .score-value.tier-normie { font-size: clamp(2.4rem, 11vw, 4rem); letter-spacing: -0.03em; }
-    .score-value.tier-chadlite { font-size: clamp(2.2rem, 10vw, 3.6rem); letter-spacing: -0.03em; }
+    .score-value.tier-subhuman { font-size: clamp(1.7rem, 8vw, 2.8rem); letter-spacing: -0.03em; }
+    .score-value.tier-low-normie,
+    .score-value.tier-mid-normie,
+    .score-value.tier-high-normie { font-size: clamp(1.55rem, 7.2vw, 2.6rem); letter-spacing: -0.03em; }
+    .score-value.tier-chadlite { font-size: clamp(1.9rem, 8.5vw, 3.1rem); letter-spacing: -0.03em; }
     .score-value.tier-chad {
-      font-size: clamp(2.6rem, 12vw, 4.4rem);
+      font-size: clamp(2.2rem, 10vw, 3.6rem);
       letter-spacing: -0.03em;
       color: var(--mint);
     }
@@ -1303,10 +1570,10 @@
     }
 
     .psl-scale span {
-      font-size: 0.62rem;
-      letter-spacing: 0.08em;
+      font-size: 0.55rem;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      padding: 5px 8px;
+      padding: 4px 6px;
       border-radius: 999px;
       color: rgba(232, 245, 239, 0.42);
       box-shadow: inset 0 0 0 1px rgba(232, 245, 239, 0.12);
@@ -1321,10 +1588,12 @@
     }
 
     .results-hero .score-value.tier-subhuman,
-    .results-hero .score-value.tier-normie,
+    .results-hero .score-value.tier-low-normie,
+    .results-hero .score-value.tier-mid-normie,
+    .results-hero .score-value.tier-high-normie,
     .results-hero .score-value.tier-chadlite,
     .results-hero .score-value.tier-chad {
-      font-size: clamp(2.4rem, 12vw, 4.2rem);
+      font-size: clamp(1.7rem, 8.5vw, 3rem);
     }
 
     .bars {
@@ -1425,6 +1694,11 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    @keyframes heroGlow {
+      from { opacity: 0.7; transform: scale(1); }
+      to { opacity: 1; transform: scale(1.04); }
+    }
+
     @keyframes viewportIn {
       from { opacity: 0; clip-path: inset(8% 4% 8% 4%); }
       to { opacity: 1; clip-path: inset(0 0 0 0); }
@@ -1438,6 +1712,8 @@
       .gate-copy .actions { flex-direction: column; }
       .gate-copy .actions button { width: 100%; }
       .home-cta button { flex: 1; min-width: 8rem; }
+      .home-hero { min-height: min(78dvh, 620px); }
+      .example-read { flex-basis: min(68vw, 10.5rem); }
 
       .results-bar {
         grid-template-columns: 1fr auto;
@@ -1482,69 +1758,159 @@
   <div class="grain" aria-hidden="true"></div>
 
   <main id="home" class="view" aria-label="Home">
-    <div class="top-utility" aria-label="Account tools">
-      <div class="hero-tools" id="authToolsHome">
-        <button type="button" class="settings-chip" id="settingsBtn">Settings</button>
-        <button type="button" class="auth-chip" id="loginBtn" hidden>Log in</button>
-        <button type="button" class="auth-chip primary-chip" id="signupBtn" hidden>Sign up</button>
-        <button type="button" class="profile-avatar-btn" id="profileBtn" hidden aria-label="Open profile">
-          <span class="avatar-fallback" id="profileFallback">?</span>
-          <img id="profileImg" alt="" hidden>
-        </button>
+    <div class="home-shell">
+      <div class="top-utility" aria-label="Account tools">
+        <div class="hero-tools" id="authToolsHome">
+          <button type="button" class="settings-chip" id="settingsBtn">Settings</button>
+          <button type="button" class="auth-chip" id="loginBtn" hidden>Log in</button>
+          <button type="button" class="auth-chip primary-chip" id="signupBtn" hidden>Sign up</button>
+          <button type="button" class="profile-avatar-btn" id="profileBtn" hidden aria-label="Open profile">
+            <span class="avatar-fallback" id="profileFallback">?</span>
+            <img id="profileImg" alt="" hidden>
+          </button>
+        </div>
+      </div>
+      <div class="home-hero">
+        <h1 class="brand">LOOK</h1>
+        <p class="home-headline">See your PSL. Know what moves it.</p>
+        <p class="home-lead">On-device face mocap rates you on the 1–8 scale, then builds a day-by-day plan from your read — nothing leaves your phone.</p>
+        <div class="home-cta">
+          <button type="button" id="goScanBtn">Scan my face</button>
+          <button type="button" class="ghost" id="goTipsBtn">Last results</button>
+        </div>
+        <p class="build-stamp" id="buildStamp">On-device account · no face uploads</p>
+        <p id="accountStatus" class="build-stamp" style="text-transform:none;letter-spacing:0.02em"></p>
       </div>
     </div>
-    <div class="home-hero">
-      <h1 class="brand">LOOK</h1>
-      <p class="home-lead">Scan → PSL score → improvement graph → a day-by-day plan with products and ingredients matched to your read.</p>
-      <div class="home-cta">
-        <button type="button" id="goScanBtn">Scan my face</button>
-        <button type="button" class="ghost" id="goTipsBtn">Last results</button>
+
+    <section class="examples" aria-labelledby="examples-title">
+      <div class="examples-head">
+        <h2 id="examples-title">Example reads</h2>
+        <p>Anonymized sample scores from the same on-device landmark pipeline — so you know what a LOOK result looks like before you scan.</p>
       </div>
-      <p class="build-stamp" id="buildStamp">On-device account · no face uploads</p>
-      <p id="accountStatus" class="build-stamp" style="text-transform:none;letter-spacing:0.02em"></p>
+      <div class="examples-rail" role="list">
+        <article class="example-read" data-tone="fair" role="listitem">
+          <div class="example-face" aria-hidden="true"></div>
+          <div class="example-meta">
+            <span class="psl">6.1</span>
+            <span class="tier">Chad lite</span>
+            <span class="who">Sample · high midface</span>
+          </div>
+        </article>
+        <article class="example-read" data-tone="olive" role="listitem">
+          <div class="example-face" aria-hidden="true"></div>
+          <div class="example-meta">
+            <span class="psl">4.4</span>
+            <span class="tier">High tier</span>
+            <span class="who">Sample · balanced thirds</span>
+          </div>
+        </article>
+        <article class="example-read" data-tone="cool" role="listitem">
+          <div class="example-face" aria-hidden="true"></div>
+          <div class="example-meta">
+            <span class="psl">3.2</span>
+            <span class="tier">Low tier</span>
+            <span class="who">Sample · soft jaw</span>
+          </div>
+        </article>
+        <article class="example-read" data-tone="deep" role="listitem">
+          <div class="example-face" aria-hidden="true"></div>
+          <div class="example-meta">
+            <span class="psl">5.4</span>
+            <span class="tier">Chad lite</span>
+            <span class="who">Sample · strong canthal tilt</span>
+          </div>
+        </article>
+        <article class="example-read" data-tone="ash" role="listitem">
+          <div class="example-face" aria-hidden="true"></div>
+          <div class="example-meta">
+            <span class="psl">2.1</span>
+            <span class="tier">Subhuman</span>
+            <span class="who">Sample · severe asymmetry</span>
+          </div>
+        </article>
+        <article class="example-read" data-tone="warm" role="listitem">
+          <div class="example-face" aria-hidden="true"></div>
+          <div class="example-meta">
+            <span class="psl">7.2</span>
+            <span class="tier">Chad</span>
+            <span class="who">Sample · elite harmony</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="home-shell">
+      <section class="how" aria-labelledby="how-title">
+        <h2 id="how-title">What LOOK does</h2>
+        <p>Same loop every time: capture landmarks, place you on the PSL ladder, then personalize levers you can actually move.</p>
+        <div class="how-steps">
+          <div class="how-step">
+            <div>
+              <h3>Scan on-device</h3>
+              <p>MediaPipe tracks 478 face points in your browser. Frames stay local — LOOK never uploads your face.</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div>
+              <h3>Lock a PSL 1–8</h3>
+              <p>Multi-sample ratios score symmetry, proportion, and harmony against a calibrated ladder. True Adam (8) stays unreachable by design.</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div>
+              <h3>Get a plan that fits</h3>
+              <p>Your graph, 7-day AM/PM routine, and product guide map to the gaps in your read — sleep, skin, grooming, expression.</p>
+            </div>
+          </div>
+        </div>
+        <div class="how-cta">
+          <button type="button" id="goScanBtnHow">Start a scan</button>
+        </div>
+      </section>
+
+      <section class="section" id="historySection" hidden aria-labelledby="history-title">
+        <h2 id="history-title">Previous results</h2>
+        <p>Encrypted on this device only. Tap a row to reopen that plan.</p>
+        <ul class="history-list" id="historyList"></ul>
+      </section>
+
+      <section class="section" id="tips" aria-labelledby="tips-title">
+        <h2 id="tips-title">Your plan</h2>
+        <div id="personalBanner" class="personal-banner">
+          <p class="empty-plan" id="planEmpty">No scan yet. Sign in, hit <strong>Scan my face</strong>, then <strong>Lock PSL</strong> for your graph, daily plan, and product guide.</p>
+        </div>
+        <div id="focusChips" class="focus-chips" hidden></div>
+        <div id="personalTips"></div>
+      </section>
+
+      <section class="section" id="routines" aria-labelledby="routines-title">
+        <h2 id="routines-title">Your 7-day plan</h2>
+        <p id="routineLead">After a scan, each day expands with AM/PM steps, products, and ingredients.</p>
+        <div id="personalRoutine"></div>
+        <p class="disclaimer">LOOK personalizes from on-device landmark geometry (symmetry / proportion / harmony / smile). It is not a medical or beauty diagnosis. Research citations describe general evidence; adapt care to your skin and clinician advice.</p>
+      </section>
+
+      <section class="section" id="foundation" aria-labelledby="foundation-title">
+        <h2 id="foundation-title">Why these levers</h2>
+        <p>Bone structure is mostly fixed. Ratings still move with sleep, skin, grooming, expression, and body composition.</p>
+        <article class="tip">
+          <h3>Sleep &amp; recovery</h3>
+          <p>Well-rested faces are rated more attractive and healthier; fatigue shows in under-eyes and droop within hours.</p>
+          <span class="cite">Axelsson et al. / sleep &amp; facial attractiveness</span>
+        </article>
+        <article class="tip">
+          <h3>Skin clarity</h3>
+          <p>Even tone and low inflammation are strong cross-cultural cues — SPF and gentle care beat unproven face exercises.</p>
+          <span class="cite">Dermatology; Fink / Jones skin homogeneity</span>
+        </article>
+        <article class="tip">
+          <h3>Expression &amp; grooming</h3>
+          <p>Genuine smiles and sharp grooming change ratings without changing bone — often the largest controllable deltas.</p>
+          <span class="cite">Social perception &amp; dental aesthetics reviews</span>
+        </article>
+      </section>
     </div>
-
-    <section class="section" id="historySection" hidden aria-labelledby="history-title">
-      <h2 id="history-title">Previous results</h2>
-      <p>Encrypted on this device only. Tap a row to reopen that plan.</p>
-      <ul class="history-list" id="historyList"></ul>
-    </section>
-
-    <section class="section" id="tips" aria-labelledby="tips-title">
-      <h2 id="tips-title">Your plan</h2>
-      <div id="personalBanner" class="personal-banner">
-        <p class="empty-plan" id="planEmpty">No scan yet. Sign in, hit <strong>Scan my face</strong>, then <strong>Lock PSL</strong> for your graph, daily plan, and product guide.</p>
-      </div>
-      <div id="focusChips" class="focus-chips" hidden></div>
-      <div id="personalTips"></div>
-    </section>
-
-    <section class="section" id="routines" aria-labelledby="routines-title">
-      <h2 id="routines-title">Your 7-day plan</h2>
-      <p id="routineLead">After a scan, each day expands with AM/PM steps, products, and ingredients.</p>
-      <div id="personalRoutine"></div>
-      <p class="disclaimer">LOOK personalizes from on-device landmark geometry (symmetry / proportion / harmony / smile). It is not a medical or beauty diagnosis. Research citations describe general evidence; adapt care to your skin and clinician advice.</p>
-    </section>
-
-    <section class="section" id="foundation" aria-labelledby="foundation-title">
-      <h2 id="foundation-title">Why these levers</h2>
-      <p>Bone structure is mostly fixed. Ratings still move with sleep, skin, grooming, expression, and body composition.</p>
-      <article class="tip">
-        <h3>Sleep &amp; recovery</h3>
-        <p>Well-rested faces are rated more attractive and healthier; fatigue shows in under-eyes and droop within hours.</p>
-        <span class="cite">Axelsson et al. / sleep &amp; facial attractiveness</span>
-      </article>
-      <article class="tip">
-        <h3>Skin clarity</h3>
-        <p>Even tone and low inflammation are strong cross-cultural cues — SPF and gentle care beat unproven face exercises.</p>
-        <span class="cite">Dermatology; Fink / Jones skin homogeneity</span>
-      </article>
-      <article class="tip">
-        <h3>Expression &amp; grooming</h3>
-        <p>Genuine smiles and sharp grooming change ratings without changing bone — often the largest controllable deltas.</p>
-        <span class="cite">Social perception &amp; dental aesthetics reviews</span>
-      </article>
-    </section>
   </main>
 
   <div id="scan" class="view" hidden aria-label="Face scan">
@@ -1560,14 +1926,16 @@
 
       <div class="score-panel" id="scorePanel" hidden>
         <div class="score-panel-inner" id="scorePanelInner">
-          <p class="score-label">PSL scale</p>
+          <p class="score-label">PSL 1–8</p>
           <p class="score-value" id="scoreValue">—</p>
-          <p class="score-meta" id="scoreMeta">Hold still for a clean PSL read</p>
+          <p class="score-meta" id="scoreMeta">Hold still for a clean PSL read · 8 is true Adam</p>
           <div class="psl-scale" id="pslScaleLive" aria-hidden="true">
-            <span data-tier="subhuman">Subhuman</span>
-            <span data-tier="normie">Normie</span>
-            <span data-tier="chadlite">Chadlite</span>
-            <span data-tier="chad">Chad</span>
+            <span data-tier="subhuman" title="1–2.5">Subhuman</span>
+            <span data-tier="low-normie" title="2.5–3.5">Low tier</span>
+            <span data-tier="mid-normie" title="3.5–4.25">Mid tier</span>
+            <span data-tier="high-normie" title="4.25–5">High tier</span>
+            <span data-tier="chadlite" title="5–6.5">Chad lite</span>
+            <span data-tier="chad" title="6.5–8 · 8 is true Adam">Chad</span>
           </div>
           <div class="bars" aria-hidden="true">
             <div class="bar"><span>Symmetry</span><i id="barSym"></i></div>
@@ -1619,14 +1987,16 @@
     </div>
 
     <div class="results-hero">
-      <p class="score-label">PSL scale</p>
+      <p class="score-label">PSL 1–8</p>
       <p class="score-value" id="resultsScore">—</p>
-      <p class="score-meta" id="resultsMeta">From your face scan</p>
+      <p class="score-meta" id="resultsMeta">From your face scan · 8 is true Adam</p>
       <div class="psl-scale" id="pslScaleResults" aria-hidden="true">
-        <span data-tier="subhuman">Subhuman</span>
-        <span data-tier="normie">Normie</span>
-        <span data-tier="chadlite">Chadlite</span>
-        <span data-tier="chad">Chad</span>
+        <span data-tier="subhuman" title="1–2.5">Subhuman</span>
+        <span data-tier="low-normie" title="2.5–3.5">Low tier</span>
+        <span data-tier="mid-normie" title="3.5–4.25">Mid tier</span>
+        <span data-tier="high-normie" title="4.25–5">High tier</span>
+        <span data-tier="chadlite" title="5–6.5">Chad lite</span>
+        <span data-tier="chad" title="6.5–8 · 8 is true Adam">Chad</span>
       </div>
       <p class="narrative" id="resultsNarrative" hidden></p>
       <div class="results-bars" aria-hidden="true">
@@ -1931,17 +2301,45 @@
     }
 
     const L = {
-      forehead: 10, chin: 152, noseTip: 1, noseBridge: 6,
-      leftCheek: 234, rightCheek: 454,
-      leftEyeOuter: 33, leftEyeInner: 133, rightEyeOuter: 263, rightEyeInner: 362,
-      leftMouth: 61, rightMouth: 291, upperLip: 13, lowerLip: 14,
-      leftBrow: 70, rightBrow: 300
+      forehead: 10,
+      chin: 152,
+      glabella: 9,
+      noseTip: 1,
+      noseBridge: 6,
+      subnasale: 2,
+      leftCheek: 234,
+      rightCheek: 454,
+      leftJaw: 172,
+      rightJaw: 397,
+      leftTemple: 127,
+      rightTemple: 356,
+      leftGon: 58,
+      rightGon: 288,
+      leftEyeOuter: 33,
+      leftEyeInner: 133,
+      rightEyeOuter: 263,
+      rightEyeInner: 362,
+      leftEyeUpper: 159,
+      leftEyeLower: 145,
+      rightEyeUpper: 386,
+      rightEyeLower: 374,
+      leftMouth: 61,
+      rightMouth: 291,
+      upperLip: 13,
+      lowerLip: 14,
+      leftBrow: 70,
+      rightBrow: 300,
+      leftBrowPeak: 105,
+      rightBrowPeak: 334,
+      leftNoseWing: 98,
+      rightNoseWing: 327
     };
 
     const PAIR_SYMMETRY = [
       [33, 263], [133, 362], [61, 291], [234, 454],
       [70, 300], [107, 336], [55, 285], [46, 276],
-      [7, 287], [172, 397], [58, 288], [132, 361]
+      [7, 287], [172, 397], [58, 288], [132, 361],
+      [98, 327], [127, 356], [105, 334], [159, 386], [145, 374]
     ];
 
     const home = document.getElementById("home");
@@ -1970,7 +2368,69 @@
     const resBarSym = document.getElementById("resBarSym");
     const resBarProp = document.getElementById("resBarProp");
     const resBarHarm = document.getElementById("resBarHarm");
-    const PLAN_KEY = "look.personalPlan.v3";
+    const PLAN_KEY = "look.personalPlan.v4";
+    /** PSL scale is 1–8; 8 is true Adam and is physically unreachable. */
+    const PSL_TRUE_ADAM = 8;
+    const PSL_MAX = 7.99;
+    /**
+     * Scale anchor — expanded MediaPipe ratios from the high-Chad-lite reference
+     * face (face-zoomed). Similarity is strict; only near-matches reach his score.
+     */
+    const REF_PSL = {
+      score: 6.25,
+      // Self-match after multi-sample average on the reference pipeline.
+      selfMatch: 0.9,
+      heightWidth: 1.237,
+      thirdsTop: 0.327,
+      thirdsMid: 0.215,
+      thirdsLow: 0.544,
+      eyeSpacing: 2.158,
+      interocularFW: 0.458,
+      mouthToEyes: 0.874,
+      noseToFace: 0.215,
+      noseToMouth: 0.606,
+      jawDominance: 0.808,
+      jawToCheek: 0.819,
+      templeToCheek: 1.01,
+      browRatio: 0.872,
+      browEye: 0.177,
+      eyeAperture: 0.256,
+      cheekBalance: 2.182,
+      canthalLift: 0.008,
+      philtrum: 0.227,
+      midLower: 0.811,
+      chinProj: -0.252,
+      symmetry: 0.928
+    };
+    /**
+     * Tolerances for near() — discriminative cues (mouth, chin z, eye spacing)
+     * stay tight; shared structure cues are wider so average faces don't floor.
+     */
+    const REF_TOL = {
+      heightWidth: 0.18,
+      thirdsTop: 0.07,
+      thirdsMid: 0.055,
+      thirdsLow: 0.08,
+      eyeSpacing: 0.16,
+      interocularFW: 0.055,
+      mouthToEyes: 0.18,
+      noseToFace: 0.055,
+      noseToMouth: 0.1,
+      jawDominance: 0.12,
+      jawToCheek: 0.07,
+      templeToCheek: 0.09,
+      browRatio: 0.1,
+      browEye: 0.05,
+      eyeAperture: 0.06,
+      cheekBalance: 0.16,
+      canthalLift: 0.01,
+      philtrum: 0.055,
+      midLower: 0.12,
+      chinProj: 0.1,
+      symmetry: 0.14
+    };
+    const METRIC_KEYS = Object.keys(REF_TOL);
+    const SAMPLE_TARGET = 12;
     let accountSession = null; // { accountId, displayName, key, profile, provider, email }
     let selectedAccountId = null;
     let cachedAccounts = [];
@@ -1998,7 +2458,20 @@
     let lastVideoTime = -1;
     let holdScore = false;
     let held = null;
-    let smooth = { score: 5, sym: 0.5, prop: 0.5, harm: 0.5, smile: 0, tier: "normie", tierLabel: "Normie" };
+    let lastLandmarks = null;
+    const zoomCanvas = document.createElement("canvas");
+    const zoomCtx = zoomCanvas.getContext("2d", { willReadFrequently: true });
+    let faceZoom = { cx: 0.5, cy: 0.42, scale: 1.35 };
+    let metricSamples = [];
+    let smooth = {
+      score: 4,
+      sym: 0.5,
+      prop: 0.5,
+      harm: 0.5,
+      smile: 0,
+      tier: "mid-normie",
+      tierLabel: "Mid tier normie"
+    };
     let mode = "live";
     let runningMode = "VIDEO";
     let view = "home";
@@ -2207,8 +2680,8 @@
       if (sym < 0.62) tipIds.push("lighting", "hydration");
       if (prop < 0.58) tipIds.push("grooming", "posture");
       if (harm < 0.58 || smile < 0.25) tipIds.push("smile", "grooming");
-      if (score < 6.5) tipIds.push("skin", "sleep");
-      if (score >= 7.5 && tipIds.length < 2) tipIds.push("maintain", "skin");
+      if (score < 5.2) tipIds.push("skin", "sleep");
+      if (score >= 6 && tipIds.length < 2) tipIds.push("maintain", "skin");
 
       const seen = {};
       const ordered = [];
@@ -2253,7 +2726,7 @@
       });
       routine.push({
         title: "Night — repair",
-        detail: score < 6.8
+        detail: score < 5.4
           ? "Cleanse → simple treatment → moisturizer. Skip late alcohol; aim for 7–9 hours with a fixed wake time."
           : "Cleanse → treatment if you use one → moisturizer. Protect the baseline with sleep."
       });
@@ -2275,28 +2748,38 @@
           ? "PSL tier <strong>" +
             tierLabel +
             "</strong>. Prioritized interventions map to your lowest landmark-derived bars."
-          : "You’re on the PSL black-pill scale as <strong>" +
+          : "You’re on the PSL 1–8 scale as <strong>" +
             tierLabel +
-            "</strong>. We ranked habits by your weakest bars — climb the ladder with the plan below.";
+            "</strong>. True Adam is 8 and unreachable. We ranked habits by your weakest bars — climb with the plan below.";
       if (tier === "chad") {
         summary =
           tone === "clinical"
-            ? "PSL tier Chad — maintenance emphasis on sleep, photoprotection, and grooming consistency."
-            : "PSL tier <strong>Chad</strong> — protect the baseline with sleep, SPF, and sharp grooming.";
+            ? "PSL tier Chad (6.5–8) — maintenance emphasis on sleep, photoprotection, and grooming. True Adam (8) is unreachable."
+            : "PSL tier <strong>Chad</strong> — protect the baseline with sleep, SPF, and sharp grooming. Nobody hits true Adam (8).";
       } else if (tier === "chadlite") {
         summary =
           tone === "clinical"
-            ? "PSL tier Chadlite — polish and consistency are the nearest rung to Chad."
-            : "PSL tier <strong>Chadlite</strong> — expression, skin, and grooming can push you toward Chad.";
-      } else if (tier === "normie") {
+            ? "PSL tier Chad lite (5–6.5) — polish and consistency are the nearest rung to Chad."
+            : "PSL tier <strong>Chad lite</strong> — expression, skin, and grooming can push you toward Chad.";
+      } else if (tier === "high-normie") {
         summary =
           tone === "clinical"
-            ? "PSL tier Normie — recovery, framing, and body-composition levers dominate near-term mobility."
-            : "PSL tier <strong>Normie</strong> — sleep, silhouette, and smile are your fastest climb levers.";
+            ? "PSL tier High tier normie (4.25–5) — framing, skin, and expression close the gap to Chad lite."
+            : "PSL tier <strong>High tier normie</strong> — polish, smile, and consistency can push you into Chad lite.";
+      } else if (tier === "mid-normie") {
+        summary =
+          tone === "clinical"
+            ? "PSL tier Mid tier normie (3.5–4.25) — recovery, framing, and body-composition levers dominate near-term mobility."
+            : "PSL tier <strong>Mid tier normie</strong> — sleep, silhouette, and smile are your fastest climb levers.";
+      } else if (tier === "low-normie") {
+        summary =
+          tone === "clinical"
+            ? "PSL tier Low tier normie (2.5–3.5) — sleep debt, lighting, and basic grooming before advanced maxes."
+            : "PSL tier <strong>Low tier normie</strong> — lock sleep, light, and grooming before chasing higher rungs.";
       } else {
         summary =
           tone === "clinical"
-            ? "PSL tier Subhuman — prioritize sleep debt payoff, even lighting, and barrier-first skin."
+            ? "PSL tier Subhuman (1–2.5) — prioritize sleep debt payoff, even lighting, and barrier-first skin."
             : "PSL tier <strong>Subhuman</strong> — start with sleep, light, and basic grooming before chasing maxes.";
       }
 
@@ -2350,10 +2833,10 @@
         (weakHarm || smile < 0.3 ? 0.45 : 0.15) +
         (weakSym ? 0.25 : 0.08) +
         0.15;
-      const mid = (score < 7 ? 0.35 : 0.18) + (weakSym ? 0.12 : 0.05);
+      const mid = (score < 5.6 ? 0.35 : 0.18) + (weakSym ? 0.12 : 0.05);
       const slow = weakProp ? 0.55 : 0.2;
-      const totalLift = Math.min(2.2, Math.max(0.35, fast + mid + slow) * (score >= 8.5 ? 0.55 : 1));
-      const target = clamp(score + totalLift, score, 9.7);
+      const totalLift = Math.min(1.6, Math.max(0.28, fast + mid + slow) * (score >= 6.8 ? 0.55 : 1));
+      const target = clamp(score + totalLift, score, PSL_MAX);
 
       const primary = tips[0] || TIP_BANK.skin;
       const secondary = tips[1] || TIP_BANK.sleep;
@@ -2492,7 +2975,7 @@
       const pad = { l: 36 * dpr, r: 16 * dpr, t: 16 * dpr, b: 28 * dpr };
       const series = projectionSeries(plan, weeks);
       const minY = Math.max(1, Math.floor(plan.score) - 1);
-      const maxY = Math.min(10, Math.ceil(plan.lift.target) + 0.5);
+      const maxY = Math.min(PSL_TRUE_ADAM, Math.ceil(plan.lift.target) + 0.5);
       const plotW = w - pad.l - pad.r;
       const plotH = h - pad.t - pad.b;
 
@@ -2722,7 +3205,7 @@
       resultsMeta.textContent =
         "PSL " +
         Settings.formatScore(plan.score, userSettings.scoreDecimals) +
-        " · black-pill scale · locked";
+        " / 8 · true Adam is 8 · locked";
       applyTierClass(resultsScore, tier);
       paintPslScale(document.getElementById("pslScaleResults"), tier);
       const narr = document.getElementById("resultsNarrative");
@@ -3002,7 +3485,7 @@
           (holdScore ? "Locked · " : "") +
           "PSL " +
           Settings.formatScore(disp.score, userSettings.scoreDecimals) +
-          " · black-pill scale";
+          " / 8 · true Adam is 8";
         applyTierClass(scoreValue, tier);
         paintPslScale(document.getElementById("pslScaleLive"), tier);
         paintBars(disp.sym || smooth.sym, disp.prop || smooth.prop, disp.harm || smooth.harm);
@@ -3631,6 +4114,8 @@
     });
 
     goScanBtn.addEventListener("click", showScan);
+    const goScanBtnHow = document.getElementById("goScanBtnHow");
+    if (goScanBtnHow) goScanBtnHow.addEventListener("click", showScan);
     goTipsBtn.addEventListener("click", () => {
       const plan = loadPlan();
       if (plan) showResults(plan);
@@ -3678,28 +4163,47 @@
       return 0;
     }
 
-    function rateFace(landmarks, blendshapes) {
+    function measureFace(landmarks) {
       const lm = landmarks;
-      const forehead = lm[L.forehead];
-      const chin = lm[L.chin];
-      const leftCheek = lm[L.leftCheek];
-      const rightCheek = lm[L.rightCheek];
-      const noseTip = lm[L.noseTip];
-      const noseBridge = lm[L.noseBridge];
-      const leftEyeOuter = lm[L.leftEyeOuter];
-      const leftEyeInner = lm[L.leftEyeInner];
-      const rightEyeOuter = lm[L.rightEyeOuter];
-      const rightEyeInner = lm[L.rightEyeInner];
-      const leftMouth = lm[L.leftMouth];
-      const rightMouth = lm[L.rightMouth];
-      const upperLip = lm[L.upperLip];
-      const lowerLip = lm[L.lowerLip];
+      const g = (key) => lm[L[key]];
+      const forehead = g("forehead");
+      const chin = g("chin");
+      const leftCheek = g("leftCheek");
+      const rightCheek = g("rightCheek");
+      if (!forehead || !chin || !leftCheek || !rightCheek) return null;
 
-      const faceHeight = dist(forehead, chin);
-      const faceWidth = dist(leftCheek, rightCheek);
-      if (faceHeight < 1e-4 || faceWidth < 1e-4) {
-        return { score: 0, sym: 0, prop: 0, harm: 0, label: "Move closer" };
-      }
+      const faceH = dist(forehead, chin);
+      const bizyg = dist(leftCheek, rightCheek);
+      if (faceH < 1e-4 || bizyg < 1e-4) return null;
+
+      const eyeL = mid(g("leftEyeOuter"), g("leftEyeInner"));
+      const eyeR = mid(g("rightEyeOuter"), g("rightEyeInner"));
+      const eyeSpan = dist(eyeL, eyeR);
+      const eyeW =
+        (dist(g("leftEyeOuter"), g("leftEyeInner")) +
+          dist(g("rightEyeOuter"), g("rightEyeInner"))) /
+        2;
+      const eyeAperture =
+        (dist(g("leftEyeUpper"), g("leftEyeLower")) +
+          dist(g("rightEyeUpper"), g("rightEyeLower"))) /
+        2;
+      const mouthW = dist(g("leftMouth"), g("rightMouth"));
+      const noseW = dist(g("leftNoseWing"), g("rightNoseWing"));
+      const noseLen = dist(g("noseBridge"), g("noseTip"));
+      const browSpan = dist(g("leftBrow"), g("rightBrow"));
+      const browEye =
+        (dist(g("leftBrowPeak"), eyeL) + dist(g("rightBrowPeak"), eyeR)) / 2;
+      const midface = dist(g("glabella"), g("subnasale"));
+      const lowerFace = dist(g("subnasale"), chin);
+      const bigonial = dist(g("leftJaw"), g("rightJaw"));
+      const templeW = dist(g("leftTemple"), g("rightTemple"));
+      const philtrum = dist(g("noseTip"), g("upperLip"));
+      const canthalLift =
+        (g("leftEyeInner").y -
+          g("leftEyeOuter").y +
+          (g("rightEyeInner").y - g("rightEyeOuter").y)) /
+        2;
+      const chinProj = (g("noseTip").z || 0) - (chin.z || 0);
 
       const midlineX = (forehead.x + chin.x) / 2;
       let symErr = 0;
@@ -3714,39 +4218,165 @@
         symErr += Math.abs(da - db) / avg;
         symN++;
       }
-      const symmetry = clamp(1 - (symErr / Math.max(symN, 1)) * 1.35, 0, 1);
 
-      const heightWidth = faceHeight / faceWidth;
-      const thirdsTop = dist(forehead, noseBridge) / faceHeight;
-      const thirdsMid = dist(noseBridge, noseTip) / faceHeight;
-      const thirdsLow = dist(noseTip, chin) / faceHeight;
-      const eyeL = mid(leftEyeOuter, leftEyeInner);
-      const eyeR = mid(rightEyeOuter, rightEyeInner);
-      const eyeSpan = dist(eyeL, eyeR);
-      const eyeWidth = (dist(leftEyeOuter, leftEyeInner) + dist(rightEyeOuter, rightEyeInner)) / 2;
-      const mouthWidth = dist(leftMouth, rightMouth);
-      const noseLength = dist(noseBridge, noseTip);
-      const mouthHeight = dist(upperLip, lowerLip);
+      return {
+        heightWidth: faceH / bizyg,
+        thirdsTop: dist(forehead, g("noseBridge")) / faceH,
+        thirdsMid: dist(g("noseBridge"), g("noseTip")) / faceH,
+        thirdsLow: dist(g("noseTip"), chin) / faceH,
+        eyeSpacing: eyeSpan / (eyeW || 1e-6),
+        interocularFW: eyeSpan / bizyg,
+        mouthToEyes: mouthW / (eyeSpan || 1e-6),
+        noseToFace: noseLen / faceH,
+        noseToMouth: noseW / (mouthW || 1e-6),
+        jawDominance: bizyg / faceH,
+        jawToCheek: bigonial / bizyg,
+        templeToCheek: templeW / bizyg,
+        browRatio: browSpan / bizyg,
+        browEye: browEye / faceH,
+        eyeAperture: eyeAperture / (eyeW || 1e-6),
+        cheekBalance: bizyg / (eyeSpan || 1e-6),
+        canthalLift,
+        philtrum: philtrum / faceH,
+        midLower: midface / (lowerFace || 1e-6),
+        chinProj,
+        symmetry: clamp(1 - (symErr / Math.max(symN, 1)) * 1.1, 0, 1)
+      };
+    }
 
-      const golden = near(heightWidth, 1.618, 0.45);
-      const thirds =
-        (near(thirdsTop, 0.33, 0.12) + near(thirdsMid + thirdsLow, 0.67, 0.14)) / 2;
-      const eyeSpacing = near(eyeSpan / (eyeWidth || 1e-6), 1.55, 0.55);
-      const mouthToEyes = near(mouthWidth / (eyeSpan || 1e-6), 1.05, 0.35);
-      const noseToFace = near(noseLength / faceHeight, 0.22, 0.1);
-      const proportion = golden * 0.28 + thirds * 0.22 + eyeSpacing * 0.22 + mouthToEyes * 0.16 + noseToFace * 0.12;
+    function averageMetrics(samples) {
+      if (!samples || !samples.length) return null;
+      const out = {};
+      for (let i = 0; i < METRIC_KEYS.length; i++) {
+        const k = METRIC_KEYS[i];
+        let s = 0;
+        let n = 0;
+        for (let j = 0; j < samples.length; j++) {
+          const v = samples[j][k];
+          if (typeof v === "number" && !Number.isNaN(v)) {
+            s += v;
+            n++;
+          }
+        }
+        out[k] = n ? s / n : REF_PSL[k];
+      }
+      return out;
+    }
 
-      const lipBalance = near(mouthWidth / (mouthHeight || 1e-6), 3.2, 1.6);
-      const cheekBalance = near(faceWidth / eyeSpan, 2.05, 0.55);
+    function pushMetricSample(metrics) {
+      if (!metrics) return;
+      metricSamples.push(metrics);
+      if (metricSamples.length > SAMPLE_TARGET) metricSamples.shift();
+    }
+
+    function resetMetricSamples() {
+      metricSamples = [];
+    }
+
+    function matchMetricsToRef(metrics) {
+      if (!metrics) return { match: 0, proportion: 0, harmony: 0, symmetry: 0 };
+      // Heavier weights on cues that separate the anchor from average faces.
+      const weights = {
+        heightWidth: 0.04,
+        thirdsTop: 0.04,
+        thirdsMid: 0.06,
+        thirdsLow: 0.06,
+        eyeSpacing: 0.08,
+        interocularFW: 0.05,
+        mouthToEyes: 0.1,
+        noseToFace: 0.04,
+        noseToMouth: 0.03,
+        jawDominance: 0.05,
+        jawToCheek: 0.06,
+        templeToCheek: 0.03,
+        browRatio: 0.04,
+        browEye: 0.05,
+        eyeAperture: 0.06,
+        cheekBalance: 0.07,
+        canthalLift: 0.05,
+        philtrum: 0.05,
+        midLower: 0.03,
+        chinProj: 0.08,
+        symmetry: 0.07
+      };
+      let sum = 0;
+      let wSum = 0;
+      for (let i = 0; i < METRIC_KEYS.length; i++) {
+        const k = METRIC_KEYS[i];
+        const w = weights[k] || 0.03;
+        const m = near(metrics[k], REF_PSL[k], REF_TOL[k]);
+        sum += m * w;
+        wSum += w;
+      }
+      const match = clamp(sum / (wSum || 1), 0, 1);
+      const proportion = clamp(
+        (near(metrics.mouthToEyes, REF_PSL.mouthToEyes, REF_TOL.mouthToEyes) +
+          near(metrics.jawToCheek, REF_PSL.jawToCheek, REF_TOL.jawToCheek) +
+          near(metrics.eyeSpacing, REF_PSL.eyeSpacing, REF_TOL.eyeSpacing) +
+          near(metrics.chinProj, REF_PSL.chinProj, REF_TOL.chinProj) +
+          near(metrics.thirdsMid, REF_PSL.thirdsMid, REF_TOL.thirdsMid) +
+          near(metrics.eyeAperture, REF_PSL.eyeAperture, REF_TOL.eyeAperture)) /
+          6,
+        0,
+        1
+      );
+      const harmony = clamp(
+        (near(metrics.cheekBalance, REF_PSL.cheekBalance, REF_TOL.cheekBalance) +
+          near(metrics.canthalLift, REF_PSL.canthalLift, REF_TOL.canthalLift) +
+          near(metrics.browEye, REF_PSL.browEye, REF_TOL.browEye) +
+          near(metrics.philtrum, REF_PSL.philtrum, REF_TOL.philtrum)) /
+          4,
+        0,
+        1
+      );
+      return { match, proportion, harmony, symmetry: metrics.symmetry };
+    }
+
+    function scoreFromMatch(match) {
+      const m = clamp(match, 0, 1);
+      const anchor = REF_PSL.score;
+      const self = REF_PSL.selfMatch;
+      // Piecewise ladder — stops everything clustering in Chad lite.
+      //  ~0.35 subhuman/low · ~0.55 mid normie · ~0.70 high normie · ~self high Chad lite
+      let score;
+      if (m < 0.4) {
+        score = 1.2 + (m / 0.4) * (2.6 - 1.2);
+      } else if (m < 0.55) {
+        score = 2.6 + ((m - 0.4) / 0.15) * (3.7 - 2.6);
+      } else if (m < 0.68) {
+        score = 3.7 + ((m - 0.55) / 0.13) * (4.7 - 3.7);
+      } else if (m < self) {
+        score = 4.7 + ((m - 0.68) / Math.max(1e-6, self - 0.68)) * (anchor - 4.7);
+      } else {
+        score = anchor + ((m - self) / Math.max(1e-6, 1 - self)) * (6.9 - anchor);
+      }
+      return clamp(score, 1, PSL_MAX);
+    }
+
+    function rateFace(landmarks, blendshapes, opts) {
+      const options = opts || {};
+      const measured = measureFace(landmarks);
+      if (!measured) {
+        return { score: 0, sym: 0, prop: 0, harm: 0, label: "Move closer" };
+      }
+
+      if (options.resetSamples) resetMetricSamples();
+      if (options.record !== false) pushMetricSample(measured);
+
+      const samples =
+        options.forceMetrics ||
+        (metricSamples.length ? averageMetrics(metricSamples) : measured);
+      const { match, proportion, harmony, symmetry } = matchMetricsToRef(samples);
       const smile =
         (blend(blendshapes, "mouthSmileLeft") + blend(blendshapes, "mouthSmileRight")) / 2;
       const openJaw = blend(blendshapes, "jawOpen");
-      const expression = clamp(smile * 0.85 - openJaw * 0.35, 0, 1);
-      const harmony = clamp(lipBalance * 0.35 + cheekBalance * 0.35 + expression * 0.3, 0, 1);
+      // Expression is a small polish term — structure dominates PSL.
+      const expression = clamp(0.55 + smile * 0.25 - openJaw * 0.35, 0, 1);
+      const harm = clamp(harmony * 0.82 + expression * 0.18, 0, 1);
 
-      const composite = symmetry * 0.38 + proportion * 0.37 + harmony * 0.25;
-      let score = 1 + Math.pow(composite, 0.92) * 8.4;
-      score = clamp(score + ((noseTip.x * 17 + noseTip.y * 31) % 1) * 0.35 - 0.175, 1, 10);
+      let score = scoreFromMatch(match);
+      // Tiny smile polish that cannot jump a tier by itself.
+      if (smile > 0.45) score = clamp(score + 0.08, 1, PSL_MAX);
 
       const tierInfo = pslTierFromScore(score);
       let label = tierInfo.label;
@@ -3754,24 +4384,33 @@
         label = tierInfo.label + " · smile lift";
       }
 
+      const sampleCount = metricSamples.length;
       return {
         score,
         sym: symmetry,
         prop: proportion,
-        harm: harmony,
+        harm,
         smile,
         label,
         tier: tierInfo.tier,
-        tierLabel: tierInfo.label
+        tierLabel: tierInfo.label,
+        match,
+        samples: sampleCount
       };
     }
 
-    /** Looksmax / black-pill PSL tiers on a 1–10 read. */
+    /**
+     * Looksmax / black-pill PSL on a 1–8 read.
+     * 1–2.5 Subhuman · 2.5–3.5 Low tier normie · 3.5–4.25 Mid tier normie ·
+     * 4.25–5 High tier normie · 5–6.5 Chad lite · 6.5–8 Chad (8 = true Adam, unreachable).
+     */
     function pslTierFromScore(score) {
       const s = Number(score) || 0;
-      if (s < 5) return { tier: "subhuman", label: "Subhuman" };
-      if (s < 7) return { tier: "normie", label: "Normie" };
-      if (s < 8) return { tier: "chadlite", label: "Chadlite" };
+      if (s < 2.5) return { tier: "subhuman", label: "Subhuman" };
+      if (s < 3.5) return { tier: "low-normie", label: "Low tier normie" };
+      if (s < 4.25) return { tier: "mid-normie", label: "Mid tier normie" };
+      if (s < 5) return { tier: "high-normie", label: "High tier normie" };
+      if (s < 6.5) return { tier: "chadlite", label: "Chad lite" };
       return { tier: "chad", label: "Chad" };
     }
 
@@ -3784,7 +4423,16 @@
 
     function applyTierClass(el, tier) {
       if (!el) return;
-      el.classList.remove("tier-subhuman", "tier-normie", "tier-chadlite", "tier-chad", "is-hot");
+      el.classList.remove(
+        "tier-subhuman",
+        "tier-low-normie",
+        "tier-mid-normie",
+        "tier-high-normie",
+        "tier-normie",
+        "tier-chadlite",
+        "tier-chad",
+        "is-hot"
+      );
       if (tier) el.classList.add("tier-" + tier);
       if (tier === "chad") el.classList.add("is-hot");
     }
@@ -3819,18 +4467,21 @@
       const tierLabel = display.tierLabel || tierInfo.label;
       const loggedIn = !!accountSession;
       scoreValue.textContent = loggedIn ? tierLabel.toUpperCase() : "••";
+      const nSamples = result.samples || metricSamples.length || 0;
+      const ready = nSamples >= SAMPLE_TARGET;
       scoreMeta.textContent = loggedIn
-        ? (holdScore ? "Locked · " : "") +
+        ? (holdScore ? "Locked · " : ready ? "" : "Sampling " + nSamples + "/" + SAMPLE_TARGET + " · ") +
           "PSL " +
           Settings.formatScore(display.score, userSettings.scoreDecimals) +
-          " · black-pill scale"
+          " / 8 · " +
+          (ready || holdScore ? "true Adam is 8" : "keep still")
         : "PSL hidden — sign up or log in";
       scorePanel.hidden = false;
       applyTierClass(scoreValue, loggedIn ? tier : null);
       paintPslScale(document.getElementById("pslScaleLive"), loggedIn ? tier : null);
       if (loggedIn) paintBars(display.sym, display.prop, display.harm);
       else paintBars(0.15, 0.15, 0.15);
-      lockScoreBtn.disabled = !loggedIn;
+      lockScoreBtn.disabled = !loggedIn || (!holdScore && !ready);
       updateScoreAuthGate();
     }
 
@@ -3860,9 +4511,82 @@
       ctx.stroke();
     }
 
-    function drawFrame(landmarks, frameW, frameH) {
-      resizeCanvas(frameW, frameH);
+    function updateFaceZoomFromLandmarks(landmarks) {
+      if (!landmarks || !landmarks.length) return;
+      let minX = 1;
+      let maxX = 0;
+      let minY = 1;
+      let maxY = 0;
+      for (let i = 0; i < landmarks.length; i++) {
+        const p = landmarks[i];
+        if (!p) continue;
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+      }
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2 - 0.02;
+      const faceSpan = Math.max(maxX - minX, (maxY - minY) * 0.92);
+      // Tighter crop → higher zoom → less wide-angle nose/edge distortion.
+      const targetScale = clamp(0.72 / Math.max(faceSpan, 0.28), 1.2, 1.85);
+      const a = 0.18;
+      faceZoom.cx = lerp(faceZoom.cx, cx, a);
+      faceZoom.cy = lerp(faceZoom.cy, cy, a);
+      faceZoom.scale = lerp(faceZoom.scale, targetScale, a);
+    }
+
+    /**
+     * Face-centered crop for analysis + preview.
+     * Front camera is mirrored (selfie preview); rear camera is not.
+     * Demo stills use forceZoom without mirroring.
+     */
+    function renderZoomedFrame(source, landmarks, opts) {
+      const options = opts || {};
+      const vw = source.videoWidth || source.naturalWidth || source.width;
+      const vh = source.videoHeight || source.naturalHeight || source.height;
+      if (!vw || !vh) return null;
+      if (landmarks) updateFaceZoomFromLandmarks(landmarks);
+
+      const useZoom = options.forceZoom || facingMode === "user";
+      const scale = useZoom ? faceZoom.scale : 1;
+      const crop = Math.min(vw, vh) / scale;
+      let sx = faceZoom.cx * vw - crop / 2;
+      let sy = faceZoom.cy * vh - crop / 2;
+      sx = clamp(sx, 0, Math.max(0, vw - crop));
+      sy = clamp(sy, 0, Math.max(0, vh - crop));
+
+      // Mirror only the live front camera — rear stays natural; still demos stay natural.
+      const mirrorFront =
+        options.mirror === true ||
+        (options.mirror !== false &&
+          facingMode === "user" &&
+          !options.forceZoom &&
+          source &&
+          source.tagName === "VIDEO");
+
+      const out = 720;
+      zoomCanvas.width = out;
+      zoomCanvas.height = out;
+      zoomCtx.save();
+      zoomCtx.clearRect(0, 0, out, out);
+      if (mirrorFront) {
+        zoomCtx.translate(out, 0);
+        zoomCtx.scale(-1, 1);
+      }
+      zoomCtx.drawImage(source, sx, sy, crop, crop, 0, 0, out, out);
+      zoomCtx.restore();
+      return zoomCanvas;
+    }
+
+    function drawFrame(landmarks, frameW, frameH, sourceFrame) {
+      const w = frameW || (sourceFrame && sourceFrame.width) || 720;
+      const h = frameH || (sourceFrame && sourceFrame.height) || 720;
+      resizeCanvas(w, h);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (sourceFrame) {
+        ctx.drawImage(sourceFrame, 0, 0, canvas.width, canvas.height);
+      }
       if (!userSettings.showMesh || !landmarks || !landmarks.length) return;
       drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, "rgba(94, 240, 168, 0.2)", 0.6);
       drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, "rgba(94, 240, 168, 0.9)", 1.6);
@@ -3932,6 +4656,16 @@
         throw new Error("This browser cannot access the camera.");
       }
       const attempts = [
+        {
+          audio: false,
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            // Prefer longer focal length when the device exposes zoom (cuts selfie distortion).
+            advanced: [{ zoom: 1.6 }]
+          }
+        },
         { audio: false, video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } } },
         { audio: false, video: { facingMode } },
         { audio: false, video: true }
@@ -3959,17 +4693,21 @@
       }
       video.hidden = false;
       demoImg.hidden = true;
-      video.style.opacity = "0.92";
+      video.style.opacity = "0";
       video.srcObject = stream;
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
       await video.play();
+      lastLandmarks = null;
+      resetMetricSamples();
+      faceZoom = { cx: 0.5, cy: 0.42, scale: facingMode === "user" ? 1.4 : 1.1 };
+      canvas.style.transform = "none";
       gate.hidden = true;
       flipBtn.disabled = false;
       lockScoreBtn.disabled = true;
       setStatus(
         accountSession
-          ? "Face the camera — when your PSL settles, tap Lock PSL."
+          ? "Hold still — gathering landmark samples for a stable PSL."
           : "Face the camera — sign up or log in to reveal and lock your PSL."
       );
     }
@@ -3979,21 +4717,44 @@
       if (view !== "scan" || mode !== "live" || !faceLandmarker || video.readyState < 2) return;
       if (video.currentTime === lastVideoTime) return;
       lastVideoTime = video.currentTime;
-      const result = faceLandmarker.detectForVideo(video, performance.now());
+
+      // Unmirrored face-centered crop — tighter FOV cuts front-camera barrel distortion.
+      const zoomed = renderZoomedFrame(video, lastLandmarks);
+      if (!zoomed) return;
+      const result = faceLandmarker.detectForVideo(zoomed, performance.now());
       const faces = result.faceLandmarks || [];
       if (!faces.length) {
-        drawFrame(null);
+        faceZoom.scale = lerp(faceZoom.scale, 1.2, 0.2);
+        faceZoom.cx = lerp(faceZoom.cx, 0.5, 0.12);
+        faceZoom.cy = lerp(faceZoom.cy, 0.42, 0.12);
+        const wide = renderZoomedFrame(video, null);
+        if (wide) drawFrame(null, wide.width, wide.height, wide);
+        lastLandmarks = null;
         if (!holdScore) {
           scorePanel.hidden = true;
           setStatus("No face in frame — center yourself.");
         }
         return;
       }
-      drawFrame(faces[0], video.videoWidth, video.videoHeight);
+      lastLandmarks = faces[0];
+      updateFaceZoomFromLandmarks(faces[0]);
+      drawFrame(faces[0], zoomed.width, zoomed.height, zoomed);
       const rated = rateFace(faces[0], result.faceBlendshapes);
       if (!holdScore) held = { ...rated };
       showScore(rated);
-      setStatus("Tracking 478 face landmarks · MediaPipe Face Landmarker");
+      if (rated.samples < SAMPLE_TARGET) {
+        setStatus(
+          "Sampling face ratios " + rated.samples + "/" + SAMPLE_TARGET + " — keep still"
+        );
+      } else {
+      setStatus(
+        facingMode === "user"
+          ? "Stable read · " +
+                SAMPLE_TARGET +
+                " samples · face zoom · front mirrored"
+            : "Stable read · " + SAMPLE_TARGET + " samples · rear camera"
+      );
+      }
     }
 
     async function runDemo() {
@@ -4011,22 +4772,68 @@
           });
         }
         video.hidden = true;
-        demoImg.hidden = false;
+        demoImg.hidden = true;
         canvas.style.transform = "none";
-        const result = faceLandmarker.detect(demoImg);
-        const faces = result.faceLandmarks || [];
+        resetMetricSamples();
+        faceZoom = { cx: 0.5, cy: 0.42, scale: 1.45 };
+        // Fresh detect after src swaps — avoid reusing a prior still.
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        let result = faceLandmarker.detect(demoImg);
+        let faces = result.faceLandmarks || [];
         gate.hidden = true;
         flipBtn.disabled = true;
         if (!faces.length) {
           setStatus("Sample loaded, but no face was found.", "warn");
+          demoImg.hidden = false;
           return;
         }
+        const seedFace = faces[0];
+        // Multi-sample with slight zoom / center jitter for a stabler still read.
+        const jitters = [
+          { s: 0, cx: 0, cy: 0 },
+          { s: 0.06, cx: 0.01, cy: -0.01 },
+          { s: -0.05, cx: -0.01, cy: 0.01 },
+          { s: 0.08, cx: 0, cy: 0.015 },
+          { s: -0.07, cx: 0.015, cy: 0 },
+          { s: 0.04, cx: -0.012, cy: -0.008 },
+          { s: -0.04, cx: 0.008, cy: 0.012 },
+          { s: 0.1, cx: 0, cy: 0 },
+          { s: -0.08, cx: -0.01, cy: -0.01 },
+          { s: 0.05, cx: 0.01, cy: 0.01 },
+          { s: -0.03, cx: 0, cy: -0.015 },
+          { s: 0.07, cx: -0.008, cy: 0.008 }
+        ];
+        let framed = null;
+        let lastShapes = result.faceBlendshapes;
+        for (let i = 0; i < jitters.length; i++) {
+          const j = jitters[i];
+          faceZoom.scale = clamp(1.45 + j.s, 1.2, 1.85);
+          faceZoom.cx = clamp(0.5 + j.cx, 0.35, 0.65);
+          faceZoom.cy = clamp(0.42 + j.cy, 0.3, 0.55);
+          const crop = renderZoomedFrame(demoImg, seedFace, { forceZoom: true });
+          if (!crop) continue;
+          const r = faceLandmarker.detect(crop);
+          const f = r.faceLandmarks && r.faceLandmarks[0];
+          if (!f) continue;
+          framed = crop;
+          faces = [f];
+          lastShapes = r.faceBlendshapes || lastShapes;
+          rateFace(f, lastShapes, { record: true });
+        }
+        if (!framed) {
+          framed = renderZoomedFrame(demoImg, faces[0], { forceZoom: true });
+          if (framed) {
+            result = faceLandmarker.detect(framed);
+            faces = result.faceLandmarks || faces;
+            lastShapes = result.faceBlendshapes;
+          }
+        }
         try {
-          drawFrame(faces[0], demoImg.naturalWidth, demoImg.naturalHeight);
+          drawFrame(faces[0], framed.width, framed.height, framed);
         } catch (drawErr) {
           console.warn("Mesh draw skipped", drawErr);
         }
-        const rated = rateFace(faces[0], result.faceBlendshapes);
+        const rated = rateFace(faces[0], lastShapes, { record: true });
         held = { ...rated };
         smooth = {
           score: rated.score,
@@ -4038,7 +4845,11 @@
           tierLabel: rated.tierLabel
         };
         showScore(rated);
-        setStatus("Sample face · MediaPipe Face Landmarker (IMAGE mode)");
+        setStatus(
+          "Sample face · " +
+            metricSamples.length +
+            " ratio samples · MediaPipe IMAGE"
+        );
       } catch (err) {
         console.error(err);
         setStatus((err && err.message) || "Demo failed.", "warn");
@@ -4053,9 +4864,10 @@
       startBtn.disabled = true;
       demoBtn.disabled = true;
       mode = "live";
-      canvas.style.transform = "scaleX(-1)";
+      canvas.style.transform = "none";
       demoImg.hidden = true;
       video.hidden = false;
+      lastLandmarks = null;
       try {
         await ensureLandmarker("VIDEO");
         await startCamera();

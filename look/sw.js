@@ -1,5 +1,5 @@
 /* LOOK — network-first; bump CACHE to force clients off stale shells. */
-const CACHE = "look-v14-multi-account";
+const CACHE = "look-v20-home-melius";
 const SHELL = [
   "./",
   "./index.html",
