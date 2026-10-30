@@ -1963,8 +1963,8 @@
           </div>
           <div class="how-step">
             <div>
-              <h3>Advisor-built plan</h3>
-              <p>Tips and a 7-day schedule synthesized from your weakest domains. Optional Gemini rewrite in Settings.</p>
+              <h3>AI schedule from this scan</h3>
+              <p>The week is written from your bone, eye, skin, and hair numbers — not a shared template. On-device AI when the browser has it; Gemini in Settings if you want a cloud rewrite.</p>
             </div>
           </div>
         </div>
@@ -2261,7 +2261,15 @@
   <div class="modal-backdrop" id="settingsModal" hidden>
     <div class="modal modal-wide" role="dialog" aria-labelledby="settingsModalTitle" aria-modal="true">
       <h2 id="settingsModalTitle">Settings</h2>
-      <p class="privacy">Customize how LOOK presents scores, plans, and the scan. Preferences stay on this device — they are not uploaded.</p>
+      <p class="privacy">Scores, plans, and account details stay on this device.</p>
+
+      <div class="setting-row" id="settingsAccountRow">
+        <div class="setting-copy">
+          <strong>Account</strong>
+          <span id="settingsAccountHint">Sign in from the home screen. Name, photo, and accent are edited here — not during sign-in.</span>
+        </div>
+        <button type="button" class="ghost" id="settingsEditProfile">Edit profile</button>
+      </div>
 
       <div class="setting-row">
         <div class="setting-copy">
@@ -2382,8 +2390,8 @@
 
       <div class="setting-row">
         <div class="setting-copy">
-          <strong>AI tip rewrite (optional)</strong>
-          <span>Paste a Gemini API key to rewrite tips and the 7-day schedule with the model. Off by default — local advisor still personalizes from your metrics.</span>
+          <strong>Cloud AI schedule (Gemini)</strong>
+          <span>On lock, LOOK writes a 7-day schedule from your ratios. If this browser has on-device AI it uses that. A Gemini key here rewrites the week in the cloud. Leave the key blank to stay fully on-device.</span>
         </div>
         <label class="switch"><input type="checkbox" id="setAiEnhance"><i></i></label>
       </div>
@@ -3142,20 +3150,26 @@
       }
       holdScore = true;
       held = { ...src };
-      setStatus("Building your personalized plan…");
+      setStatus("AI is writing a schedule from this scan…");
       let plan = buildPersonalPlan(src, {
         metrics: src.metrics,
         skin: src.skin,
         profile: null
       });
-      if (userSettings.aiEnhance && userSettings.aiApiKey) {
-        try {
-          setStatus("AI rewriting tips & schedule…");
-          plan = await Advisor.enhancePlanWithAI(plan, userSettings.aiApiKey);
-        } catch (e) {
-          console.warn(e);
-          setStatus((e && e.message) || "AI enhance skipped — using local advisor.", "warn");
+      try {
+        const aiPlan = await Advisor.personalizeScheduleWithAI(
+          plan,
+          userSettings.aiEnhance ? userSettings.aiApiKey : ""
+        );
+        if (aiPlan && aiPlan.advisor && aiPlan.advisor !== plan.advisor) {
+          plan = aiPlan;
+          setStatus("Schedule written · " + plan.advisor);
+        } else {
+          setStatus("Schedule written from your measured ratios.");
         }
+      } catch (e) {
+        console.warn(e);
+        setStatus((e && e.message) || "Cloud AI skipped — schedule uses your measured ratios.", "warn");
       }
       savePlan(plan);
       showResults(plan);
@@ -3556,7 +3570,7 @@
       await Vault.persistSession(accountSession);
       authModal.hidden = true;
       await refreshAccountChrome();
-      openProfileModal();
+      setStatus("Signed in.");
     }
 
     async function ensureGoogle(opts) {
@@ -3755,6 +3769,11 @@
           }
         );
         rebuilt.at = plan.at || rebuilt.at;
+        if (plan.advisor && plan.advisor !== "look-metrics-v2" && plan.days && plan.days.length) {
+          rebuilt.days = plan.days;
+          rebuilt.advisor = plan.advisor;
+          if (plan.summary) rebuilt.summary = plan.summary;
+        }
         savePlan(rebuilt);
         if (view === "results") fillResults(rebuilt);
         else renderPlan(rebuilt);
@@ -3768,8 +3787,26 @@
       authModal.hidden = true;
       profileModal.hidden = true;
       syncSettingsForm();
+      const hint = document.getElementById("settingsAccountHint");
+      if (hint) {
+        hint.textContent = accountSession
+          ? "Signed in as " +
+            (accountSession.displayName || "your account") +
+            ". Edit name, photo, and accent here."
+          : "Sign in from the home screen. Name, photo, and accent are edited here — not during sign-in.";
+      }
       settingsModal.hidden = false;
     }
+
+    document.getElementById("settingsEditProfile").addEventListener("click", () => {
+      if (!accountSession) {
+        settingsModal.hidden = true;
+        openLogin();
+        return;
+      }
+      settingsModal.hidden = true;
+      openProfileModal();
+    });
 
     loginBtn.addEventListener("click", openLogin);
     signupBtn.addEventListener("click", openSignup);
@@ -3811,7 +3848,7 @@
         await Vault.persistSession(accountSession);
         authModal.hidden = true;
         await refreshAccountChrome();
-        openProfileModal();
+        setStatus("Signed in.");
       } catch (e) {
         showAuthErr((e && e.message) || "Could not sign in");
       }

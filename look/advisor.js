@@ -42,6 +42,7 @@ function pct(n) {
 }
 
 function fmt(n, d) {
+  if (typeof n !== "number" || Number.isNaN(n)) return "—";
   const f = Math.pow(10, d == null ? 2 : d);
   return (Math.round(Number(n) * f) / f).toFixed(d == null ? 2 : d);
 }
@@ -534,75 +535,8 @@ export function buildPersonalPlan(result, profile, settings) {
     { label: "Expression", weak: smile < 0.28 }
   ];
 
-  const primary = tips[0];
-  const secondary = tips[1] || tips[0];
-  const tertiary = tips[2] || secondary;
-
-  const days = DAY_NAMES.map((name, idx) => {
-    const focusTip = idx % 3 === 0 ? primary : idx % 3 === 1 ? secondary : tertiary;
-    const domain = focusTip.domain;
-    const products = (focusTip.products || []).slice(0, 2);
-    let am = "Cleanse → moisturizer → SPF 30+.";
-    let pm = "Cleanse → one active max → ceramide moisturizer.";
-    let habit = focusTip.levers ? focusTip.body.split("Start with:")[1] || focusTip.title : focusTip.title;
-
-    if (domain === "skin") {
-      am = "Water cleanse → niacinamide if using → moisturizer → SPF 30–50.";
-      pm =
-        idx === 4
-          ? "Cleanse → adapalene/retinoid on 2 zones (buffered) → moisturizer."
-          : "Cleanse → barrier moisturizer; skip stacking acids.";
-      habit = "No new serums this week — execute SPF + one active only.";
-    } else if (domain === "bone") {
-      habit =
-        idx === 2 || idx === 5
-          ? "Strength session (full body) + 8–10k steps; protein each meal."
-          : "Walk after meals; keep phone at eye level (no chin-down).";
-      pm = "Barrier only if you trained hard — ceramides + cholesterol.";
-    } else if (domain === "eyes") {
-      am = "Cool splash → optional caffeine eye gel → SPF. Soft brow set.";
-      habit = "7–9h sleep target tonight; brow tidy if scraggly.";
-    } else if (domain === "hair") {
-      habit =
-        idx === 3
-          ? "Barber / self-cut appointment — bring your LOOK bars."
-          : "Style for your face shape; set brows once in the morning.";
-    } else if (domain === "expression") {
-      am = "SPF + lip balm. One soft eye-smile in the mirror before leaving.";
-      habit = "Natural smile in first-meet photos — eyes soft, not a wide grin.";
-    } else if (domain === "recovery") {
-      habit = "Fixed wake time; front light only for any re-scan today.";
-      am = "Cool rinse, go easy on caffeine if puffy, SPF.";
-    } else {
-      habit = "Protect baseline: SPF, sleep window, no novelty chasing.";
-    }
-
-    if (idx === 6) {
-      habit = "Re-scan LOOK in the same room light. Compare bone/eyes/skin bars — not only the headline.";
-      pm = "Recovery night — no new acids; early lights-out.";
-    }
-
-    const seen = {};
-    const uniq = [];
-    products.forEach((p) => {
-      if (p && p.name && !seen[p.name]) {
-        seen[p.name] = true;
-        uniq.push(p);
-      }
-    });
-
-    return {
-      name,
-      title: name + " — " + focusTip.title.split(" ").slice(0, 5).join(" "),
-      focus: focusTip.title,
-      domain,
-      am,
-      pm,
-      habit,
-      products: uniq.slice(0, 3),
-      why: focusTip.body
-    };
-  });
+  const metrics = (profile && profile.metrics) || {};
+  const days = writeMetricSchedule(issues, metrics, fPreview(profile), smile, tips);
 
   const routine = issues.slice(0, 5).map((iss) => ({
     title: iss.title,
@@ -668,11 +602,252 @@ export function buildPersonalPlan(result, profile, settings) {
     factors: f,
     lift: { fast, mid, slow, total: totalLift, target },
     at: Date.now(),
-    advisor: "look-local-v1"
+    advisor: "look-metrics-v2"
   };
 }
 
-/** Optional Gemini rewrite of tips + schedule when user pastes an API key. */
+function fPreview(profile) {
+  return (profile && profile.factors) || {};
+}
+
+function signature(metrics, factors) {
+  const m = metrics || {};
+  const f = factors || {};
+  const bits = [];
+  if (f.bone != null) bits.push("bone " + pct(f.bone) + "%");
+  if (f.eyes != null) bits.push("eyes " + pct(f.eyes) + "%");
+  if (f.skin != null) bits.push("skin " + pct(f.skin) + "%");
+  if (f.hair != null) bits.push("hair " + pct(f.hair) + "%");
+  if (f.symmetry != null) bits.push("symmetry " + pct(f.symmetry) + "%");
+  if (m.jawToCheek != null) bits.push("jaw/cheek " + fmt(m.jawToCheek));
+  if (m.chinProj != null) bits.push("chin z " + fmt(m.chinProj));
+  if (m.eyeAperture != null) bits.push("eye aperture " + fmt(m.eyeAperture));
+  if (m.canthalLift != null) bits.push("canthal " + fmt(m.canthalLift, 3));
+  if (m.heightWidth != null) bits.push("H/W " + fmt(m.heightWidth));
+  if (m.skinClarity != null) bits.push("clarity " + pct(m.skinClarity) + "%");
+  return bits.join(" · ");
+}
+
+function productsFor(domain) {
+  const map = {
+    recovery: [
+      { name: "Fixed wake time", why: "Cuts asymmetric morning fluid.", ingredients: "Habit" },
+      { name: "Front fill light", why: "Stops lamp-side false asymmetry.", ingredients: "3000–4000K, CRI 90+ if listed" }
+    ],
+    bone: [
+      { name: "Protein at each meal", why: "Supports training while facial fat drops.", ingredients: "Whey or pea isolate" },
+      { name: "Neckline trimmer", why: "Sharpens the jaw you measured.", ingredients: "Balm after trim" }
+    ],
+    eyes: [
+      { name: "Brow gel", why: "Opens the upper third around your aperture.", ingredients: "Panthenol, fragrance-free" },
+      { name: "Caffeine eye gel", why: "Short de-puff before a re-scan.", ingredients: "Caffeine + glycerin" }
+    ],
+    skin: [
+      { name: "SPF 30–50", why: "Protects the clarity ROI from this scan.", ingredients: "Zinc oxide and/or modern UV filters" },
+      { name: "Niacinamide 5%", why: "Evenness without stacking actives.", ingredients: "Niacinamide 4–5%" }
+    ],
+    hair: [
+      { name: "Shape-aware cut", why: "Reframes your measured thirds.", ingredients: "Barber — bring these ratios" },
+      { name: "Brow set", why: "Daily upper-face frame.", ingredients: "Clear film former" }
+    ],
+    expression: [
+      { name: "Humectant lip balm", why: "Makes the smile reps comfortable.", ingredients: "Glycerin, HA, squalane" }
+    ],
+    maintain: [
+      { name: "SPF you will reapply", why: "Holds a strong baseline.", ingredients: "Texture you actually wear" }
+    ]
+  };
+  return map[domain] || map.maintain;
+}
+
+/**
+ * 7-day schedule written from THIS scan’s ratios — not a shared domain script.
+ */
+export function writeMetricSchedule(issues, metrics, factors, smile, tips) {
+  const ranked = (issues && issues.length ? issues : [{ id: "maintain", domain: "maintain", severity: 0.2, title: "Protect baseline", detail: "No major deficit.", levers: ["SPF", "sleep window"] }]).slice(0, 5);
+  const sig = signature(metrics, factors);
+  const smilePct = pct(smile || 0);
+  return DAY_NAMES.map((name, idx) => {
+    const iss = ranked[idx % ranked.length];
+    const next = ranked[(idx + 1) % ranked.length];
+    const levers = iss.levers && iss.levers.length ? iss.levers : [iss.title];
+    const lever = levers[idx % levers.length];
+    const leverB = levers[(idx + 1) % levers.length];
+    const sev = Math.round((iss.severity || 0) * 100);
+    const tip = (tips || []).find((t) => (t.title || "") === iss.title);
+    const products = ((tip && tip.products) || productsFor(iss.domain)).slice(0, 2);
+    const focus =
+      iss.title +
+      " · priority " +
+      sev +
+      (idx === 6 ? " · re-scan day" : "");
+    let am;
+    let pm;
+    let habit;
+    if (idx === 6) {
+      am = "Same room, eye-level camera, soft light. Re-scan and compare " + sig + ".";
+      pm = "No new acids. Early lights-out so Monday’s symmetry cue is honest.";
+      habit = "Lock a new read only if bone/eyes/skin moved — ignore a one-day lighting swing.";
+    } else if (iss.domain === "bone") {
+      am = "Before screens: ears over shoulders. Today’s lever — " + lever + ". Your ratios: " + sig + ".";
+      pm = idx % 2 === 0
+        ? "Full-body strength or a long walk. Protein with dinner. Skip chin-down scrolling."
+        : "Barrier moisturizer only. " + leverB + " is tomorrow’s add, not a second workout.";
+      habit = lever + " — jaw/cheek " + fmt(metrics.jawToCheek) + ", chin z " + fmt(metrics.chinProj) + ".";
+    } else if (iss.domain === "eyes") {
+      am = "Cool splash, then brow set. Eye aperture " + fmt(metrics.eyeAperture) + ", canthal " + fmt(metrics.canthalLift, 3) + ". Do: " + lever + ".";
+      pm = "Screens down 45 min before bed. Hooding/puff punish this eye composite overnight.";
+      habit = "Sleep target 7–9h. " + leverB + " only if brows are scraggly today.";
+    } else if (iss.domain === "skin") {
+      am = "Water cleanse → one serum max → SPF. Clarity on this scan is " + pct(metrics.skinClarity || factors.skin || 0) + "%. Lever: " + lever + ".";
+      pm = idx === 4
+        ? "Buffered retinoid on two dots only — your evenness does not need a peel."
+        : "Cleanse → ceramide moisturizer. Do not add " + (next.title || "another active") + " tonight.";
+      habit = "Same SPF you used yesterday. " + sig + ".";
+    } else if (iss.domain === "hair") {
+      am = "Style for the thirds you measured (top " + fmt(metrics.thirdsTop) + "). " + lever + ".";
+      pm = "No product experiments. Note whether the hairline hid or exposed the upper third.";
+      habit = idx === 3 ? "Book or do the cut today — bring " + sig + "." : leverB + " in the morning only.";
+    } else if (iss.domain === "expression") {
+      am = "SPF + lip balm. One eye-smile in the mirror — smile signal was " + smilePct + "%. " + lever + ".";
+      pm = "No wide-grin practice. Soft cheeks, eyes relaxed, then stop.";
+      habit = "Use that smile once on camera today. " + leverB + ".";
+    } else if (iss.domain === "recovery") {
+      am = "Cool rinse, even front light if you photograph. " + lever + ". " + sig + ".";
+      pm = "Fixed wake alarm set. Ease late salt. Symmetry load is the point of tonight.";
+      habit = "Same lamp position as your LOOK scan — side light will fake this asymmetry.";
+    } else {
+      am = "SPF + the one habit that holds " + sig + ".";
+      pm = "Early night. Do not add a new product because the score is already high.";
+      habit = lever + ".";
+    }
+    return {
+      name,
+      title: name + " — " + iss.title,
+      focus,
+      domain: iss.domain,
+      am,
+      pm,
+      habit,
+      products,
+      why: (iss.detail || "") + (sig ? " Scan signature: " + sig + "." : "")
+    };
+  });
+}
+
+async function onDeviceModel() {
+  const LM =
+    globalThis.LanguageModel ||
+    (globalThis.ai && (globalThis.ai.languageModel || globalThis.ai.assistant));
+  if (!LM || typeof LM.create !== "function") return null;
+  try {
+    if (typeof LM.availability === "function") {
+      const avail = await LM.availability();
+      if (avail === "unavailable" || avail === "no" || avail === "downloadable") return null;
+    }
+    return await LM.create({ temperature: 0.85, topK: 12 });
+  } catch (_) {
+    return null;
+  }
+}
+
+function schedulePrompt(plan) {
+  return (
+    "You write a 7-day LOOK schedule for ONE face. It must be obviously different from any other face. " +
+    "Every day must cite at least one number from the measurements (bone %, jaw/cheek, eye aperture, skin clarity, etc). " +
+    "No surgery. No medical diagnosis. No generic 'cleanse moisturizer SPF' copied across days. " +
+    "Vary AM, PM, and habit so Monday–Sunday are not the same paragraph. " +
+    "Return ONLY JSON: {days:[{name,title,focus,am,pm,habit,why,products:[{name,why,ingredients}]}], summary}. " +
+    "names must be Monday through Sunday in order.\n\nMEASUREMENTS:\n" +
+    JSON.stringify(
+      {
+        score: plan.score,
+        tier: plan.tierLabel,
+        factors: plan.factors,
+        smile: plan.smile,
+        issues: ((plan.profile && plan.profile.issues) || []).map((i) => ({
+          title: i.title,
+          domain: i.domain,
+          severity: i.severity,
+          detail: i.detail,
+          levers: i.levers
+        })),
+        metrics: (plan.profile && plan.profile.metrics) || {}
+      },
+      null,
+      2
+    )
+  );
+}
+
+function parseScheduleJson(text) {
+  if (!text) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (_) {
+    const m = String(text).match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try {
+      parsed = JSON.parse(m[0]);
+    } catch (e2) {
+      return null;
+    }
+  }
+  const days = parsed && parsed.days;
+  if (!Array.isArray(days) || days.length < 7) return null;
+  const names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const normalized = names.map((name, i) => {
+    const d = days[i] || {};
+    return {
+      name,
+      title: d.title || name,
+      focus: d.focus || d.title || "",
+      domain: d.domain || "ai",
+      am: d.am || "",
+      pm: d.pm || "",
+      habit: d.habit || "",
+      why: d.why || "",
+      products: Array.isArray(d.products) ? d.products.slice(0, 3) : []
+    };
+  });
+  if (normalized.some((d) => !d.am || !d.habit)) return null;
+  return { days: normalized, summary: parsed.summary || "" };
+}
+
+/**
+ * Rewrite the 7-day schedule with on-device AI, then Gemini if a key is set.
+ * Returns the plan unchanged when no model is available.
+ */
+export async function personalizeScheduleWithAI(plan, apiKey) {
+  if (!plan) return plan;
+  const prompt = schedulePrompt(plan);
+  const local = await onDeviceModel();
+  if (local) {
+    try {
+      const raw = local.prompt ? await local.prompt(prompt) : await local.generate(prompt);
+      const text = typeof raw === "string" ? raw : (raw && (raw.text || raw.output)) || "";
+      const parsed = parseScheduleJson(text);
+      if (parsed) {
+        if (local.destroy) local.destroy();
+        return {
+          ...plan,
+          days: parsed.days,
+          summary: parsed.summary || plan.summary,
+          advisor: "on-device-ai"
+        };
+      }
+    } catch (_) {
+      /* fall through */
+    }
+    try {
+      if (local.destroy) local.destroy();
+    } catch (_) {}
+  }
+  return enhancePlanWithAI(plan, apiKey);
+}
+
+/** Gemini rewrite of tips + schedule when a key is set. */
 export async function enhancePlanWithAI(plan, apiKey, model) {
   const key = (apiKey || "").trim();
   if (!key || !plan) return plan;
