@@ -791,7 +791,8 @@ export function buildPersonalPlan(result, profile, settings) {
     factors: f,
     lift: { fast, mid, slow, total: totalLift, target },
     at: Date.now(),
-    advisor: "look-metrics-v2"
+    advisor: "look-metrics-v2",
+    scheduleVersion: "v30"
   };
 }
 
@@ -850,77 +851,126 @@ function productsFor(domain) {
 }
 
 /**
- * 7-day schedule written from THIS scan’s ratios — not a shared domain script.
+ * Seven different jobs. A day never repeats another day's task.
+ * The wording still uses this scan's weakest areas and numbers.
  */
 export function writeMetricSchedule(issues, metrics, factors, smile, tips) {
-  const ranked = (issues && issues.length ? issues : [{ id: "maintain", domain: "maintain", severity: 0.2, title: "Protect baseline", detail: "No major deficit.", levers: ["SPF", "sleep window"] }]).slice(0, 5);
-  const sig = signature(metrics, factors);
+  const ranked = (issues && issues.length ? issues : []).slice();
+  const m = metrics || {};
+  const f = factors || {};
   const smilePct = pct(smile || 0);
-  return DAY_NAMES.map((name, idx) => {
-    const iss = ranked[idx % ranked.length];
-    const next = ranked[(idx + 1) % ranked.length];
-    const levers = iss.levers && iss.levers.length ? iss.levers : [iss.title];
-    const lever = levers[idx % levers.length];
-    const leverB = levers[(idx + 1) % levers.length];
-    const sev = Math.round((iss.severity || 0) * 100);
-    const tip = (tips || []).find((t) => (t.title || "") === iss.title);
-    const products = ((tip && tip.products) || productsFor(iss.domain)).slice(0, 2);
-    const focus =
-      iss.title +
-      " · priority " +
-      sev +
-      (idx === 6 ? " · re-scan day" : "");
-    let am;
-    let pm;
-    let habit;
-    if (idx === 6) {
-      am = "Same room, eye-level camera, soft light. Re-scan and compare " + sig + ".";
-      pm = "No new acids. Early lights-out so Monday’s symmetry cue is honest.";
-      habit = "Lock a new read only if bone/eyes/skin moved — ignore a one-day lighting swing.";
-    } else if (iss.domain === "bone") {
-      am = "Before screens: ears over shoulders. Today’s lever — " + lever + ". Your ratios: " + sig + ".";
-      pm = idx % 2 === 0
-        ? "Full-body strength or a long walk. Protein with dinner. Skip chin-down scrolling."
-        : "Barrier moisturizer only. " + leverB + " is tomorrow’s add, not a second workout.";
-      habit = lever + " — jaw/cheek " + fmt(metrics.jawToCheek) + ", chin z " + fmt(metrics.chinProj) + ".";
-    } else if (iss.domain === "eyes") {
-      am = "Cool splash, then brow set. Eye aperture " + fmt(metrics.eyeAperture) + ", canthal " + fmt(metrics.canthalLift, 3) + ". Do: " + lever + ".";
-      pm = "Screens down 45 min before bed. Hooding/puff punish this eye composite overnight.";
-      habit = "Sleep target 7–9h. " + leverB + " only if brows are scraggly today.";
-    } else if (iss.domain === "skin") {
-      am = "Water cleanse → one serum max → SPF. Clarity on this scan is " + pct(metrics.skinClarity || factors.skin || 0) + "%. Lever: " + lever + ".";
-      pm = idx === 4
-        ? "Buffered retinoid on two dots only — your evenness does not need a peel."
-        : "Cleanse → ceramide moisturizer. Do not add " + (next.title || "another active") + " tonight.";
-      habit = "Same SPF you used yesterday. " + sig + ".";
-    } else if (iss.domain === "hair") {
-      am = "Style for the thirds you measured (top " + fmt(metrics.thirdsTop) + "). " + lever + ".";
-      pm = "No product experiments. Note whether the hairline hid or exposed the upper third.";
-      habit = idx === 3 ? "Book or do the cut today — bring " + sig + "." : leverB + " in the morning only.";
-    } else if (iss.domain === "expression") {
-      am = "SPF + lip balm. One eye-smile in the mirror — smile signal was " + smilePct + "%. " + lever + ".";
-      pm = "No wide-grin practice. Soft cheeks, eyes relaxed, then stop.";
-      habit = "Use that smile once on camera today. " + leverB + ".";
-    } else if (iss.domain === "recovery") {
-      am = "Cool rinse, even front light if you photograph. " + lever + ". " + sig + ".";
-      pm = "Fixed wake alarm set. Ease late salt. Symmetry load is the point of tonight.";
-      habit = "Same lamp position as your LOOK scan — side light will fake this asymmetry.";
-    } else {
-      am = "SPF + the one habit that holds " + sig + ".";
-      pm = "Early night. Do not add a new product because the score is already high.";
-      habit = lever + ".";
+  const jaw = fmt(m.jawToCheek);
+  const chin = fmt(m.chinProj);
+  const aperture = fmt(m.eyeAperture);
+  const canthal = fmt(m.canthalLift, 3);
+  const top = fmt(m.thirdsTop);
+  const skinPct = pct(m.skinClarity != null ? m.skinClarity : f.skin || 0);
+  const bonePct = pct(f.bone || 0);
+  const eyePct = pct(f.eyes || 0);
+  const hairPct = pct(f.hair || 0);
+  const symPct = pct(f.symmetry || m.symmetry || 0);
+
+  function iss(i) {
+    return ranked[i] || { title: "Hold the baseline", domain: "maintain", detail: "No large deficit on this scan.", levers: ["SPF", "sleep"], severity: 0.2 };
+  }
+  function lever(issue, n) {
+    const list = issue.levers && issue.levers.length ? issue.levers : [issue.title];
+    return list[n % list.length];
+  }
+  function prods(domain) {
+    const tip = (tips || []).find((t) => t.domain === domain);
+    return ((tip && tip.products) || productsFor(domain) || []).slice(0, 2);
+  }
+
+  const a = iss(0);
+  const b = iss(1);
+  const c = iss(2);
+
+  const specs = [
+    {
+      name: "Monday",
+      title: "Monday — " + a.title,
+      focus: "Only today's job: " + lever(a, 0),
+      domain: a.domain,
+      am: "Skip the rest of the list. Do this once before noon: " + lever(a, 0) + ".",
+      pm: "Nothing else from the plan tonight. Lights out on time so this change can show up (" + a.title.toLowerCase() + ").",
+      habit: lever(a, 0) + ". That is the whole Monday.",
+      why: a.detail + " Monday is only this lever, not the whole routine.",
+      products: prods(a.domain)
+    },
+    {
+      name: "Tuesday",
+      title: "Tuesday — eyes and brows",
+      focus: "Brow set and a shorter screen night. Aperture " + aperture + ", canthal " + canthal + ".",
+      domain: "eyes",
+      am: "Cool splash, then brow gel only. Do not repeat Monday's task (" + lever(a, 0) + ").",
+      pm: "Screens off 45 minutes earlier than last night. Eye score on this scan is " + eyePct + "%.",
+      habit: "One brow tidy. No second workout.",
+      why: "Tuesday is the eye day. " + (b.domain === "eyes" ? b.detail : "Canthal " + canthal + " and aperture " + aperture + " are what you are training."),
+      products: prods("eyes")
+    },
+    {
+      name: "Wednesday",
+      title: "Wednesday — jaw and steps",
+      focus: "One strength session or a long walk. Jaw/cheek " + jaw + ", chin z " + chin + ".",
+      domain: "bone",
+      am: "Eye-level phone only. No chin-down scrolling. Bone on this scan is " + bonePct + "%.",
+      pm: "Protein with dinner. Moisturizer only — no new serum.",
+      habit: bonePct < 70 ? "Full-body strength or 8–10k steps. Not yesterday's brow task." : "A 40-minute walk at eye level. Training stays light because bone is already " + bonePct + "%.",
+      why: "Wednesday moves the jaw and posture numbers (" + jaw + " / " + chin + "). It is not a repeat of " + a.title + ".",
+      products: prods("bone")
+    },
+    {
+      name: "Thursday",
+      title: "Thursday — skin only",
+      focus: "SPF plus one active, or none if clarity is already " + skinPct + "%.",
+      domain: "skin",
+      am: "This is the only morning with a full SPF step. Clarity " + skinPct + "%.",
+      pm: skinPct < 65 ? "Buffered retinoid or niacinamide on two spots. No acids stacked on top." : "Barrier cream only. Skin is " + skinPct + "% — do not add a new active.",
+      habit: "One skin step. Leave brows, hair, and training alone.",
+      why: "Thursday is skin. The other days do not repeat this product list.",
+      products: prods("skin")
+    },
+    {
+      name: "Friday",
+      title: "Friday — hair and frame",
+      focus: "Hair and upper third. Hair framing " + hairPct + "%, forehead third " + top + ".",
+      domain: "hair",
+      am: "Style for the thirds you measured. " + (hairPct < 70 ? "Book or do the cut today." : "Keep the cut you have; set the hairline once."),
+      pm: "No new products. Check a photo: did hair hide or expose the forehead?",
+      habit: hairPct < 70 ? "Barber or a deliberate restyle. Bring the scan numbers." : "Five-minute style check only. Hair is already " + hairPct + "%.",
+      why: "Friday is framing, not skin and not the gym. " + (c.domain === "hair" ? c.detail : "Upper-third " + top + "."),
+      products: prods("hair")
+    },
+    {
+      name: "Saturday",
+      title: "Saturday — one real photo",
+      focus: "Expression practice. Smile signal " + smilePct + "%.",
+      domain: "expression",
+      am: "Lip balm, then one soft eye-smile in the mirror. Stop after one rep.",
+      pm: "Take a single photo at eye level in the same light as your scan. Do not reshoot a set.",
+      habit: "One photo, one smile. Symmetry on the scan was " + symPct + "%.",
+      why: "Saturday is expression and a reference photo. It is not Monday's lever and not Thursday's products.",
+      products: prods("expression")
+    },
+    {
+      name: "Sunday",
+      title: "Sunday — re-scan only",
+      focus: "Measure. Do not add a new habit.",
+      domain: "maintain",
+      am: "Same room, eye-level camera, soft front light. Re-scan once.",
+      pm: "Early night. No acids, no extra workout, no new product.",
+      habit: "Compare bone " + bonePct + "%, eyes " + eyePct + "%, skin " + skinPct + "% to last week. Then stop.",
+      why: "Sunday is the measurement day. The work happened Monday through Saturday.",
+      products: prods("maintain")
     }
-    return {
-      name,
-      title: name + " — " + iss.title,
-      focus,
-      domain: iss.domain,
-      am,
-      pm,
-      habit,
-      products,
-      why: (iss.detail || "") + (sig ? " Scan signature: " + sig + "." : "")
-    };
+  ];
+
+  const habits = {};
+  return specs.map((d) => {
+    if (habits[d.habit]) d.habit = d.name + ": " + d.habit;
+    habits[d.habit] = true;
+    return d;
   });
 }
 
@@ -945,7 +995,7 @@ function schedulePrompt(plan) {
     "You write a 7-day LOOK schedule for ONE face. It must be obviously different from any other face. " +
     "Every day must cite at least one number from the measurements (bone %, jaw/cheek, eye aperture, skin clarity, etc). " +
     "No surgery. No medical diagnosis. No generic 'cleanse moisturizer SPF' copied across days. " +
-    "Vary AM, PM, and habit so Monday–Sunday are not the same paragraph. " +
+    "Each day must be a different job. Monday is the top deficit only, Tuesday eyes, Wednesday jaw or steps, Thursday skin, Friday hair, Saturday one photo, Sunday a re-scan. Do not repeat the same AM, PM, or habit on two days. " +
     "Return ONLY JSON: {days:[{name,title,focus,am,pm,habit,why,products:[{name,why,ingredients}]}], summary}. " +
     "names must be Monday through Sunday in order.\n\nMEASUREMENTS:\n" +
     JSON.stringify(

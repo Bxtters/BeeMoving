@@ -2966,7 +2966,23 @@
         .join("");
     }
 
+    function withFreshWeek(plan) {
+      if (!plan || plan.scheduleVersion === "v30") return plan;
+      const profile = plan.profile || {};
+      plan.days = Advisor.writeMetricSchedule(
+        profile.issues || [],
+        profile.metrics || {},
+        plan.factors || profile.factors || {},
+        plan.smile || 0,
+        plan.tips || []
+      );
+      plan.scheduleVersion = "v30";
+      try { savePlan(plan); } catch (_) {}
+      return plan;
+    }
+
     function renderPlan(plan) {
+      plan = plan ? withFreshWeek(plan) : plan;
       if (!plan) {
         personalBanner.innerHTML =
           '<p class="empty-plan">No scan yet. Tap <strong>Scan my face</strong>, lock your score, then see your graph and plan.</p>';
@@ -3039,6 +3055,7 @@
     }
 
     function fillResults(plan) {
+      plan = withFreshWeek(plan);
       activePlan = plan;
       chartWeeks = userSettings.chartWeeks || chartWeeks;
       const tierInfo = pslTierFromScore(plan.score);
