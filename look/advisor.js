@@ -295,6 +295,95 @@ export function scoreFromFactors(factors) {
   return clamp(score, 1, 7.99);
 }
 
+/**
+ * Community example faces (Looksmaxxing example table / PSL wiki).
+ * A new face is scored by similarity to these measured reads, not a single ideal jaw.
+ * Targets: Cera 3 LTN, Shia 4 MTN, Chalamet 5 HTN, Evans & Ronaldo 5.5 chadlite, Cavill & Hemsworth 6.5.
+ */
+const COMMUNITY_FIELDS = [
+  ["chinProj", 0.07],
+  ["symmetry", 0.28],
+  ["jawToCheek", 0.045],
+  ["canthalLift", 0.005],
+  ["eyeAperture", 0.03],
+  ["heightWidth", 0.05],
+  ["noseToMouth", 0.06],
+  ["mouthToEyes", 0.08],
+  ["bone", 0.1],
+  ["eyes", 0.1],
+  ["nose", 0.1],
+  ["mouth", 0.1]
+];
+
+const COMMUNITY_EXEMPLARS = [
+  { name: "Michael Cera", psl: 3, v: { chinProj: -0.083, symmetry: 0.306, jawToCheek: 0.805, canthalLift: 0.006, eyeAperture: 0.288, heightWidth: 1.134, noseToMouth: 0.513, mouthToEyes: 1.093, bone: 0.665, eyes: 0.832, nose: 0.645, mouth: 0.653 } },
+  { name: "Shia LaBeouf", psl: 4, v: { chinProj: -0.09, symmetry: 0, jawToCheek: 0.792, canthalLift: 0.003, eyeAperture: 0.25, heightWidth: 1.136, noseToMouth: 0.553, mouthToEyes: 0.954, bone: 0.643, eyes: 0.578, nose: 0.653, mouth: 0.697 } },
+  { name: "Timothée Chalamet", psl: 5, v: { chinProj: -0.255, symmetry: 0.806, jawToCheek: 0.764, canthalLift: 0.012, eyeAperture: 0.337, heightWidth: 1.249, noseToMouth: 0.681, mouthToEyes: 0.85, bone: 0.853, eyes: 0.932, nose: 0.862, mouth: 0.719 } },
+  { name: "Chris Evans", psl: 5.5, v: { chinProj: -0.147, symmetry: 0.701, jawToCheek: 0.843, canthalLift: 0.004, eyeAperture: 0.324, heightWidth: 1.193, noseToMouth: 0.58, mouthToEyes: 0.878, bone: 0.843, eyes: 0.857, nose: 0.862, mouth: 0.789 } },
+  { name: "Cristiano Ronaldo", psl: 5.5, v: { chinProj: -0.079, symmetry: 0.037, jawToCheek: 0.823, canthalLift: 0.003, eyeAperture: 0.321, heightWidth: 1.105, noseToMouth: 0.566, mouthToEyes: 0.916, bone: 0.7, eyes: 0.8, nose: 0.798, mouth: 0.903 } },
+  { name: "Henry Cavill", psl: 6.5, v: { chinProj: -0.175, symmetry: 0.903, jawToCheek: 0.825, canthalLift: 0.006, eyeAperture: 0.292, heightWidth: 1.12, noseToMouth: 0.604, mouthToEyes: 1.004, bone: 0.906, eyes: 0.848, nose: 0.915, mouth: 0.634 } },
+  { name: "Chris Hemsworth", psl: 6.5, v: { chinProj: -0.157, symmetry: 0.702, jawToCheek: 0.861, canthalLift: 0.007, eyeAperture: 0.304, heightWidth: 1.128, noseToMouth: 0.693, mouthToEyes: 0.851, bone: 0.857, eyes: 0.874, nose: 0.822, mouth: 0.801 } }
+];
+
+function communityVector(metrics, parts) {
+  const m = metrics || {};
+  const p = parts || {};
+  return {
+    chinProj: m.chinProj,
+    symmetry: m.symmetry,
+    jawToCheek: m.jawToCheek,
+    canthalLift: m.canthalLift,
+    eyeAperture: m.eyeAperture,
+    heightWidth: m.heightWidth,
+    noseToMouth: m.noseToMouth,
+    mouthToEyes: m.mouthToEyes,
+    bone: p.bone,
+    eyes: p.eyes,
+    nose: p.nose,
+    mouth: p.mouth
+  };
+}
+
+function communityDistance(a, b) {
+  let s = 0;
+  for (let i = 0; i < COMMUNITY_FIELDS.length; i++) {
+    const key = COMMUNITY_FIELDS[i][0];
+    const scale = COMMUNITY_FIELDS[i][1];
+    const av = a[key];
+    const bv = b[key];
+    if (typeof av !== "number" || typeof bv !== "number") continue;
+    const z = (av - bv) / scale;
+    s += z * z;
+  }
+  return Math.sqrt(s);
+}
+
+/** PSL from similarity to community example faces. Falls back to the geometric curve when nothing is close. */
+export function scoreFromCommunity(metrics, parts) {
+  const vec = communityVector(metrics, parts);
+  const geo = scoreFromFactors(parts || {});
+  let wsum = 0;
+  let psum = 0;
+  let best = Infinity;
+  let bestName = "";
+  for (let i = 0; i < COMMUNITY_EXEMPLARS.length; i++) {
+    const ex = COMMUNITY_EXEMPLARS[i];
+    const d = communityDistance(vec, ex.v);
+    if (d < best) {
+      best = d;
+      bestName = ex.name;
+    }
+    const w = Math.exp(-(d * d) / (2 * 0.85 * 0.85));
+    wsum += w;
+    psum += w * ex.psl;
+  }
+  if (!wsum) return { score: geo, nearest: "", distance: best };
+  const local = psum / wsum;
+  const confidence = clamp(Math.exp(-(best * best) / (2 * 1.15 * 1.15)), 0, 1);
+  const score = clamp(local * confidence + geo * (1 - confidence), 1, 7.99);
+  return { score, nearest: bestName, distance: best, confidence, local };
+}
+
 function issue(id, domain, severity, title, detail, levers) {
   return { id, domain, severity, title, detail, levers: levers || [] };
 }

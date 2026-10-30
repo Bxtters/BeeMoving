@@ -1970,15 +1970,15 @@
     <section class="examples" aria-labelledby="examples-title">
       <div class="examples-head reveal">
         <h2 id="examples-title">Example reads</h2>
-        <p>Real photos, scanned on-device. Tuned toward community PSL examples, not a flat high score.</p>
+        <p>Scored by similarity to community example faces: Cera 3, Shia 4, Chalamet 5, Evans and Ronaldo 5.5, Cavill and Hemsworth 6.5.</p>
       </div>
       <div class="celeb-list">
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-cavill.jpg" alt="Henry Cavill">
           <div class="celeb-copy">
-            <span class="psl">6.0</span>
+            <span class="psl">6.6</span>
             <h3>Henry Cavill</h3>
-            <p>Chad lite · community tables put him near 6.5</p>
+            <p>Chad · community example is 6.5</p>
           </div>
         </article>
         <article class="celeb reveal">
@@ -2006,19 +2006,19 @@
           </div>
         </article>
         <article class="celeb reveal">
-          <img src="samples/celebs/celeb-chalamet.jpg" alt="Timothée Chalamet">
+          <img src="samples/celebs/celeb-zendaya.jpg" alt="Zendaya">
           <div class="celeb-copy">
-            <span class="psl">5.8</span>
-            <h3>Timothée Chalamet</h3>
-            <p>Chad lite · community tables put him near 5</p>
+            <span class="psl">5.5</span>
+            <h3>Zendaya</h3>
+            <p>Chad lite · placed by the same example scale</p>
           </div>
         </article>
         <article class="celeb reveal">
-          <img src="samples/celebs/celeb-zendaya.jpg" alt="Zendaya">
+          <img src="samples/celebs/celeb-chalamet.jpg" alt="Timothée Chalamet">
           <div class="celeb-copy">
-            <span class="psl">5.4</span>
-            <h3>Zendaya</h3>
-            <p>Chad lite · on-device scan of this photo</p>
+            <span class="psl">5.0</span>
+            <h3>Timothée Chalamet</h3>
+            <p>Chad lite · community example is 5</p>
           </div>
         </article>
       </div>
@@ -4343,7 +4343,8 @@
         ideal: match,
         raw: judged.raw
       };
-      let score = Advisor.scoreFromFactors(factors);
+      const community = Advisor.scoreFromCommunity(samples, factors);
+      let score = community.score;
       if (smile > 0.45) score = clamp(score + 0.06, 1, PSL_MAX);
       // Only a clearly weak feature can pull a high read down — not studio-light noise.
       if (bone.structure < 0.38 && score > 5.2) score = clamp(score - 0.25, 1, PSL_MAX);
