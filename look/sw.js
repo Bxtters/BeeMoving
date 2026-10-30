@@ -1,5 +1,5 @@
 /* LOOK — network-first; bump CACHE to force clients off stale shells. */
-const CACHE = "look-v23-melius-scroll";
+const CACHE = "look-v24-celeb-scans";
 const SHELL = [
   "./",
   "./index.html",
