@@ -179,11 +179,28 @@
     }
 
     /* Example reads rail */
+    .reveal {
+      opacity: 0;
+      transform: translateY(42px);
+      filter: blur(6px);
+      transition:
+        opacity 0.75s var(--ease),
+        transform 0.75s var(--ease),
+        filter 0.75s var(--ease);
+    }
+
+    .reveal.is-in {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+
+    .home-hero.reveal { animation: none; }
+
     .examples {
-      margin-top: 8px;
-      padding-top: 32px;
+      margin-top: 4vh;
+      padding: 8vh 0 6vh;
       border-top: 1px solid var(--line);
-      animation: brandIn 0.9s var(--ease) 0.1s both;
     }
 
     .examples-head {
@@ -206,6 +223,57 @@
       color: rgba(232, 245, 239, 0.62);
       line-height: 1.45;
       max-width: 34rem;
+    }
+
+    .celeb-list {
+      max-width: 56rem;
+      margin: 8vh auto 0;
+      padding: 0 calc(18px + var(--safe-r)) 0 calc(18px + var(--safe-l));
+      display: grid;
+      gap: 22vh;
+    }
+
+    .celeb {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+      gap: 32px;
+      align-items: end;
+      min-height: 58vh;
+    }
+
+    .celeb:nth-child(even) .celeb-copy { order: -1; }
+
+    .celeb img {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      object-fit: cover;
+      object-position: center 18%;
+      display: block;
+      background: #0a1814;
+    }
+
+    .celeb-copy .psl {
+      display: block;
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: clamp(3.2rem, 9vw, 5.4rem);
+      letter-spacing: -0.05em;
+      line-height: 0.85;
+      color: var(--mint);
+    }
+
+    .celeb-copy h3 {
+      margin: 12px 0 6px;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      letter-spacing: -0.03em;
+    }
+
+    .celeb-copy p {
+      margin: 0;
+      color: rgba(232, 245, 239, 0.62);
+      font-size: 1rem;
     }
 
     .examples-rail {
@@ -1818,6 +1886,13 @@
       .home-cta button { flex: 1; min-width: 8rem; }
       .home-hero { min-height: min(78dvh, 620px); }
       .example-read { flex-basis: min(68vw, 10.5rem); }
+      .celeb {
+        grid-template-columns: 1fr;
+        min-height: 0;
+        gap: 14px;
+      }
+      .celeb:nth-child(even) .celeb-copy { order: 0; }
+      .celeb-list { gap: 12vh; }
 
       .results-bar {
         grid-template-columns: 1fr auto;
@@ -1854,6 +1929,11 @@
         animation: none !important;
         transition: none !important;
       }
+      .reveal {
+        opacity: 1;
+        transform: none;
+        filter: none;
+      }
     }
   </style>
 </head>
@@ -1874,94 +1954,96 @@
           </button>
         </div>
       </div>
-      <div class="home-hero">
+      <div class="home-hero reveal">
         <h1 class="brand">LOOK</h1>
         <p class="home-headline">Your face. A real PSL.</p>
         <p class="home-lead">On-device mocap scores bone, eyes, skin, and hair — then builds tips only for your gaps.</p>
         <div class="home-cta">
           <button type="button" id="goScanBtn">Scan my face</button>
           <button type="button" class="ghost" id="goTipsBtn">Last results</button>
+          <button type="button" class="ghost" id="adminLoginBtn">Test as admin</button>
         </div>
+        <p class="build-stamp">Admin · lookadmin</p>
         <p class="build-stamp" id="buildStamp">Camera remembered · no face uploads</p>
         <p id="accountStatus" class="build-stamp" style="text-transform:none;letter-spacing:0.02em"></p>
       </div>
     </div>
 
     <section class="examples" aria-labelledby="examples-title">
-      <div class="examples-head">
+      <div class="examples-head reveal">
         <h2 id="examples-title">Example reads</h2>
-        <p>Sample PSL bands from the same multi-factor pipeline.</p>
+        <p>Illustrative portraits — sample PSL bands, not a live scan of that person.</p>
       </div>
-      <div class="examples-rail" role="list">
-        <article class="example-read" data-tone="fair" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">6.1</span>
-            <span class="tier">Chad lite</span>
-            <span class="who">Sample · high midface</span>
+      <div class="celeb-list">
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-cavill.jpg" alt="Illustrative portrait, Henry Cavill">
+          <div class="celeb-copy">
+            <span class="psl">6.8</span>
+            <h3>Henry Cavill</h3>
+            <p>Chad lite · strong jaw, even thirds</p>
           </div>
         </article>
-        <article class="example-read" data-tone="olive" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">4.4</span>
-            <span class="tier">High tier</span>
-            <span class="who">Sample · balanced thirds</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-zendaya.jpg" alt="Illustrative portrait, Zendaya">
+          <div class="celeb-copy">
+            <span class="psl">6.4</span>
+            <h3>Zendaya</h3>
+            <p>Chad lite · eye spacing, skin clarity</p>
           </div>
         </article>
-        <article class="example-read" data-tone="cool" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">3.2</span>
-            <span class="tier">Low tier</span>
-            <span class="who">Sample · soft jaw</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-robbie.jpg" alt="Illustrative portrait, Margot Robbie">
+          <div class="celeb-copy">
+            <span class="psl">6.2</span>
+            <h3>Margot Robbie</h3>
+            <p>Chad lite · harmony, expression</p>
           </div>
         </article>
-        <article class="example-read" data-tone="deep" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">5.4</span>
-            <span class="tier">Chad lite</span>
-            <span class="who">Sample · strong canthal tilt</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-sweeney.jpg" alt="Illustrative portrait, Sydney Sweeney">
+          <div class="celeb-copy">
+            <span class="psl">5.6</span>
+            <h3>Sydney Sweeney</h3>
+            <p>Chad lite · midface, skin</p>
           </div>
         </article>
-        <article class="example-read" data-tone="ash" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">2.1</span>
-            <span class="tier">Subhuman</span>
-            <span class="who">Sample · severe asymmetry</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-pascal.jpg" alt="Illustrative portrait, Pedro Pascal">
+          <div class="celeb-copy">
+            <span class="psl">5.1</span>
+            <h3>Pedro Pascal</h3>
+            <p>High tier · grooming, bone</p>
           </div>
         </article>
-        <article class="example-read" data-tone="warm" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">7.2</span>
-            <span class="tier">Chad</span>
-            <span class="who">Sample · elite harmony</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-chalamet.jpg" alt="Illustrative portrait, Timothée Chalamet">
+          <div class="celeb-copy">
+            <span class="psl">4.6</span>
+            <h3>Timothée Chalamet</h3>
+            <p>High tier · narrow jaw, eyes</p>
           </div>
         </article>
       </div>
     </section>
 
     <div class="home-shell">
-      <section class="how" aria-labelledby="how-title">
+      <section class="how reveal" aria-labelledby="how-title">
         <h2 id="how-title">What LOOK does</h2>
         <p>Camera or photo in. Personalized plan out — unique to your measured deficits.</p>
         <div class="how-steps">
-          <div class="how-step">
+          <div class="how-step reveal">
             <div>
               <h3>Scan or load a photo</h3>
               <p>Live camera, upload, or image URL. 478 landmarks + skin ROIs stay on-device.</p>
             </div>
           </div>
-          <div class="how-step">
+          <div class="how-step reveal">
             <div>
               <h3>Multi-factor PSL 1–8</h3>
               <p>Bone structure, eyes, skin clarity, hair framing, and symmetry — not a single “everyone is high tier” curve.</p>
             </div>
           </div>
-          <div class="how-step">
+          <div class="how-step reveal">
             <div>
               <h3>AI schedule from this scan</h3>
               <p>The week is written from your bone, eye, skin, and hair numbers — not a shared template. On-device AI when the browser has it; Gemini in Settings if you want a cloud rewrite.</p>
@@ -1979,7 +2061,7 @@
         <ul class="history-list" id="historyList"></ul>
       </section>
 
-      <section class="section" id="tips" aria-labelledby="tips-title">
+      <section class="section reveal" id="tips" aria-labelledby="tips-title">
         <h2 id="tips-title">Your plan</h2>
         <div id="personalBanner" class="personal-banner">
           <p class="empty-plan" id="planEmpty">No scan yet. Sign in, hit <strong>Scan my face</strong>, then <strong>Lock PSL</strong> for your graph, daily plan, and product guide.</p>
@@ -1988,7 +2070,7 @@
         <div id="personalTips"></div>
       </section>
 
-      <section class="section" id="routines" aria-labelledby="routines-title">
+      <section class="section reveal" id="routines" aria-labelledby="routines-title">
         <h2 id="routines-title">Your 7-day plan</h2>
         <p id="routineLead">After a scan, each day expands with AM/PM steps, products, and ingredients.</p>
         <div id="personalRoutine"></div>
@@ -2204,6 +2286,7 @@
       </div>
       <p class="err" id="authErr" hidden></p>
       <div class="modal-actions">
+        <button type="button" class="ghost" id="adminLoginBtnModal">Test as admin</button>
         <button type="button" id="authSubmit">Sign up</button>
         <button type="button" class="ghost" id="authSwitch">Have an account? Log in</button>
         <button type="button" class="ghost" id="authCancel">Close</button>
@@ -3854,6 +3937,59 @@
       }
     });
 
+    const ADMIN_NAME = "Admin";
+    const ADMIN_PASS = "lookadmin";
+
+    async function loginTestAdmin() {
+      showAuthErr("");
+      const accounts = await Vault.listAccounts();
+      const existing = accounts.find(
+        (a) => a.displayName === ADMIN_NAME && (a.provider || "local") !== "google"
+      );
+      if (existing) {
+        accountSession = await Vault.unlockVault(ADMIN_PASS, existing.id);
+      } else {
+        accountSession = await Vault.createVault(ADMIN_NAME, ADMIN_PASS);
+      }
+      await Vault.persistSession(accountSession);
+      authModal.hidden = true;
+      await refreshAccountChrome();
+      setStatus("Signed in as Admin.");
+    }
+
+    async function onAdminClick() {
+      try {
+        await loginTestAdmin();
+      } catch (e) {
+        setStatus((e && e.message) || "Could not open the admin account.", "warn");
+        showAuthErr((e && e.message) || "Could not open the admin account.");
+      }
+    }
+
+    document.getElementById("adminLoginBtn").addEventListener("click", onAdminClick);
+    document.getElementById("adminLoginBtnModal").addEventListener("click", onAdminClick);
+
+    function bindScrollReveal() {
+      const nodes = document.querySelectorAll("#home .reveal");
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        nodes.forEach((n) => n.classList.add("is-in"));
+        return;
+      }
+      if (!("IntersectionObserver" in window)) {
+        nodes.forEach((n) => n.classList.add("is-in"));
+        return;
+      }
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            entry.target.classList.toggle("is-in", entry.isIntersecting && entry.intersectionRatio >= 0.22);
+          });
+        },
+        { threshold: [0, 0.22, 0.45, 0.7], rootMargin: "-6% 0px -10% 0px" }
+      );
+      nodes.forEach((n) => io.observe(n));
+    }
+
     document.getElementById("profileCancel").addEventListener("click", () => {
       profileModal.hidden = true;
     });
@@ -4956,6 +5092,7 @@
       } catch (_) {}
       await refreshAccountChrome();
       renderPlan(loadPlan());
+      bindScrollReveal();
       if (location.hash === "#scan") showScan();
       else if (location.hash === "#results") showResults(loadPlan());
       else showHome();
