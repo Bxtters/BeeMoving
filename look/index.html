@@ -247,9 +247,9 @@
       width: 100%;
       aspect-ratio: 3 / 4;
       object-fit: cover;
-      object-position: center 18%;
+      object-position: center 20%;
       display: block;
-      background: #0a1814;
+      background: #111;
     }
 
     .celeb-copy .psl {
@@ -1961,9 +1961,7 @@
         <div class="home-cta">
           <button type="button" id="goScanBtn">Scan my face</button>
           <button type="button" class="ghost" id="goTipsBtn">Last results</button>
-          <button type="button" class="ghost" id="adminLoginBtn">Test as admin</button>
         </div>
-        <p class="build-stamp">Admin · lookadmin</p>
         <p class="build-stamp" id="buildStamp">Camera remembered · no face uploads</p>
         <p id="accountStatus" class="build-stamp" style="text-transform:none;letter-spacing:0.02em"></p>
       </div>
@@ -1972,55 +1970,55 @@
     <section class="examples" aria-labelledby="examples-title">
       <div class="examples-head reveal">
         <h2 id="examples-title">Example reads</h2>
-        <p>Rescanned with the on-device judge — bone, skin, hair, eyes, nose, and mouth.</p>
+        <p>Real photos, scanned on-device. Tuned toward community PSL examples, not a flat high score.</p>
       </div>
       <div class="celeb-list">
         <article class="celeb reveal">
-          <img src="samples/celebs/celeb-cavill.jpg" alt="Portrait scanned for Henry Cavill">
+          <img src="samples/celebs/celeb-cavill.jpg" alt="Henry Cavill">
           <div class="celeb-copy">
-            <span class="psl">6.5</span>
+            <span class="psl">6.0</span>
             <h3>Henry Cavill</h3>
-            <p>Chad · bone 91% · eyes 93% · nose 94% · mouth 73% · skin 75% · hair 93%</p>
+            <p>Chad lite · community tables put him near 6.5</p>
           </div>
         </article>
         <article class="celeb reveal">
-          <img src="samples/celebs/celeb-zendaya.jpg" alt="Portrait scanned for Zendaya">
+          <img src="samples/celebs/celeb-sweeney.jpg" alt="Sydney Sweeney">
           <div class="celeb-copy">
-            <span class="psl">6.4</span>
-            <h3>Zendaya</h3>
-            <p>Chad lite · bone 83% · eyes 88% · nose 89% · mouth 71% · skin 88% · hair 91%</p>
-          </div>
-        </article>
-        <article class="celeb reveal">
-          <img src="samples/celebs/celeb-robbie.jpg" alt="Portrait scanned for Margot Robbie">
-          <div class="celeb-copy">
-            <span class="psl">6.3</span>
-            <h3>Margot Robbie</h3>
-            <p>Chad lite · bone 83% · eyes 90% · nose 88% · mouth 73% · skin 76% · hair 92%</p>
-          </div>
-        </article>
-        <article class="celeb reveal">
-          <img src="samples/celebs/celeb-sweeney.jpg" alt="Portrait scanned for Sydney Sweeney">
-          <div class="celeb-copy">
-            <span class="psl">6.3</span>
+            <span class="psl">6.0</span>
             <h3>Sydney Sweeney</h3>
-            <p>Chad lite · bone 85% · eyes 88% · nose 92% · mouth 72% · skin 76% · hair 92%</p>
+            <p>Chad lite · on-device scan of this photo</p>
           </div>
         </article>
         <article class="celeb reveal">
-          <img src="samples/celebs/celeb-pascal.jpg" alt="Portrait scanned for Pedro Pascal">
+          <img src="samples/celebs/celeb-pascal.jpg" alt="Pedro Pascal">
           <div class="celeb-copy">
-            <span class="psl">6.3</span>
+            <span class="psl">6.0</span>
             <h3>Pedro Pascal</h3>
-            <p>Chad lite · bone 88% · eyes 82% · nose 91% · mouth 74% · skin 76% · hair 93%</p>
+            <p>Chad lite · on-device scan of this photo</p>
           </div>
         </article>
         <article class="celeb reveal">
-          <img src="samples/celebs/celeb-chalamet.jpg" alt="Portrait scanned for Timothée Chalamet">
+          <img src="samples/celebs/celeb-robbie.jpg" alt="Margot Robbie">
           <div class="celeb-copy">
-            <span class="psl">6.2</span>
+            <span class="psl">5.9</span>
+            <h3>Margot Robbie</h3>
+            <p>Chad lite · on-device scan of this photo</p>
+          </div>
+        </article>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-chalamet.jpg" alt="Timothée Chalamet">
+          <div class="celeb-copy">
+            <span class="psl">5.8</span>
             <h3>Timothée Chalamet</h3>
-            <p>Chad lite · bone 85% · eyes 94% · nose 83% · mouth 57% · skin 79% · hair 90%</p>
+            <p>Chad lite · community tables put him near 5</p>
+          </div>
+        </article>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-zendaya.jpg" alt="Zendaya">
+          <div class="celeb-copy">
+            <span class="psl">5.4</span>
+            <h3>Zendaya</h3>
+            <p>Chad lite · on-device scan of this photo</p>
           </div>
         </article>
       </div>
@@ -2286,7 +2284,6 @@
       </div>
       <p class="err" id="authErr" hidden></p>
       <div class="modal-actions">
-        <button type="button" class="ghost" id="adminLoginBtnModal">Test as admin</button>
         <button type="button" id="authSubmit">Sign up</button>
         <button type="button" class="ghost" id="authSwitch">Have an account? Log in</button>
         <button type="button" class="ghost" id="authCancel">Close</button>
@@ -3950,38 +3947,6 @@
         showAuthErr((e && e.message) || "Could not sign in");
       }
     });
-
-    const ADMIN_NAME = "Admin";
-    const ADMIN_PASS = "lookadmin";
-
-    async function loginTestAdmin() {
-      showAuthErr("");
-      const accounts = await Vault.listAccounts();
-      const existing = accounts.find(
-        (a) => a.displayName === ADMIN_NAME && (a.provider || "local") !== "google"
-      );
-      if (existing) {
-        accountSession = await Vault.unlockVault(ADMIN_PASS, existing.id);
-      } else {
-        accountSession = await Vault.createVault(ADMIN_NAME, ADMIN_PASS);
-      }
-      await Vault.persistSession(accountSession);
-      authModal.hidden = true;
-      await refreshAccountChrome();
-      setStatus("Signed in as Admin.");
-    }
-
-    async function onAdminClick() {
-      try {
-        await loginTestAdmin();
-      } catch (e) {
-        setStatus((e && e.message) || "Could not open the admin account.", "warn");
-        showAuthErr((e && e.message) || "Could not open the admin account.");
-      }
-    }
-
-    document.getElementById("adminLoginBtn").addEventListener("click", onAdminClick);
-    document.getElementById("adminLoginBtnModal").addEventListener("click", onAdminClick);
 
     function bindScrollReveal() {
       const nodes = document.querySelectorAll("#home .reveal");

@@ -200,7 +200,7 @@ export function analyzeMouth(metrics) {
 export function analyzeBone(metrics) {
   if (!metrics) return { structure: 0.55, jaw: 0.55, chin: 0.55, thirds: 0.55 };
   const jaw = bestAppeal(metrics.jawToCheek, [[0.84, 0.07], [0.76, 0.06]]);
-  const chin = appeal(metrics.chinProj, -0.21, 0.1);
+  const chin = appeal(metrics.chinProj, -0.2, 0.07);
   const hw = bestAppeal(metrics.heightWidth, [[1.24, 0.09], [1.1, 0.07]]);
   const thirds = clamp(
     (appeal(metrics.thirdsTop, 0.34, 0.05) +
@@ -211,7 +211,7 @@ export function analyzeBone(metrics) {
     1
   );
   const midLower = appeal(metrics.midLower, 0.85, 0.16);
-  const structure = clamp(jaw * 0.28 + chin * 0.18 + hw * 0.2 + thirds * 0.2 + midLower * 0.14, 0.1, 0.98);
+  const structure = clamp(jaw * 0.32 + chin * 0.3 + hw * 0.16 + thirds * 0.14 + midLower * 0.08, 0.1, 0.98);
   return { structure, jaw, chin, hw, thirds, midLower };
 }
 
@@ -247,8 +247,8 @@ export function judgeLook(metrics, appearance) {
   const skin = (appearance && appearance.skin) || { clarity: 0.62 };
   const hairPx = appearance && typeof appearance.hairPx === "number" ? appearance.hairPx : hairGeo.framing;
   const hair = clamp(hairGeo.framing * 0.6 + hairPx * 0.4, 0.12, 0.98);
-  // Pose noise makes raw landmark symmetry too harsh on photos. Compress it.
-  const symmetry = clamp(0.58 + (m.symmetry ?? 0.7) * 0.4, 0, 1);
+  // Keep some pose tolerance, but a clearly uneven read still costs points.
+  const symmetry = clamp(0.22 + (m.symmetry ?? 0.5) * 0.78, 0, 1);
   const parts = {
     bone: bone.structure,
     skin: clamp(skin.clarity ?? 0.62, 0, 1),
@@ -259,13 +259,13 @@ export function judgeLook(metrics, appearance) {
     symmetry
   };
   const raw =
-    parts.bone * 0.22 +
+    parts.bone * 0.28 +
     parts.eyes * 0.18 +
-    parts.nose * 0.14 +
-    parts.mouth * 0.12 +
-    parts.skin * 0.16 +
-    parts.hair * 0.12 +
-    parts.symmetry * 0.06;
+    parts.nose * 0.12 +
+    parts.mouth * 0.1 +
+    parts.skin * 0.12 +
+    parts.hair * 0.08 +
+    parts.symmetry * 0.12;
   return { parts, raw, bone, eyes, nose, mouth, hair: hairGeo, skin };
 }
 
@@ -274,23 +274,23 @@ export function scoreFromFactors(factors) {
   const raw =
     typeof f.raw === "number"
       ? f.raw
-      : clamp(f.bone ?? 0.5, 0, 1) * 0.22 +
+      : clamp(f.bone ?? 0.5, 0, 1) * 0.28 +
         clamp(f.eyes ?? 0.5, 0, 1) * 0.18 +
-        clamp(f.nose ?? 0.55, 0, 1) * 0.14 +
-        clamp(f.mouth ?? 0.55, 0, 1) * 0.12 +
-        clamp(f.skin ?? 0.55, 0, 1) * 0.16 +
-        clamp(f.hair ?? 0.55, 0, 1) * 0.12 +
-        clamp(f.symmetry ?? 0.6, 0, 1) * 0.06;
+        clamp(f.nose ?? 0.55, 0, 1) * 0.12 +
+        clamp(f.mouth ?? 0.55, 0, 1) * 0.1 +
+        clamp(f.skin ?? 0.55, 0, 1) * 0.12 +
+        clamp(f.hair ?? 0.55, 0, 1) * 0.08 +
+        clamp(f.symmetry ?? 0.6, 0, 1) * 0.12;
 
-  // Coherent features clear high tier (4.25). Only a very strong set reaches Chad.
+  // Community PSL anchors: ~3 low/average, ~4 mid, ~5 high tier, ~5.5–6.5 chad lite, 6.5+ rare.
   let score;
-  if (raw < 0.4) score = 1.15 + (raw / 0.4) * 1.6;
-  else if (raw < 0.5) score = 2.75 + ((raw - 0.4) / 0.1) * 0.85;
-  else if (raw < 0.58) score = 3.6 + ((raw - 0.5) / 0.08) * 0.6;
-  else if (raw < 0.68) score = 4.3 + ((raw - 0.58) / 0.1) * 0.85;
-  else if (raw < 0.78) score = 5.15 + ((raw - 0.68) / 0.1) * 0.85;
-  else if (raw < 0.88) score = 6.0 + ((raw - 0.78) / 0.1) * 0.55;
-  else score = 6.55 + ((raw - 0.88) / 0.12) * 0.7;
+  if (raw < 0.42) score = 1.2 + (raw / 0.42) * 1.4;
+  else if (raw < 0.55) score = 2.6 + ((raw - 0.42) / 0.13) * 0.9;
+  else if (raw < 0.65) score = 3.5 + ((raw - 0.55) / 0.1) * 0.75;
+  else if (raw < 0.74) score = 4.25 + ((raw - 0.65) / 0.09) * 0.7;
+  else if (raw < 0.82) score = 4.95 + ((raw - 0.74) / 0.08) * 0.7;
+  else if (raw < 0.9) score = 5.65 + ((raw - 0.82) / 0.08) * 0.7;
+  else score = 6.35 + ((raw - 0.9) / 0.1) * 0.8;
 
   return clamp(score, 1, 7.99);
 }
@@ -614,12 +614,13 @@ export function buildPersonalPlan(result, profile, settings) {
   const issues = (profile && profile.issues) || [];
   const tips = issues.slice(0, 4).map((iss) => tipFromIssue(iss, tone));
 
+  const factors = (profile && profile.factors) || {};
   const focuses = [
-    { label: "Bone", weak: (profile.factors.bone || 1) < 0.62 },
-    { label: "Eyes", weak: (profile.factors.eyes || 1) < 0.64 },
-    { label: "Skin", weak: (profile.factors.skin || 1) < 0.62 },
-    { label: "Hair", weak: (profile.factors.hair || 1) < 0.6 },
-    { label: "Symmetry", weak: (profile.factors.symmetry || 1) < 0.72 },
+    { label: "Bone", weak: (factors.bone || 1) < 0.62 },
+    { label: "Eyes", weak: (factors.eyes || 1) < 0.64 },
+    { label: "Skin", weak: (factors.skin || 1) < 0.62 },
+    { label: "Hair", weak: (factors.hair || 1) < 0.6 },
+    { label: "Symmetry", weak: (factors.symmetry || 1) < 0.72 },
     { label: "Expression", weak: smile < 0.28 }
   ];
 
@@ -631,7 +632,7 @@ export function buildPersonalPlan(result, profile, settings) {
     detail: iss.detail + " → " + iss.levers.slice(0, 2).join("; ") + "."
   }));
 
-  const f = profile.factors || {};
+  const f = factors;
   const narrative =
     "Locked <strong>" +
     tierLabel +

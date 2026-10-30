@@ -50,8 +50,9 @@ function idbSet(store, key, value) {
         const tx = db.transaction(store, "readwrite");
         const os = tx.objectStore(store);
         const r = key === undefined ? os.put(value) : os.put(value, key);
-        r.onsuccess = () => resolve(r.result);
-        r.onerror = () => reject(r.error);
+        tx.oncomplete = () => resolve(r.result);
+        tx.onerror = () => reject(tx.error || r.error);
+        tx.onabort = () => reject(tx.error || new Error("Could not save on this device."));
       })
   );
 }
@@ -149,19 +150,31 @@ export async function persistSession(session) {
     sessionStorage.removeItem(SESSION_KEY);
     return;
   }
-  const keyB64 = await exportKeyB64(session.key);
-  sessionStorage.setItem(
-    SESSION_KEY,
-    JSON.stringify({
-      accountId: session.accountId,
-      displayName: session.displayName,
-      provider: session.provider || "local",
-      email: session.email || "",
-      profile: session.profile || null,
-      keyB64,
-      at: Date.now()
-    })
-  );
+  let keyB64 = "";
+  try {
+    keyB64 = await exportKeyB64(session.key);
+  } catch (_) {
+    return;
+  }
+  const profile = session.profile ? { ...session.profile } : null;
+  if (profile && profile.avatarDataUrl && profile.avatarDataUrl.length > 60000) {
+    profile.avatarDataUrl = "";
+  }
+  const payload = {
+    accountId: session.accountId,
+    displayName: session.displayName,
+    provider: session.provider || "local",
+    email: session.email || "",
+    profile,
+    keyB64,
+    at: Date.now()
+  };
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+  } catch (_) {
+    payload.profile = null;
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload)); } catch (_) {}
+  }
   try {
     localStorage.setItem(
       "look.lastAccountId",
@@ -182,14 +195,15 @@ export async function restoreSession() {
       sessionStorage.removeItem(SESSION_KEY);
       return null;
     }
-    let profile = data.profile;
-    if (!profile && acc.profile) {
+    let profile = null;
+    if (acc.profileEnc) {
       try {
-        profile = await decryptJson(key, acc.profile);
+        profile = await decryptJson(key, acc.profileEnc);
       } catch (_) {
-        profile = defaultProfile({ displayName: acc.displayName });
+        profile = null;
       }
     }
+    if (!profile) profile = data.profile || defaultProfile({ displayName: acc.displayName });
     return sessionFrom(publicMeta(acc), key, profile || defaultProfile({ displayName: acc.displayName }));
   } catch (_) {
     sessionStorage.removeItem(SESSION_KEY);
