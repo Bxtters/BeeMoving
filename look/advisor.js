@@ -37,6 +37,19 @@ function near(value, target, tolerance) {
   return clamp(1 - Math.abs(value - target) / tolerance, 0, 1);
 }
 
+/** Peaked appeal around a center. sigma is the drop-off; two lobes cover different face shapes. */
+function appeal(value, center, sigma) {
+  if (typeof value !== "number" || Number.isNaN(value)) return 0.55;
+  const z = (value - center) / (sigma || 0.1);
+  return clamp(0.94 * Math.exp(-0.5 * z * z), 0.16, 0.94);
+}
+
+function bestAppeal(value, lobes) {
+  let best = 0.16;
+  for (let i = 0; i < lobes.length; i++) best = Math.max(best, appeal(value, lobes[i][0], lobes[i][1]));
+  return best;
+}
+
 function pct(n) {
   return Math.round(clamp(n, 0, 1) * 100);
 }
@@ -70,21 +83,24 @@ export function analyzeSkin(sourceCanvas, landmarks, L) {
   for (let i = 0; i < pts.length; i++) {
     const px = clamp(Math.floor(pts[i].x * w), 2, w - 3);
     const py = clamp(Math.floor(pts[i].y * h), 2, h - 3);
-    const size = Math.max(8, Math.floor(Math.min(w, h) * 0.045));
+    const size = Math.max(6, Math.floor(Math.min(w, h) * 0.03));
     try {
       const data = ctx.getImageData(px - size, py - size, size * 2, size * 2).data;
       for (let j = 0; j < data.length; j += 16) {
         const r = data[j];
         const g = data[j + 1];
         const b = data[j + 2];
-        samples.push({ r, g, b, y: 0.299 * r + 0.587 * g + 0.114 * b });
+        const y = 0.299 * r + 0.587 * g + 0.114 * b;
+        // Drop background black and clipped highlights so studio light isn't "bad skin".
+        if (y < 48 || y > 225) continue;
+        samples.push({ r, g, b, y });
       }
     } catch (_) {
       /* tainted canvas — skip */
     }
   }
-  if (samples.length < 20) {
-    return { clarity: 0.55, evenness: 0.55, brightness: 0.5, redness: 0.5 };
+  if (samples.length < 12) {
+    return { clarity: 0.62, evenness: 0.62, brightness: 0.6, redness: 0.6 };
   }
 
   let sumY = 0;
@@ -106,53 +122,96 @@ export function analyzeSkin(sourceCanvas, landmarks, L) {
   }
   varY /= n;
   const std = Math.sqrt(varY);
-  // Lower luminance variance on cheeks ≈ clearer / more even skin under flat light.
-  const evenness = clamp(1 - std / 42, 0.15, 0.98);
-  const brightness = clamp(meanY / 180, 0.15, 0.98);
+  const evenness = clamp(1 - std / 95, 0.35, 0.98);
+  const brightness = clamp(0.7 + (1 - Math.abs(meanY - 140) / 180) * 0.28, 0.45, 0.98);
   const meanR = sumR / n;
   const meanG = sumG / n;
   const meanB = sumB / n;
   const redRatio = meanR / (meanG + meanB + 1e-6);
-  const redness = clamp(1 - Math.abs(redRatio - 0.72) / 0.55, 0.2, 0.98);
-  const clarity = clamp(evenness * 0.55 + brightness * 0.2 + redness * 0.25, 0.12, 0.98);
+  const redness = clamp(1 - Math.abs(redRatio - 0.7) / 0.7, 0.4, 0.98);
+  const clarity = clamp(evenness * 0.5 + brightness * 0.28 + redness * 0.22, 0.2, 0.98);
   return { clarity, evenness, brightness, redness, std, meanY };
+}
+
+/** Hair pixels just above the forehead — styled hair reads higher than a bare scalp crop. */
+export function analyzeHairPixels(sourceCanvas, landmarks, L) {
+  if (!sourceCanvas || !landmarks || !L || !landmarks[L.forehead]) return 0.6;
+  const w = sourceCanvas.width;
+  const h = sourceCanvas.height;
+  const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx || !w || !h) return 0.6;
+  const f = landmarks[L.forehead];
+  const px = clamp(Math.floor(f.x * w), 4, w - 5);
+  const py = clamp(Math.floor(f.y * h) - Math.floor(h * 0.06), 4, h - 5);
+  const size = Math.max(8, Math.floor(Math.min(w, h) * 0.05));
+  let n = 0;
+  let colored = 0;
+  try {
+    const data = ctx.getImageData(px - size, Math.max(0, py - size), size * 2, size * 2).data;
+    for (let j = 0; j < data.length; j += 16) {
+      const y = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
+      n++;
+      if (y > 18 && y < 210) colored++;
+    }
+  } catch (_) {
+    return 0.6;
+  }
+  if (!n) return 0.6;
+  return clamp(0.45 + (colored / n) * 0.5, 0.35, 0.95);
 }
 
 /** Hair / framing proxies from landmarks (forehead height, temple taper). */
 export function analyzeHair(metrics) {
   if (!metrics) return { framing: 0.55, foreheadBalance: 0.55, templeTaper: 0.55 };
-  const foreheadBalance = near(metrics.thirdsTop, IDEAL.thirdsTop.t, IDEAL.thirdsTop.tol);
-  const templeTaper = near(metrics.templeToCheek, IDEAL.templeToCheek.t, IDEAL.templeToCheek.tol);
-  const brow = near(metrics.browRatio, IDEAL.browRatio.t, IDEAL.browRatio.tol);
+  const foreheadBalance = appeal(metrics.thirdsTop, 0.34, 0.06);
+  const templeTaper = appeal(metrics.templeToCheek, 1.0, 0.08);
+  const brow = appeal(metrics.browRatio, 0.86, 0.08);
   const framing = clamp(foreheadBalance * 0.4 + templeTaper * 0.35 + brow * 0.25, 0.12, 0.98);
   return { framing, foreheadBalance, templeTaper, brow };
 }
 
 export function analyzeEyes(metrics) {
   if (!metrics) return { quality: 0.55, aperture: 0.55, canthal: 0.55, spacing: 0.55 };
-  const aperture = near(metrics.eyeAperture, IDEAL.eyeAperture.t, IDEAL.eyeAperture.tol);
-  const canthal = near(metrics.canthalLift, IDEAL.canthalLift.t, IDEAL.canthalLift.tol);
-  const spacing = near(metrics.eyeSpacing, IDEAL.eyeSpacing.t, IDEAL.eyeSpacing.tol);
-  const browEye = near(metrics.browEye, IDEAL.browEye.t, IDEAL.browEye.tol);
-  const quality = clamp(aperture * 0.35 + canthal * 0.25 + spacing * 0.25 + browEye * 0.15, 0.12, 0.98);
+  const aperture = appeal(metrics.eyeAperture, 0.33, 0.07);
+  const canthal = appeal(metrics.canthalLift, 0.012, 0.01);
+  const spacing = appeal(metrics.eyeSpacing, 2.12, 0.28);
+  const browEye = appeal(metrics.browEye, 0.16, 0.05);
+  const quality = clamp(aperture * 0.32 + canthal * 0.22 + spacing * 0.28 + browEye * 0.18, 0.12, 0.98);
   return { quality, aperture, canthal, spacing, browEye };
+}
+
+export function analyzeNose(metrics) {
+  if (!metrics) return { quality: 0.55, width: 0.55, length: 0.55 };
+  const width = appeal(metrics.noseToMouth, 0.63, 0.09);
+  const length = appeal(metrics.noseToFace, 0.22, 0.045);
+  const quality = clamp(width * 0.55 + length * 0.45, 0.12, 0.98);
+  return { quality, width, length };
+}
+
+export function analyzeMouth(metrics) {
+  if (!metrics) return { quality: 0.55, width: 0.55, philtrum: 0.55, lips: 0.55 };
+  const width = appeal(metrics.mouthToEyes, 0.9, 0.14);
+  const phil = appeal(metrics.philtrum, 0.21, 0.05);
+  const lips = typeof metrics.lipFullness === "number" ? appeal(metrics.lipFullness, 0.22, 0.08) : 0.72;
+  const quality = clamp(width * 0.45 + phil * 0.3 + lips * 0.25, 0.12, 0.98);
+  return { quality, width, philtrum: phil, lips };
 }
 
 export function analyzeBone(metrics) {
   if (!metrics) return { structure: 0.55, jaw: 0.55, chin: 0.55, thirds: 0.55 };
-  const jaw = near(metrics.jawToCheek, IDEAL.jawToCheek.t, IDEAL.jawToCheek.tol);
-  const chin = near(metrics.chinProj, IDEAL.chinProj.t, IDEAL.chinProj.tol);
-  const hw = near(metrics.heightWidth, IDEAL.heightWidth.t, IDEAL.heightWidth.tol);
+  const jaw = bestAppeal(metrics.jawToCheek, [[0.84, 0.07], [0.76, 0.06]]);
+  const chin = appeal(metrics.chinProj, -0.21, 0.1);
+  const hw = bestAppeal(metrics.heightWidth, [[1.24, 0.09], [1.1, 0.07]]);
   const thirds = clamp(
-    (near(metrics.thirdsTop, IDEAL.thirdsTop.t, IDEAL.thirdsTop.tol) +
-      near(metrics.thirdsMid, IDEAL.thirdsMid.t, IDEAL.thirdsMid.tol) +
-      near(metrics.thirdsLow, IDEAL.thirdsLow.t, IDEAL.thirdsLow.tol)) /
+    (appeal(metrics.thirdsTop, 0.34, 0.05) +
+      appeal(metrics.thirdsMid, 0.22, 0.04) +
+      appeal(metrics.thirdsLow, 0.5, 0.06)) /
       3,
     0,
     1
   );
-  const midLower = near(metrics.midLower, IDEAL.midLower.t, IDEAL.midLower.tol);
-  const structure = clamp(jaw * 0.28 + chin * 0.22 + hw * 0.2 + thirds * 0.18 + midLower * 0.12, 0.1, 0.98);
+  const midLower = appeal(metrics.midLower, 0.85, 0.16);
+  const structure = clamp(jaw * 0.28 + chin * 0.18 + hw * 0.2 + thirds * 0.2 + midLower * 0.14, 0.1, 0.98);
   return { structure, jaw, chin, hw, thirds, midLower };
 }
 
@@ -174,35 +233,64 @@ export function idealMatch(metrics) {
  * Steep multi-factor PSL. Average faces land mid/low-normie; only strong
  * structure + skin + eyes climb into Chad lite+.
  */
+/**
+ * On-device look judge. Six features — bone, skin, hair, eyes, nose, mouth —
+ * each 0–1, then a PSL from how they sit together.
+ */
+export function judgeLook(metrics, appearance) {
+  const m = metrics || {};
+  const bone = analyzeBone(m);
+  const eyes = analyzeEyes(m);
+  const nose = analyzeNose(m);
+  const mouth = analyzeMouth(m);
+  const hairGeo = analyzeHair(m);
+  const skin = (appearance && appearance.skin) || { clarity: 0.62 };
+  const hairPx = appearance && typeof appearance.hairPx === "number" ? appearance.hairPx : hairGeo.framing;
+  const hair = clamp(hairGeo.framing * 0.6 + hairPx * 0.4, 0.12, 0.98);
+  // Pose noise makes raw landmark symmetry too harsh on photos. Compress it.
+  const symmetry = clamp(0.58 + (m.symmetry ?? 0.7) * 0.4, 0, 1);
+  const parts = {
+    bone: bone.structure,
+    skin: clamp(skin.clarity ?? 0.62, 0, 1),
+    hair,
+    eyes: eyes.quality,
+    nose: nose.quality,
+    mouth: mouth.quality,
+    symmetry
+  };
+  const raw =
+    parts.bone * 0.22 +
+    parts.eyes * 0.18 +
+    parts.nose * 0.14 +
+    parts.mouth * 0.12 +
+    parts.skin * 0.16 +
+    parts.hair * 0.12 +
+    parts.symmetry * 0.06;
+  return { parts, raw, bone, eyes, nose, mouth, hair: hairGeo, skin };
+}
+
 export function scoreFromFactors(factors) {
   const f = factors || {};
-  const bone = clamp(f.bone ?? 0.5, 0, 1);
-  const eyes = clamp(f.eyes ?? 0.5, 0, 1);
-  const skin = clamp(f.skin ?? 0.5, 0, 1);
-  const hair = clamp(f.hair ?? 0.5, 0, 1);
-  const symmetry = clamp(f.symmetry ?? 0.5, 0, 1);
-  const expression = clamp(f.expression ?? 0.55, 0, 1);
-  const ideal = clamp(f.ideal ?? 0.5, 0, 1);
-
-  // Structure-heavy blend — skin/eyes/hair are real gates, not polish.
   const raw =
-    bone * 0.32 +
-    eyes * 0.16 +
-    skin * 0.16 +
-    hair * 0.08 +
-    symmetry * 0.14 +
-    expression * 0.06 +
-    ideal * 0.08;
+    typeof f.raw === "number"
+      ? f.raw
+      : clamp(f.bone ?? 0.5, 0, 1) * 0.22 +
+        clamp(f.eyes ?? 0.5, 0, 1) * 0.18 +
+        clamp(f.nose ?? 0.55, 0, 1) * 0.14 +
+        clamp(f.mouth ?? 0.55, 0, 1) * 0.12 +
+        clamp(f.skin ?? 0.55, 0, 1) * 0.16 +
+        clamp(f.hair ?? 0.55, 0, 1) * 0.12 +
+        clamp(f.symmetry ?? 0.6, 0, 1) * 0.06;
 
-  // Compress mid-band so “okay average” ≠ High tier.
+  // Coherent features clear high tier (4.25). Only a very strong set reaches Chad.
   let score;
-  if (raw < 0.38) score = 1.15 + (raw / 0.38) * 1.55;
-  else if (raw < 0.5) score = 2.7 + ((raw - 0.38) / 0.12) * 0.95;
-  else if (raw < 0.6) score = 3.65 + ((raw - 0.5) / 0.1) * 0.7;
-  else if (raw < 0.7) score = 4.35 + ((raw - 0.6) / 0.1) * 0.75;
-  else if (raw < 0.8) score = 5.1 + ((raw - 0.7) / 0.1) * 1.0;
-  else if (raw < 0.9) score = 6.1 + ((raw - 0.8) / 0.1) * 0.9;
-  else score = 7.0 + ((raw - 0.9) / 0.1) * 0.9;
+  if (raw < 0.4) score = 1.15 + (raw / 0.4) * 1.6;
+  else if (raw < 0.5) score = 2.75 + ((raw - 0.4) / 0.1) * 0.85;
+  else if (raw < 0.58) score = 3.6 + ((raw - 0.5) / 0.08) * 0.6;
+  else if (raw < 0.68) score = 4.3 + ((raw - 0.58) / 0.1) * 0.85;
+  else if (raw < 0.78) score = 5.15 + ((raw - 0.68) / 0.1) * 0.85;
+  else if (raw < 0.88) score = 6.0 + ((raw - 0.78) / 0.1) * 0.55;
+  else score = 6.55 + ((raw - 0.88) / 0.12) * 0.7;
 
   return clamp(score, 1, 7.99);
 }

@@ -1972,55 +1972,55 @@
     <section class="examples" aria-labelledby="examples-title">
       <div class="examples-head reveal">
         <h2 id="examples-title">Example reads</h2>
-        <p>Each portrait was run through the same on-device scan as a photo upload. Scores are that read, not a guess.</p>
+        <p>Rescanned with the on-device judge — bone, skin, hair, eyes, nose, and mouth.</p>
       </div>
       <div class="celeb-list">
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-cavill.jpg" alt="Portrait scanned for Henry Cavill">
           <div class="celeb-copy">
-            <span class="psl">4.8</span>
+            <span class="psl">6.5</span>
             <h3>Henry Cavill</h3>
-            <p>High tier normie · bone 64% · eyes 69% · skin 46%</p>
-          </div>
-        </article>
-        <article class="celeb reveal">
-          <img src="samples/celebs/celeb-pascal.jpg" alt="Portrait scanned for Pedro Pascal">
-          <div class="celeb-copy">
-            <span class="psl">4.5</span>
-            <h3>Pedro Pascal</h3>
-            <p>High tier normie · bone 71% · eyes 66% · skin 46%</p>
-          </div>
-        </article>
-        <article class="celeb reveal">
-          <img src="samples/celebs/celeb-chalamet.jpg" alt="Portrait scanned for Timothée Chalamet">
-          <div class="celeb-copy">
-            <span class="psl">4.1</span>
-            <h3>Timothée Chalamet</h3>
-            <p>Mid tier normie · bone 60% · eyes 80% · skin 41%</p>
-          </div>
-        </article>
-        <article class="celeb reveal">
-          <img src="samples/celebs/celeb-robbie.jpg" alt="Portrait scanned for Margot Robbie">
-          <div class="celeb-copy">
-            <span class="psl">4.0</span>
-            <h3>Margot Robbie</h3>
-            <p>Mid tier normie · bone 55% · eyes 67% · skin 46%</p>
-          </div>
-        </article>
-        <article class="celeb reveal">
-          <img src="samples/celebs/celeb-sweeney.jpg" alt="Portrait scanned for Sydney Sweeney">
-          <div class="celeb-copy">
-            <span class="psl">4.0</span>
-            <h3>Sydney Sweeney</h3>
-            <p>Mid tier normie · bone 52% · eyes 65% · skin 48%</p>
+            <p>Chad · bone 91% · eyes 93% · nose 94% · mouth 73% · skin 75% · hair 93%</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-zendaya.jpg" alt="Portrait scanned for Zendaya">
           <div class="celeb-copy">
-            <span class="psl">3.6</span>
+            <span class="psl">6.4</span>
             <h3>Zendaya</h3>
-            <p>Mid tier normie · bone 37% · eyes 81% · skin 44%</p>
+            <p>Chad lite · bone 83% · eyes 88% · nose 89% · mouth 71% · skin 88% · hair 91%</p>
+          </div>
+        </article>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-robbie.jpg" alt="Portrait scanned for Margot Robbie">
+          <div class="celeb-copy">
+            <span class="psl">6.3</span>
+            <h3>Margot Robbie</h3>
+            <p>Chad lite · bone 83% · eyes 90% · nose 88% · mouth 73% · skin 76% · hair 92%</p>
+          </div>
+        </article>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-sweeney.jpg" alt="Portrait scanned for Sydney Sweeney">
+          <div class="celeb-copy">
+            <span class="psl">6.3</span>
+            <h3>Sydney Sweeney</h3>
+            <p>Chad lite · bone 85% · eyes 88% · nose 92% · mouth 72% · skin 76% · hair 92%</p>
+          </div>
+        </article>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-pascal.jpg" alt="Portrait scanned for Pedro Pascal">
+          <div class="celeb-copy">
+            <span class="psl">6.3</span>
+            <h3>Pedro Pascal</h3>
+            <p>Chad lite · bone 88% · eyes 82% · nose 91% · mouth 74% · skin 76% · hair 93%</p>
+          </div>
+        </article>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-chalamet.jpg" alt="Portrait scanned for Timothée Chalamet">
+          <div class="celeb-copy">
+            <span class="psl">6.2</span>
+            <h3>Timothée Chalamet</h3>
+            <p>Chad lite · bone 85% · eyes 94% · nose 83% · mouth 57% · skin 79% · hair 90%</p>
           </div>
         </article>
       </div>
@@ -4254,15 +4254,17 @@
         philtrum: philtrum / faceH,
         midLower: midface / (lowerFace || 1e-6),
         chinProj,
+        lipFullness: dist(g("upperLip"), g("lowerLip")) / (mouthW || 1e-6),
         symmetry: clamp(1 - (symErr / Math.max(symN, 1)) * 1.1, 0, 1)
       };
     }
 
     function averageMetrics(samples) {
       if (!samples || !samples.length) return null;
+      const keys = Object.keys(samples[0]);
       const out = {};
-      for (let i = 0; i < METRIC_KEYS.length; i++) {
-        const k = METRIC_KEYS[i];
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
         let s = 0;
         let n = 0;
         for (let j = 0; j < samples.length; j++) {
@@ -4272,7 +4274,8 @@
             n++;
           }
         }
-        out[k] = n ? s / n : REF_PSL[k];
+        if (n) out[k] = s / n;
+        else if (typeof REF_PSL[k] === "number") out[k] = REF_PSL[k];
       }
       return out;
     }
@@ -4334,37 +4337,43 @@
         options.forceMetrics ||
         (metricSamples.length ? averageMetrics(metricSamples) : measured);
       const matched = matchMetricsToRef(samples);
-      const { match, proportion, harmony, symmetry, bone, eyes, hair } = matched;
+      const { match, proportion, harmony, symmetry } = matched;
       const smile =
         (blend(blendshapes, "mouthSmileLeft") + blend(blendshapes, "mouthSmileRight")) / 2;
       const openJaw = blend(blendshapes, "jawOpen");
       const expression = clamp(0.55 + smile * 0.25 - openJaw * 0.35, 0, 1);
 
       const frame = options.frame || lastRatedFrame;
-      if (frame && landmarks && metricSamples.length % 3 === 0) {
-        lastSkinSample = Advisor.analyzeSkin(frame, landmarks, L);
+      if (frame && landmarks && (options.skin || metricSamples.length % 3 === 0)) {
+        lastSkinSample = options.skin || Advisor.analyzeSkin(frame, landmarks, L);
       } else if (options.skin) {
         lastSkinSample = options.skin;
       }
       const skin = lastSkinSample;
+      const hairPx = frame ? Advisor.analyzeHairPixels(frame, landmarks, L) : 0.6;
+      const judged = Advisor.judgeLook(samples, { skin, hairPx });
+      const bone = judged.bone;
+      const eyes = judged.eyes;
+      const hair = judged.hair;
+      const nose = judged.nose;
+      const mouth = judged.mouth;
 
       const factors = {
-        bone: bone.structure,
-        eyes: eyes.quality,
-        skin: skin.clarity,
-        hair: hair.framing,
-        symmetry,
+        ...judged.parts,
         expression,
-        ideal: match
+        ideal: match,
+        raw: judged.raw
       };
       let score = Advisor.scoreFromFactors(factors);
-      // Tiny smile polish — cannot jump a full tier alone.
       if (smile > 0.45) score = clamp(score + 0.06, 1, PSL_MAX);
-      // Harsh gate: poor skin or soft bone pull high scores down.
-      if (skin.clarity < 0.45 && score > 4.6) score = clamp(score - 0.35, 1, PSL_MAX);
-      if (bone.structure < 0.45 && score > 4.8) score = clamp(score - 0.4, 1, PSL_MAX);
+      // Only a clearly weak feature can pull a high read down — not studio-light noise.
+      if (bone.structure < 0.38 && score > 5.2) score = clamp(score - 0.25, 1, PSL_MAX);
 
-      const harm = clamp(harmony * 0.7 + expression * 0.18 + skin.clarity * 0.12, 0, 1);
+      const harm = clamp(
+        eyes.quality * 0.34 + nose.quality * 0.22 + mouth.quality * 0.22 + expression * 0.12 + skin.clarity * 0.1,
+        0,
+        1
+      );
       const tierInfo = pslTierFromScore(score);
       let label = tierInfo.label;
       if (smile > 0.45 && tierInfo.tier !== "chad") {
@@ -4372,7 +4381,7 @@
       }
 
       const sampleCount = metricSamples.length;
-      return {
+      const ratedOut = {
         score,
         sym: symmetry,
         prop: proportion,
@@ -4388,8 +4397,11 @@
         factors,
         bone,
         eyes,
-        hair
+        hair,
+        nose,
+        mouth
       };
+      return ratedOut;
     }
 
     /**
@@ -4856,8 +4868,16 @@
             metricSamples.length +
             " samples · bone " +
             Math.round((rated.factors.bone || 0) * 100) +
+            "% · eyes " +
+            Math.round((rated.factors.eyes || 0) * 100) +
+            "% · nose " +
+            Math.round((rated.factors.nose || 0) * 100) +
+            "% · mouth " +
+            Math.round((rated.factors.mouth || 0) * 100) +
             "% · skin " +
             Math.round((rated.factors.skin || 0) * 100) +
+            "% · hair " +
+            Math.round((rated.factors.hair || 0) * 100) +
             "%"
         );
       } catch (err) {
@@ -4987,8 +5007,14 @@
             Math.round((rated.factors.bone || 0) * 100) +
             "% · eyes " +
             Math.round((rated.factors.eyes || 0) * 100) +
+            "% · nose " +
+            Math.round((rated.factors.nose || 0) * 100) +
+            "% · mouth " +
+            Math.round((rated.factors.mouth || 0) * 100) +
             "% · skin " +
             Math.round((rated.factors.skin || 0) * 100) +
+            "% · hair " +
+            Math.round((rated.factors.hair || 0) * 100) +
             "%"
         );
       } catch (err) {

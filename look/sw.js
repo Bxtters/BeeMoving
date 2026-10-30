@@ -1,5 +1,5 @@
 /* LOOK — network-first; bump CACHE to force clients off stale shells. */
-const CACHE = "look-v24-celeb-scans";
+const CACHE = "look-v25-feature-judge";
 const SHELL = [
   "./",
   "./index.html",
