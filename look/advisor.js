@@ -302,7 +302,7 @@ export function scoreFromFactors(factors) {
  */
 const COMMUNITY_FIELDS = [
   ["chinProj", 0.07],
-  ["symmetry", 0.28],
+  ["symmetry", 0.16],
   ["jawToCheek", 0.045],
   ["canthalLift", 0.005],
   ["eyeAperture", 0.03],
@@ -316,6 +316,9 @@ const COMMUNITY_FIELDS = [
 ];
 
 const COMMUNITY_EXEMPLARS = [
+  { name: "Vincent Schiavelli", psl: 2, v: { chinProj: -0.176, symmetry: 0.249, jawToCheek: 0.793, canthalLift: 0.008, eyeAperture: 0.342, heightWidth: 1.222, noseToMouth: 0.613, mouthToEyes: 0.908, bone: 0.874, eyes: 0.891, nose: 0.929, mouth: 0.801 } },
+  { name: "Steve Buscemi", psl: 2.5, v: { chinProj: -0.229, symmetry: 0.336, jawToCheek: 0.776, canthalLift: 0.009, eyeAperture: 0.303, heightWidth: 1.19, noseToMouth: 0.647, mouthToEyes: 0.915, bone: 0.881, eyes: 0.898, nose: 0.929, mouth: 0.832 } },
+  { name: "Danny DeVito", psl: 3, v: { chinProj: -0.156, symmetry: 0.828, jawToCheek: 0.839, canthalLift: 0.01, eyeAperture: 0.246, heightWidth: 1.066, noseToMouth: 0.641, mouthToEyes: 1.031, bone: 0.861, eyes: 0.746, nose: 0.899, mouth: 0.593 } },
   { name: "Michael Cera", psl: 3, v: { chinProj: -0.083, symmetry: 0.306, jawToCheek: 0.805, canthalLift: 0.006, eyeAperture: 0.288, heightWidth: 1.134, noseToMouth: 0.513, mouthToEyes: 1.093, bone: 0.665, eyes: 0.832, nose: 0.645, mouth: 0.653 } },
   { name: "Shia LaBeouf", psl: 4, v: { chinProj: -0.09, symmetry: 0, jawToCheek: 0.792, canthalLift: 0.003, eyeAperture: 0.25, heightWidth: 1.136, noseToMouth: 0.553, mouthToEyes: 0.954, bone: 0.643, eyes: 0.578, nose: 0.653, mouth: 0.697 } },
   { name: "Timothée Chalamet", psl: 5, v: { chinProj: -0.255, symmetry: 0.806, jawToCheek: 0.764, canthalLift: 0.012, eyeAperture: 0.337, heightWidth: 1.249, noseToMouth: 0.681, mouthToEyes: 0.85, bone: 0.853, eyes: 0.932, nose: 0.862, mouth: 0.719 } },
@@ -328,7 +331,7 @@ const COMMUNITY_EXEMPLARS = [
 function communityVector(metrics, parts) {
   const m = metrics || {};
   const p = parts || {};
-  return {
+  const vec = {
     chinProj: m.chinProj,
     symmetry: m.symmetry,
     jawToCheek: m.jawToCheek,
@@ -342,6 +345,9 @@ function communityVector(metrics, parts) {
     nose: p.nose,
     mouth: p.mouth
   };
+  // A turned head breaks symmetry. Drop that cue past a small yaw so profile shots are not punished.
+  if (typeof m.yaw === "number" && Math.abs(m.yaw) > 0.095) delete vec.symmetry;
+  return vec;
 }
 
 function communityDistance(a, b) {
@@ -358,10 +364,12 @@ function communityDistance(a, b) {
   return Math.sqrt(s);
 }
 
-/** PSL from similarity to community example faces. Falls back to the geometric curve when nothing is close. */
+/** 4 is average. Chadlite (about 5.5) is only for faces close to those community examples. */
 export function scoreFromCommunity(metrics, parts) {
   const vec = communityVector(metrics, parts);
   const geo = scoreFromFactors(parts || {});
+  const sigma = 0.55;
+  const priorPsl = 4;
   let wsum = 0;
   let psum = 0;
   let best = Infinity;
@@ -373,15 +381,18 @@ export function scoreFromCommunity(metrics, parts) {
       best = d;
       bestName = ex.name;
     }
-    const w = Math.exp(-(d * d) / (2 * 0.85 * 0.85));
+    const w = Math.exp(-(d * d) / (2 * sigma * sigma));
     wsum += w;
     psum += w * ex.psl;
   }
-  if (!wsum) return { score: geo, nearest: "", distance: best };
-  const local = psum / wsum;
-  const confidence = clamp(Math.exp(-(best * best) / (2 * 1.15 * 1.15)), 0, 1);
-  const score = clamp(local * confidence + geo * (1 - confidence), 1, 7.99);
-  return { score, nearest: bestName, distance: best, confidence, local };
+  // No pull toward average when this face is an example. The prior grows as the match gets worse.
+  const priorW = 0.65 * (1 - Math.exp(-(best * best) / (2 * 0.28 * 0.28)));
+  const local = (priorPsl * priorW + psum) / (priorW + (wsum || 1e-6));
+  // Far from every example: sit on average (4), with only a small geometric nudge.
+  const close = clamp(1 - Math.max(0, best - 0.35) / 1.1, 0, 1);
+  const nudged = priorPsl + (geo - priorPsl) * 0.28;
+  const score = clamp(local * close + nudged * (1 - close), 1, 7.99);
+  return { score, nearest: bestName, distance: best, confidence: close, local };
 }
 
 function issue(id, domain, severity, title, detail, levers) {

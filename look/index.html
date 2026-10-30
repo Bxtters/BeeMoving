@@ -1970,47 +1970,47 @@
     <section class="examples" aria-labelledby="examples-title">
       <div class="examples-head reveal">
         <h2 id="examples-title">Example reads</h2>
-        <p>Scored by similarity to community example faces: Cera 3, Shia 4, Chalamet 5, Evans and Ronaldo 5.5, Cavill and Hemsworth 6.5.</p>
+        <p>4 is average. Chadlite is rare. Scores follow community examples from about 2 (Schiavelli) through 4 (Shia) up to 6.5 (Cavill).</p>
       </div>
       <div class="celeb-list">
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-cavill.jpg" alt="Henry Cavill">
           <div class="celeb-copy">
-            <span class="psl">6.6</span>
+            <span class="psl">6.5</span>
             <h3>Henry Cavill</h3>
-            <p>Chad · community example is 6.5</p>
+            <p>Chad · community example, about top 1%</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-sweeney.jpg" alt="Sydney Sweeney">
           <div class="celeb-copy">
-            <span class="psl">6.0</span>
+            <span class="psl">4.6</span>
             <h3>Sydney Sweeney</h3>
-            <p>Chad lite · on-device scan of this photo</p>
+            <p>High tier · above average, not chadlite</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-pascal.jpg" alt="Pedro Pascal">
           <div class="celeb-copy">
-            <span class="psl">6.0</span>
+            <span class="psl">4.6</span>
             <h3>Pedro Pascal</h3>
-            <p>Chad lite · on-device scan of this photo</p>
+            <p>High tier · above average, not chadlite</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-robbie.jpg" alt="Margot Robbie">
           <div class="celeb-copy">
-            <span class="psl">5.9</span>
+            <span class="psl">4.6</span>
             <h3>Margot Robbie</h3>
-            <p>Chad lite · on-device scan of this photo</p>
+            <p>High tier · above average, not chadlite</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-zendaya.jpg" alt="Zendaya">
           <div class="celeb-copy">
-            <span class="psl">5.5</span>
+            <span class="psl">4.4</span>
             <h3>Zendaya</h3>
-            <p>Chad lite · placed by the same example scale</p>
+            <p>High tier · above the average of 4</p>
           </div>
         </article>
         <article class="celeb reveal">
@@ -2018,7 +2018,7 @@
           <div class="celeb-copy">
             <span class="psl">5.0</span>
             <h3>Timothée Chalamet</h3>
-            <p>Chad lite · community example is 5</p>
+            <p>High tier · community example is 5</p>
           </div>
         </article>
       </div>
@@ -4199,6 +4199,8 @@
       const chinProj = (g("noseTip").z || 0) - (chin.z || 0);
 
       const midlineX = (forehead.x + chin.x) / 2;
+      const cheekSpanX = Math.abs(rightCheek.x - leftCheek.x) || 1e-6;
+      const yaw = (g("noseTip").x - midlineX) / cheekSpanX;
       let symErr = 0;
       let symN = 0;
       for (let i = 0; i < PAIR_SYMMETRY.length; i++) {
@@ -4234,6 +4236,7 @@
         midLower: midface / (lowerFace || 1e-6),
         chinProj,
         lipFullness: dist(g("upperLip"), g("lowerLip")) / (mouthW || 1e-6),
+        yaw,
         symmetry: clamp(1 - (symErr / Math.max(symN, 1)) * 1.1, 0, 1)
       };
     }
