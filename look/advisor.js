@@ -1,0 +1,745 @@
+/**
+ * LOOK Advisor — metric-driven personalization + multi-factor scoring helpers.
+ * Tips/schedules are synthesized from this face’s measured deficits (skin, bone,
+ * eyes, hair, expression) so two different reads never share the same plan copy.
+ * Optional Gemini rewrite when an API key is set in Settings.
+ */
+
+const IDEAL = {
+  heightWidth: { t: 1.32, tol: 0.22 },
+  thirdsTop: { t: 0.33, tol: 0.08 },
+  thirdsMid: { t: 0.22, tol: 0.06 },
+  thirdsLow: { t: 0.45, tol: 0.1 },
+  eyeSpacing: { t: 2.05, tol: 0.28 },
+  interocularFW: { t: 0.46, tol: 0.07 },
+  mouthToEyes: { t: 0.95, tol: 0.22 },
+  noseToFace: { t: 0.22, tol: 0.06 },
+  noseToMouth: { t: 0.62, tol: 0.12 },
+  jawDominance: { t: 0.78, tol: 0.14 },
+  jawToCheek: { t: 0.86, tol: 0.1 },
+  templeToCheek: { t: 0.98, tol: 0.12 },
+  browRatio: { t: 0.9, tol: 0.12 },
+  browEye: { t: 0.16, tol: 0.055 },
+  eyeAperture: { t: 0.3, tol: 0.08 },
+  cheekBalance: { t: 2.05, tol: 0.28 },
+  canthalLift: { t: 0.012, tol: 0.018 },
+  philtrum: { t: 0.2, tol: 0.06 },
+  midLower: { t: 0.85, tol: 0.16 },
+  chinProj: { t: -0.18, tol: 0.14 },
+  symmetry: { t: 0.94, tol: 0.16 }
+};
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function near(value, target, tolerance) {
+  return clamp(1 - Math.abs(value - target) / tolerance, 0, 1);
+}
+
+function pct(n) {
+  return Math.round(clamp(n, 0, 1) * 100);
+}
+
+function fmt(n, d) {
+  const f = Math.pow(10, d == null ? 2 : d);
+  return (Math.round(Number(n) * f) / f).toFixed(d == null ? 2 : d);
+}
+
+/** Sample cheek / forehead ROIs from a landmark-aligned canvas for skin cues. */
+export function analyzeSkin(sourceCanvas, landmarks, L) {
+  if (!sourceCanvas || !landmarks || !L) {
+    return { clarity: 0.55, evenness: 0.55, brightness: 0.5, redness: 0.5 };
+  }
+  const w = sourceCanvas.width;
+  const h = sourceCanvas.height;
+  if (!w || !h) return { clarity: 0.55, evenness: 0.55, brightness: 0.5, redness: 0.5 };
+
+  const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return { clarity: 0.55, evenness: 0.55, brightness: 0.5, redness: 0.5 };
+
+  const pts = [
+    landmarks[L.leftCheek],
+    landmarks[L.rightCheek],
+    landmarks[L.forehead],
+    landmarks[L.noseBridge]
+  ].filter(Boolean);
+
+  const samples = [];
+  for (let i = 0; i < pts.length; i++) {
+    const px = clamp(Math.floor(pts[i].x * w), 2, w - 3);
+    const py = clamp(Math.floor(pts[i].y * h), 2, h - 3);
+    const size = Math.max(8, Math.floor(Math.min(w, h) * 0.045));
+    try {
+      const data = ctx.getImageData(px - size, py - size, size * 2, size * 2).data;
+      for (let j = 0; j < data.length; j += 16) {
+        const r = data[j];
+        const g = data[j + 1];
+        const b = data[j + 2];
+        samples.push({ r, g, b, y: 0.299 * r + 0.587 * g + 0.114 * b });
+      }
+    } catch (_) {
+      /* tainted canvas — skip */
+    }
+  }
+  if (samples.length < 20) {
+    return { clarity: 0.55, evenness: 0.55, brightness: 0.5, redness: 0.5 };
+  }
+
+  let sumY = 0;
+  let sumR = 0;
+  let sumG = 0;
+  let sumB = 0;
+  for (let i = 0; i < samples.length; i++) {
+    sumY += samples[i].y;
+    sumR += samples[i].r;
+    sumG += samples[i].g;
+    sumB += samples[i].b;
+  }
+  const n = samples.length;
+  const meanY = sumY / n;
+  let varY = 0;
+  for (let i = 0; i < n; i++) {
+    const d = samples[i].y - meanY;
+    varY += d * d;
+  }
+  varY /= n;
+  const std = Math.sqrt(varY);
+  // Lower luminance variance on cheeks ≈ clearer / more even skin under flat light.
+  const evenness = clamp(1 - std / 42, 0.15, 0.98);
+  const brightness = clamp(meanY / 180, 0.15, 0.98);
+  const meanR = sumR / n;
+  const meanG = sumG / n;
+  const meanB = sumB / n;
+  const redRatio = meanR / (meanG + meanB + 1e-6);
+  const redness = clamp(1 - Math.abs(redRatio - 0.72) / 0.55, 0.2, 0.98);
+  const clarity = clamp(evenness * 0.55 + brightness * 0.2 + redness * 0.25, 0.12, 0.98);
+  return { clarity, evenness, brightness, redness, std, meanY };
+}
+
+/** Hair / framing proxies from landmarks (forehead height, temple taper). */
+export function analyzeHair(metrics) {
+  if (!metrics) return { framing: 0.55, foreheadBalance: 0.55, templeTaper: 0.55 };
+  const foreheadBalance = near(metrics.thirdsTop, IDEAL.thirdsTop.t, IDEAL.thirdsTop.tol);
+  const templeTaper = near(metrics.templeToCheek, IDEAL.templeToCheek.t, IDEAL.templeToCheek.tol);
+  const brow = near(metrics.browRatio, IDEAL.browRatio.t, IDEAL.browRatio.tol);
+  const framing = clamp(foreheadBalance * 0.4 + templeTaper * 0.35 + brow * 0.25, 0.12, 0.98);
+  return { framing, foreheadBalance, templeTaper, brow };
+}
+
+export function analyzeEyes(metrics) {
+  if (!metrics) return { quality: 0.55, aperture: 0.55, canthal: 0.55, spacing: 0.55 };
+  const aperture = near(metrics.eyeAperture, IDEAL.eyeAperture.t, IDEAL.eyeAperture.tol);
+  const canthal = near(metrics.canthalLift, IDEAL.canthalLift.t, IDEAL.canthalLift.tol);
+  const spacing = near(metrics.eyeSpacing, IDEAL.eyeSpacing.t, IDEAL.eyeSpacing.tol);
+  const browEye = near(metrics.browEye, IDEAL.browEye.t, IDEAL.browEye.tol);
+  const quality = clamp(aperture * 0.35 + canthal * 0.25 + spacing * 0.25 + browEye * 0.15, 0.12, 0.98);
+  return { quality, aperture, canthal, spacing, browEye };
+}
+
+export function analyzeBone(metrics) {
+  if (!metrics) return { structure: 0.55, jaw: 0.55, chin: 0.55, thirds: 0.55 };
+  const jaw = near(metrics.jawToCheek, IDEAL.jawToCheek.t, IDEAL.jawToCheek.tol);
+  const chin = near(metrics.chinProj, IDEAL.chinProj.t, IDEAL.chinProj.tol);
+  const hw = near(metrics.heightWidth, IDEAL.heightWidth.t, IDEAL.heightWidth.tol);
+  const thirds = clamp(
+    (near(metrics.thirdsTop, IDEAL.thirdsTop.t, IDEAL.thirdsTop.tol) +
+      near(metrics.thirdsMid, IDEAL.thirdsMid.t, IDEAL.thirdsMid.tol) +
+      near(metrics.thirdsLow, IDEAL.thirdsLow.t, IDEAL.thirdsLow.tol)) /
+      3,
+    0,
+    1
+  );
+  const midLower = near(metrics.midLower, IDEAL.midLower.t, IDEAL.midLower.tol);
+  const structure = clamp(jaw * 0.28 + chin * 0.22 + hw * 0.2 + thirds * 0.18 + midLower * 0.12, 0.1, 0.98);
+  return { structure, jaw, chin, hw, thirds, midLower };
+}
+
+export function idealMatch(metrics) {
+  if (!metrics) return 0;
+  let sum = 0;
+  let n = 0;
+  const keys = Object.keys(IDEAL);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    if (typeof metrics[k] !== "number") continue;
+    sum += near(metrics[k], IDEAL[k].t, IDEAL[k].tol);
+    n++;
+  }
+  return n ? sum / n : 0;
+}
+
+/**
+ * Steep multi-factor PSL. Average faces land mid/low-normie; only strong
+ * structure + skin + eyes climb into Chad lite+.
+ */
+export function scoreFromFactors(factors) {
+  const f = factors || {};
+  const bone = clamp(f.bone ?? 0.5, 0, 1);
+  const eyes = clamp(f.eyes ?? 0.5, 0, 1);
+  const skin = clamp(f.skin ?? 0.5, 0, 1);
+  const hair = clamp(f.hair ?? 0.5, 0, 1);
+  const symmetry = clamp(f.symmetry ?? 0.5, 0, 1);
+  const expression = clamp(f.expression ?? 0.55, 0, 1);
+  const ideal = clamp(f.ideal ?? 0.5, 0, 1);
+
+  // Structure-heavy blend — skin/eyes/hair are real gates, not polish.
+  const raw =
+    bone * 0.32 +
+    eyes * 0.16 +
+    skin * 0.16 +
+    hair * 0.08 +
+    symmetry * 0.14 +
+    expression * 0.06 +
+    ideal * 0.08;
+
+  // Compress mid-band so “okay average” ≠ High tier.
+  let score;
+  if (raw < 0.38) score = 1.15 + (raw / 0.38) * 1.55;
+  else if (raw < 0.5) score = 2.7 + ((raw - 0.38) / 0.12) * 0.95;
+  else if (raw < 0.6) score = 3.65 + ((raw - 0.5) / 0.1) * 0.7;
+  else if (raw < 0.7) score = 4.35 + ((raw - 0.6) / 0.1) * 0.75;
+  else if (raw < 0.8) score = 5.1 + ((raw - 0.7) / 0.1) * 1.0;
+  else if (raw < 0.9) score = 6.1 + ((raw - 0.8) / 0.1) * 0.9;
+  else score = 7.0 + ((raw - 0.9) / 0.1) * 0.9;
+
+  return clamp(score, 1, 7.99);
+}
+
+function issue(id, domain, severity, title, detail, levers) {
+  return { id, domain, severity, title, detail, levers: levers || [] };
+}
+
+/** Ranked, face-specific issues from measured factors + raw metrics. */
+export function buildFaceProfile(metrics, factors, extras) {
+  const m = metrics || {};
+  const f = factors || {};
+  const skin = extras && extras.skin ? extras.skin : { clarity: f.skin || 0.55 };
+  // Always derive bone/eyes/hair from metrics when present so issue gates see .jaw/.aperture/etc.
+  const hair = Object.keys(m).length ? analyzeHair(m) : extras && extras.hair
+    ? extras.hair
+    : { framing: f.hair || 0.55 };
+  const eyes = Object.keys(m).length ? analyzeEyes(m) : extras && extras.eyes
+    ? extras.eyes
+    : { quality: f.eyes || 0.55 };
+  const bone = Object.keys(m).length ? analyzeBone(m) : extras && extras.bone
+    ? extras.bone
+    : { structure: f.bone || 0.55 };
+  const smile = (extras && extras.smile) || 0;
+  const issues = [];
+
+  if ((f.symmetry ?? m.symmetry ?? 1) < 0.72) {
+    issues.push(
+      issue(
+        "symmetry",
+        "recovery",
+        1 - (f.symmetry ?? m.symmetry ?? 0.5),
+        "Asymmetry cues are dragging the read",
+        "Landmark left/right error sits at " +
+          pct(1 - (m.symmetry || 0)) +
+          "% relative load. Sleep debt, uneven light, and morning fluid exaggerate this more than bone.",
+        ["fixed wake time 7 nights", "front fill light for every re-scan", "ease late salt/alcohol"]
+      )
+    );
+  }
+  if ((bone.jaw || 0) < 0.62) {
+    issues.push(
+      issue(
+        "jaw",
+        "bone",
+        1 - bone.jaw,
+        "Jaw-to-cheek ratio reads soft vs ideal",
+        "Bigonial/bizygomatic nearness scores " +
+          pct(bone.jaw) +
+          "% of ideal (" +
+          fmt(m.jawToCheek) +
+          " vs ~" +
+          IDEAL.jawToCheek.t +
+          "). Controllable levers are body-composition and silhouette grooming — not contour gadgets.",
+        ["full-body strength 3×/week", "slight calorie deficit if appropriate", "clean cheek/neck hairline"]
+      )
+    );
+  }
+  if ((bone.chin || 0) < 0.58) {
+    issues.push(
+      issue(
+        "chin",
+        "bone",
+        1 - bone.chin,
+        "Chin projection / lower-third balance is off ideal",
+        "Chin depth cue scores " +
+          pct(bone.chin) +
+          "%. Posture (ear over shoulder, soft chin) and lower-face adiposity move the capture more than most topicals.",
+        ["eye-level camera habit", "posture resets hourly", "lower-face definition via training"]
+      )
+    );
+  }
+  if ((bone.thirds || 0) < 0.6) {
+    issues.push(
+      issue(
+        "thirds",
+        "bone",
+        1 - bone.thirds,
+        "Facial thirds are uneven in this capture",
+        "Vertical third balance is " +
+          pct(bone.thirds) +
+          "% of ideal (top " +
+          fmt(m.thirdsTop) +
+          " · mid " +
+          fmt(m.thirdsMid) +
+          " · low " +
+          fmt(m.thirdsLow) +
+          "). Hairline / bangs / beard edges can reframe without changing bone.",
+        ["barber who understands face shape", "brow density tidy", "avoid chin-down phone posture"]
+      )
+    );
+  }
+  if ((eyes.quality || 0) < 0.64) {
+    issues.push(
+      issue(
+        "eyes",
+        "eyes",
+        1 - eyes.quality,
+        "Eye aperture / canthal / spacing underperform",
+        "Eye composite " +
+          pct(eyes.quality) +
+          "% (aperture " +
+          pct(eyes.aperture || 0) +
+          " · canthal " +
+          pct(eyes.canthal || 0) +
+          " · spacing " +
+          pct(eyes.spacing || 0) +
+          "). Brow lift/set and sleep (less hooding/puff) are the main non-surgical moves.",
+        ["brow gel + light trim", "7–9h sleep for less hooding", "front light at eye height"]
+      )
+    );
+  }
+  if ((skin.clarity || 0) < 0.62) {
+    issues.push(
+      issue(
+        "skin",
+        "skin",
+        1 - skin.clarity,
+        "Skin clarity / evenness is capping the rating",
+        "On-device cheek ROI clarity " +
+          pct(skin.clarity) +
+          "% (evenness " +
+          pct(skin.evenness || 0) +
+          "). Homogeneous skin is a top cross-cultural attractiveness cue — SPF + barrier + one active beats new serums weekly.",
+        ["SPF 30–50 every morning", "niacinamide 5%", "slow retinoid nights"]
+      )
+    );
+  }
+  if ((hair.framing || 0) < 0.6) {
+    issues.push(
+      issue(
+        "hair",
+        "hair",
+        1 - hair.framing,
+        "Hair / upper-face framing is weak for your proportions",
+        "Framing score " +
+          pct(hair.framing) +
+          "% from forehead third + temple taper + brow span. A shape-aware cut usually beats another serum for perceived proportion.",
+        ["face-shape haircut this week", "temple/side fade or volume as needed", "brow set daily"]
+      )
+    );
+  }
+  if (smile < 0.28) {
+    issues.push(
+      issue(
+        "smile",
+        "expression",
+        0.55,
+        "Expression / smile signal is underused",
+        "Smile blendshape averaged " +
+          pct(smile) +
+          "%. Neutral locks under-rate even solid bone. A soft Duchenne smile is the fastest harmony lift.",
+        ["mirror eye-smile reps before lock", "lip comfort balm", "enamel-safe whitening if needed"]
+      )
+    );
+  }
+
+  issues.sort((a, b) => b.severity - a.severity);
+  // Always keep at least one maintain issue for strong faces
+  if (!issues.length) {
+    issues.push(
+      issue(
+        "maintain",
+        "maintain",
+        0.2,
+        "Baseline is strong — protect it",
+        "Bone/eyes/skin composites are in a favorable band. Consistency (SPF, sleep, monthly grooming) beats novelty chasing.",
+        ["daily SPF you will reapply", "fixed sleep window", "monthly barber / brow pass"]
+      )
+    );
+  }
+
+  return {
+    issues: issues.slice(0, 6),
+    factors: {
+      bone: bone.structure ?? f.bone,
+      eyes: eyes.quality ?? f.eyes,
+      skin: skin.clarity ?? f.skin,
+      hair: hair.framing ?? f.hair,
+      symmetry: f.symmetry ?? m.symmetry,
+      expression: f.expression
+    },
+    metrics: {
+      jawToCheek: m.jawToCheek,
+      chinProj: m.chinProj,
+      eyeAperture: m.eyeAperture,
+      canthalLift: m.canthalLift,
+      thirdsTop: m.thirdsTop,
+      thirdsMid: m.thirdsMid,
+      thirdsLow: m.thirdsLow,
+      heightWidth: m.heightWidth,
+      symmetry: m.symmetry,
+      skinClarity: skin.clarity,
+      hairFraming: hair.framing
+    }
+  };
+}
+
+function tipFromIssue(iss, tone) {
+  const clinical = tone === "clinical";
+  const productsByDomain = {
+    recovery: [
+      {
+        name: "Fixed wake alarm + cool dark room",
+        why: "Highest ROI for asymmetry-looking fluid and dull tone.",
+        ingredients: "Habit — consistent circadian anchor"
+      },
+      {
+        name: "Magnesium glycinate (clinician-okayed)",
+        why: "Optional wind-down support for some people.",
+        ingredients: "Magnesium glycinate"
+      }
+    ],
+    bone: [
+      {
+        name: "Protein-forward meals / powder",
+        why: "Supports training while cutting facial adiposity.",
+        ingredients: "Whey or pea isolate; creatine 3–5g if training"
+      },
+      {
+        name: "Edge trimmer + balm",
+        why: "Clean jaw silhouette without changing bone.",
+        ingredients: "Plant oils + vitamin E after trim"
+      }
+    ],
+    eyes: [
+      {
+        name: "Brow gel / clear mascara",
+        why: "Sets upper-third so eyes read more open.",
+        ingredients: "Film-formers + panthenol"
+      },
+      {
+        name: "Caffeine eye gel (AM, optional)",
+        why: "Temporary de-puff before scans/photos.",
+        ingredients: "Caffeine + glycerin / HA"
+      }
+    ],
+    skin: [
+      {
+        name: "Mineral or hybrid SPF 30–50",
+        why: "UV is the main preventable uneven-tone driver.",
+        ingredients: "Zinc oxide and/or modern UV filters"
+      },
+      {
+        name: "Niacinamide 5%",
+        why: "Barrier + more even-looking tone for most.",
+        ingredients: "Niacinamide 4–5%, glycerin"
+      },
+      {
+        name: "Adapalene 0.1% (slow start)",
+        why: "Evidence-backed texture / photoaging — 2–3 nights/week.",
+        ingredients: "Adapalene 0.1%; buffer with moisturizer"
+      }
+    ],
+    hair: [
+      {
+        name: "Shape-aware haircut",
+        why: "Reframes thirds and jaw without surgery.",
+        ingredients: "Barber consult — bring LOOK bars screenshot"
+      },
+      {
+        name: "Brow gel",
+        why: "Daily upper-third polish.",
+        ingredients: "Fragrance-free film former"
+      }
+    ],
+    expression: [
+      {
+        name: "Humectant lip balm",
+        why: "Comfortable lips make a natural smile easier.",
+        ingredients: "HA, glycerin, shea / squalane"
+      },
+      {
+        name: "Enamel-safe whitening toothpaste",
+        why: "Dental aesthetics move smile ratings.",
+        ingredients: "Low-dose peroxide; skip charcoal abrasives"
+      }
+    ],
+    maintain: [
+      {
+        name: "Daily SPF you will reapply",
+        why: "Protects a strong baseline.",
+        ingredients: "Texture you actually wear"
+      },
+      {
+        name: "Azelaic acid 10% (optional)",
+        why: "Redness / tone for many with low irritation.",
+        ingredients: "Azelaic acid 10%"
+      }
+    ]
+  };
+
+  return {
+    id: iss.id + "-" + Math.round(iss.severity * 100),
+    title: iss.title,
+    body: clinical
+      ? iss.detail + " Priority levers: " + iss.levers.join("; ") + "."
+      : iss.detail + " Start with: " + iss.levers.slice(0, 2).join(" · ") + ".",
+    cite: "LOOK advisor · on-device " + iss.domain + " analysis",
+    domain: iss.domain,
+    severity: iss.severity,
+    products: productsByDomain[iss.domain] || productsByDomain.maintain
+  };
+}
+
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/**
+ * Build a unique plan + 7-day schedule from this face’s ranked issues.
+ * No shared canned tip order — schedule maps to the individual’s deficits.
+ */
+export function buildPersonalPlan(result, profile, settings) {
+  const tone = settings && settings.planTone === "clinical" ? "clinical" : "coach";
+  const score = result.score;
+  const sym = result.sym;
+  const prop = result.prop;
+  const harm = result.harm;
+  const smile = result.smile || 0;
+  const tier = result.tier;
+  const tierLabel = result.tierLabel;
+  const issues = (profile && profile.issues) || [];
+  const tips = issues.slice(0, 4).map((iss) => tipFromIssue(iss, tone));
+
+  const focuses = [
+    { label: "Bone", weak: (profile.factors.bone || 1) < 0.62 },
+    { label: "Eyes", weak: (profile.factors.eyes || 1) < 0.64 },
+    { label: "Skin", weak: (profile.factors.skin || 1) < 0.62 },
+    { label: "Hair", weak: (profile.factors.hair || 1) < 0.6 },
+    { label: "Symmetry", weak: (profile.factors.symmetry || 1) < 0.72 },
+    { label: "Expression", weak: smile < 0.28 }
+  ];
+
+  const primary = tips[0];
+  const secondary = tips[1] || tips[0];
+  const tertiary = tips[2] || secondary;
+
+  const days = DAY_NAMES.map((name, idx) => {
+    const focusTip = idx % 3 === 0 ? primary : idx % 3 === 1 ? secondary : tertiary;
+    const domain = focusTip.domain;
+    const products = (focusTip.products || []).slice(0, 2);
+    let am = "Cleanse → moisturizer → SPF 30+.";
+    let pm = "Cleanse → one active max → ceramide moisturizer.";
+    let habit = focusTip.levers ? focusTip.body.split("Start with:")[1] || focusTip.title : focusTip.title;
+
+    if (domain === "skin") {
+      am = "Water cleanse → niacinamide if using → moisturizer → SPF 30–50.";
+      pm =
+        idx === 4
+          ? "Cleanse → adapalene/retinoid on 2 zones (buffered) → moisturizer."
+          : "Cleanse → barrier moisturizer; skip stacking acids.";
+      habit = "No new serums this week — execute SPF + one active only.";
+    } else if (domain === "bone") {
+      habit =
+        idx === 2 || idx === 5
+          ? "Strength session (full body) + 8–10k steps; protein each meal."
+          : "Walk after meals; keep phone at eye level (no chin-down).";
+      pm = "Barrier only if you trained hard — ceramides + cholesterol.";
+    } else if (domain === "eyes") {
+      am = "Cool splash → optional caffeine eye gel → SPF. Soft brow set.";
+      habit = "7–9h sleep target tonight; brow tidy if scraggly.";
+    } else if (domain === "hair") {
+      habit =
+        idx === 3
+          ? "Barber / self-cut appointment — bring your LOOK bars."
+          : "Style for your face shape; set brows once in the morning.";
+    } else if (domain === "expression") {
+      am = "SPF + lip balm. One soft eye-smile in the mirror before leaving.";
+      habit = "Natural smile in first-meet photos — eyes soft, not a wide grin.";
+    } else if (domain === "recovery") {
+      habit = "Fixed wake time; front light only for any re-scan today.";
+      am = "Cool rinse, go easy on caffeine if puffy, SPF.";
+    } else {
+      habit = "Protect baseline: SPF, sleep window, no novelty chasing.";
+    }
+
+    if (idx === 6) {
+      habit = "Re-scan LOOK in the same room light. Compare bone/eyes/skin bars — not only the headline.";
+      pm = "Recovery night — no new acids; early lights-out.";
+    }
+
+    const seen = {};
+    const uniq = [];
+    products.forEach((p) => {
+      if (p && p.name && !seen[p.name]) {
+        seen[p.name] = true;
+        uniq.push(p);
+      }
+    });
+
+    return {
+      name,
+      title: name + " — " + focusTip.title.split(" ").slice(0, 5).join(" "),
+      focus: focusTip.title,
+      domain,
+      am,
+      pm,
+      habit,
+      products: uniq.slice(0, 3),
+      why: focusTip.body
+    };
+  });
+
+  const routine = issues.slice(0, 5).map((iss) => ({
+    title: iss.title,
+    detail: iss.detail + " → " + iss.levers.slice(0, 2).join("; ") + "."
+  }));
+
+  const f = profile.factors || {};
+  const narrative =
+    "Locked <strong>" +
+    tierLabel +
+    "</strong> (PSL " +
+    fmt(score, 1) +
+    "). This plan was synthesized from your on-device read — bone " +
+    pct(f.bone || 0) +
+    "%, eyes " +
+    pct(f.eyes || 0) +
+    "%, skin " +
+    pct(f.skin || 0) +
+    "%, hair framing " +
+    pct(f.hair || 0) +
+    "%, symmetry " +
+    pct(f.symmetry || 0) +
+    "%. Top constraint: <strong>" +
+    (issues[0] ? issues[0].title : "maintenance") +
+    "</strong>.";
+
+  const summary =
+    tone === "clinical"
+      ? "PSL <strong>" +
+        tierLabel +
+        "</strong>. Interventions ranked by measured deficits (skin ROI, bone ratios, eye composite, hair framing)."
+      : "You’re <strong>" +
+        tierLabel +
+        "</strong> on the 1–8 scale. Tips and the 7-day schedule below are unique to this scan’s weak domains — not a generic list.";
+
+  const weakSkin = (f.skin || 1) < 0.62;
+  const weakBone = (f.bone || 1) < 0.62;
+  const weakEyes = (f.eyes || 1) < 0.64;
+  const weakSym = (f.symmetry || 1) < 0.72;
+  const fast =
+    (smile < 0.3 ? 0.4 : 0.12) + (weakSym ? 0.22 : 0.06) + (weakEyes ? 0.12 : 0.04);
+  const mid = (weakSkin ? 0.35 : 0.14) + (score < 5 ? 0.12 : 0.05);
+  const slow = weakBone ? 0.5 : 0.18;
+  const totalLift = Math.min(1.55, Math.max(0.25, fast + mid + slow) * (score >= 6.6 ? 0.5 : 1));
+  const target = clamp(score + totalLift, score, 7.99);
+
+  return {
+    score,
+    sym,
+    prop,
+    harm,
+    smile,
+    label: tierLabel,
+    tier,
+    tierLabel,
+    focuses,
+    tips,
+    routine,
+    days,
+    narrative,
+    summary,
+    profile,
+    factors: f,
+    lift: { fast, mid, slow, total: totalLift, target },
+    at: Date.now(),
+    advisor: "look-local-v1"
+  };
+}
+
+/** Optional Gemini rewrite of tips + schedule when user pastes an API key. */
+export async function enhancePlanWithAI(plan, apiKey, model) {
+  const key = (apiKey || "").trim();
+  if (!key || !plan) return plan;
+  const useModel = model || "gemini-2.0-flash";
+  const payload = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text:
+              "You are LOOK, an on-device face aesthetics coach. Rewrite tips and a 7-day schedule for THIS face only. " +
+              "Be specific to the measured deficits. No surgery. No claims of medical diagnosis. Keep PSL framing. " +
+              "Return ONLY JSON: { tips:[{title,body,cite,products:[{name,why,ingredients}]}], days:[{name,title,focus,am,pm,habit,products:[{name,why,ingredients}],why}], summary, narrative }.\n\nPROFILE:\n" +
+              JSON.stringify(
+                {
+                  score: plan.score,
+                  tier: plan.tierLabel,
+                  factors: plan.factors,
+                  issues: (plan.profile && plan.profile.issues) || [],
+                  metrics: (plan.profile && plan.profile.metrics) || {}
+                },
+                null,
+                2
+              )
+          }
+        ]
+      }
+    ],
+    generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
+  };
+
+  const url =
+    "https://generativelanguage.googleapis.com/v1beta/models/" +
+    encodeURIComponent(useModel) +
+    ":generateContent?key=" +
+    encodeURIComponent(key);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error("AI enhance failed (" + res.status + "). " + errText.slice(0, 160));
+  }
+  const data = await res.json();
+  const text =
+    (((data || {}).candidates || [])[0] || {}).content &&
+    (((data.candidates[0].content.parts || [])[0] || {}).text || "");
+  if (!text) throw new Error("AI returned empty content.");
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (_) {
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("AI returned non-JSON.");
+    parsed = JSON.parse(m[0]);
+  }
+  return {
+    ...plan,
+    tips: Array.isArray(parsed.tips) && parsed.tips.length ? parsed.tips : plan.tips,
+    days: Array.isArray(parsed.days) && parsed.days.length === 7 ? parsed.days : plan.days,
+    summary: parsed.summary || plan.summary,
+    narrative: parsed.narrative || plan.narrative,
+    advisor: "gemini:" + useModel
+  };
+}
+
+export { IDEAL };

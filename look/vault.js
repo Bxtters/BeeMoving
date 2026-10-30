@@ -121,9 +121,84 @@ async function deriveKey(passphrase, saltBuf) {
     { name: "PBKDF2", salt: saltBuf, iterations: 210000, hash: "SHA-256" },
     base,
     { name: "AES-GCM", length: 256 },
-    false,
+    true,
     ["encrypt", "decrypt"]
   );
+}
+
+async function exportKeyB64(key) {
+  const raw = await crypto.subtle.exportKey("raw", key);
+  return bufToB64(raw);
+}
+
+async function importKeyB64(b64) {
+  return crypto.subtle.importKey(
+    "raw",
+    b64ToBuf(b64),
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
+}
+
+const SESSION_KEY = "look.session.v1";
+
+/** Persist unlocked session for this browser tab (survives refresh, clears on tab close). */
+export async function persistSession(session) {
+  if (!session || !session.key || !session.accountId) {
+    sessionStorage.removeItem(SESSION_KEY);
+    return;
+  }
+  const keyB64 = await exportKeyB64(session.key);
+  sessionStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({
+      accountId: session.accountId,
+      displayName: session.displayName,
+      provider: session.provider || "local",
+      email: session.email || "",
+      profile: session.profile || null,
+      keyB64,
+      at: Date.now()
+    })
+  );
+  try {
+    localStorage.setItem(
+      "look.lastAccountId",
+      JSON.stringify({ id: session.accountId, provider: session.provider || "local" })
+    );
+  } catch (_) {}
+}
+
+export async function restoreSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !data.keyB64 || !data.accountId) return null;
+    const key = await importKeyB64(data.keyB64);
+    const acc = await idbGet(ACCOUNTS, data.accountId);
+    if (!acc) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    let profile = data.profile;
+    if (!profile && acc.profile) {
+      try {
+        profile = await decryptJson(key, acc.profile);
+      } catch (_) {
+        profile = defaultProfile({ displayName: acc.displayName });
+      }
+    }
+    return sessionFrom(publicMeta(acc), key, profile || defaultProfile({ displayName: acc.displayName }));
+  } catch (_) {
+    sessionStorage.removeItem(SESSION_KEY);
+    return null;
+  }
+}
+
+export function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
 }
 
 async function encryptJson(key, obj) {
