@@ -3061,6 +3061,7 @@
       // Auto-restart when the browser already granted camera (no re-tap / refresh).
       cameraPermissionGranted().then((ok) => {
         if (view !== "scan" || mode === "demo") return;
+        if (!scorePanel.hidden && !stream) return; // photo/demo already rated
         if (stream && video.srcObject) {
           gate.hidden = true;
           return;
@@ -3068,7 +3069,7 @@
         if (ok) {
           gate.hidden = true;
           boot().catch(() => {
-            if (view === "scan") gate.hidden = false;
+            if (view === "scan" && mode !== "demo") gate.hidden = false;
           });
         }
       });
@@ -4676,6 +4677,7 @@
           tierLabel: rated.tierLabel
         };
         showScore(rated);
+        gate.hidden = true;
         setStatus(
           "Photo read · " +
             metricSamples.length +
@@ -4805,6 +4807,7 @@
           tierLabel: rated.tierLabel
         };
         showScore(rated);
+        gate.hidden = true;
         setStatus(
           (label || "Photo") +
             " · bone " +
