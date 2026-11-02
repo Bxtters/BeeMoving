@@ -366,8 +366,7 @@ function communityDistance(a, b) {
 
 /**
  * Own rater. Each cue is a tight match to an attractive center.
- * The score is limited by the worst cues, so one strong feature cannot
- * hide a weak jaw, chin, eye, or nose. 4 is a middling match, not the default.
+ * The PSL is the average of every part rating (chin, jaw, eyes, nose, mouth, symmetry).
  */
 const OWN_CUES = [
   ["chinProj", -0.18, 0.07],
@@ -386,13 +385,23 @@ function cueMatch(value, center, sigma) {
   return Math.exp(-0.5 * z * z);
 }
 
-function limitedByWorst(values) {
-  const xs = values.filter((v) => typeof v === "number").slice().sort((a, b) => a - b);
+function averageParts(values) {
+  const xs = values.filter((v) => typeof v === "number");
   if (!xs.length) return 0.35;
-  const n = Math.min(2, xs.length);
   let s = 0;
-  for (let i = 0; i < n; i++) s += xs[i];
-  return s / n;
+  for (let i = 0; i < xs.length; i++) s += xs[i];
+  return s / xs.length;
+}
+
+function qualityToPsl(quality) {
+  let score;
+  if (quality < 0.22) score = 1.2 + (quality / 0.22) * 1.1;
+  else if (quality < 0.36) score = 2.3 + ((quality - 0.22) / 0.14) * 0.9;
+  else if (quality < 0.5) score = 3.2 + ((quality - 0.36) / 0.14) * 0.9;
+  else if (quality < 0.64) score = 4.1 + ((quality - 0.5) / 0.14) * 0.8;
+  else if (quality < 0.78) score = 4.9 + ((quality - 0.64) / 0.14) * 0.8;
+  else score = 5.7 + ((quality - 0.78) / 0.22) * 1.3;
+  return clamp(score, 1, 7.99);
 }
 
 export function rateOwnModel(metrics) {
@@ -406,19 +415,12 @@ export function rateOwnModel(metrics) {
     const q = cueMatch(m[key], OWN_CUES[i][1], OWN_CUES[i][2]);
     if (q == null) continue;
     matches.push(q);
-    named[key] = q;
+    named[key] = qualityToPsl(q);
   }
-  const quality = limitedByWorst(matches);
-  let score;
-  if (quality < 0.22) score = 1.2 + (quality / 0.22) * 1.1;
-  else if (quality < 0.36) score = 2.3 + ((quality - 0.22) / 0.14) * 0.9;
-  else if (quality < 0.5) score = 3.2 + ((quality - 0.36) / 0.14) * 0.9;
-  else if (quality < 0.64) score = 4.1 + ((quality - 0.5) / 0.14) * 0.8;
-  else if (quality < 0.78) score = 4.9 + ((quality - 0.64) / 0.14) * 0.8;
-  else score = 5.7 + ((quality - 0.78) / 0.22) * 1.3;
+  const score = averageParts(Object.values(named));
   return {
     score: clamp(score, 1, 7.99),
-    quality,
+    quality: averageParts(matches),
     cues: named
   };
 }
