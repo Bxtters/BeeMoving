@@ -1,5 +1,5 @@
 /* LOOK — network-first; bump CACHE to force clients off stale shells. */
-const CACHE = "look-v32-part-average";
+const CACHE = "look-v33-all-ratios";
 const SHELL = [
   "./",
   "./index.html",

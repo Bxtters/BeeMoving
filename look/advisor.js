@@ -366,17 +366,62 @@ function communityDistance(a, b) {
 
 /**
  * Own rater. Each cue is a tight match to an attractive center.
- * The PSL is the average of every part rating (chin, jaw, eyes, nose, mouth, symmetry).
+ * The PSL is the average of every measured ratio.
  */
 const OWN_CUES = [
   ["chinProj", -0.18, 0.07],
-  ["jawToCheek", 0.82, 0.045],
-  ["eyeAperture", 0.3, 0.035],
-  ["canthalLift", 0.008, 0.007],
+  ["jawToCheek", 0.82, 0.05],
+  ["eyeAperture", 0.3, 0.04],
+  ["canthalLift", 0.008, 0.008],
+  ["canthalDeg", 5, 4],
+  ["canthalSym", 1.5, 2.5],
   ["heightWidth", 1.16, 0.09],
-  ["noseToMouth", 0.61, 0.1],
+  ["noseToMouth", 0.62, 0.1],
   ["mouthToEyes", 0.93, 0.1],
-  ["symmetry", 0.8, 0.28]
+  ["symmetry", 0.8, 0.28],
+  ["thirdsTop", 0.33, 0.05],
+  ["thirdsMid", 0.22, 0.04],
+  ["thirdsLow", 0.5, 0.06],
+  ["trueUpper", 0.33, 0.05],
+  ["trueMid", 0.33, 0.05],
+  ["trueLower", 0.34, 0.05],
+  ["fwhr", 1.9, 0.25],
+  ["midfaceRatio", 1.0, 0.15],
+  ["esr", 0.46, 0.05],
+  ["interocularFW", 0.46, 0.05],
+  ["eyeSpacing", 2.1, 0.25],
+  ["eyeGapRule", 1.0, 0.18],
+  ["noseIntercanthal", 1.0, 0.18],
+  ["chinPhiltrum", 2.15, 0.4],
+  ["lipRatio", 1.6, 0.4],
+  ["lipFullness", 0.22, 0.08],
+  ["fifthEye", 1.0, 0.18],
+  ["fifthGap", 1.0, 0.18],
+  ["alarAlign", 0.08, 0.06],
+  ["noseTaper", 0.7, 0.15],
+  ["noseToFace", 0.22, 0.04],
+  ["ramusRatio", 0.75, 0.15],
+  ["gonialDeg", 125, 14],
+  ["mouthLevel", 0.008, 0.015],
+  ["noseMidline", 0.015, 0.03],
+  ["browSym", 0.008, 0.015],
+  ["eyeSizeSym", 0.04, 0.06],
+  ["commissure", 0.05, 0.04],
+  ["browTailAlign", 0.03, 0.03],
+  ["browRatio", 0.88, 0.08],
+  ["browEye", 0.16, 0.04],
+  ["templeToCheek", 0.98, 0.08],
+  ["jawDominance", 0.78, 0.08],
+  ["cheekBalance", 2.15, 0.25],
+  ["philtrum", 0.2, 0.05],
+  ["midLower", 0.9, 0.16],
+  ["lowerPhiltrumShare", 0.33, 0.07],
+  ["chinWidth", 0.7, 0.12],
+  ["mouthToJaw", 0.9, 0.15],
+  ["upperLipNose", 0.75, 0.18],
+  ["orbitalZ", 0, 0.03],
+  ["convexity", -0.04, 0.04],
+  ["irisSpan", 1, 0.08]
 ];
 
 function cueMatch(value, center, sigma) {

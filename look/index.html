@@ -1970,55 +1970,55 @@
     <section class="examples" aria-labelledby="examples-title">
       <div class="examples-head reveal">
         <h2 id="examples-title">Example reads</h2>
-        <p>The PSL is the average of every part: chin, jaw, eyes, nose, mouth, and symmetry. 4 is average.</p>
+        <p>The PSL is the average of every measured ratio: thirds, fifths, FWHR, midface, eyes, canthal tilt, nose, lips, jaw, chin-to-philtrum, gonial angle, and symmetry.</p>
       </div>
       <div class="celeb-list">
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-cavill.jpg" alt="Henry Cavill">
           <div class="celeb-copy">
-            <span class="psl">6.7</span>
+            <span class="psl">5.3</span>
             <h3>Henry Cavill</h3>
-            <p>Chad · average of chin, jaw, eyes, nose, mouth, symmetry</p>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-sweeney.jpg" alt="Sydney Sweeney">
           <div class="celeb-copy">
-            <span class="psl">6.2</span>
+            <span class="psl">5.2</span>
             <h3>Sydney Sweeney</h3>
-            <p>Chad lite · average of the part ratings</p>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-pascal.jpg" alt="Pedro Pascal">
           <div class="celeb-copy">
-            <span class="psl">6.2</span>
+            <span class="psl">5.2</span>
             <h3>Pedro Pascal</h3>
-            <p>Chad lite · average of the part ratings</p>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-robbie.jpg" alt="Margot Robbie">
           <div class="celeb-copy">
-            <span class="psl">6.1</span>
+            <span class="psl">5.2</span>
             <h3>Margot Robbie</h3>
-            <p>Chad lite · average of the part ratings</p>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-zendaya.jpg" alt="Zendaya">
           <div class="celeb-copy">
-            <span class="psl">6.2</span>
+            <span class="psl">4.9</span>
             <h3>Zendaya</h3>
-            <p>Chad lite · average of the part ratings</p>
+            <p>High tier · average of 52 ratios</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-chalamet.jpg" alt="Timothée Chalamet">
           <div class="celeb-copy">
-            <span class="psl">5.2</span>
+            <span class="psl">5.1</span>
             <h3>Timothée Chalamet</h3>
-            <p>Chad lite · average of the part ratings</p>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
       </div>
@@ -2550,7 +2550,19 @@
       leftBrowPeak: 105,
       rightBrowPeak: 334,
       leftNoseWing: 98,
-      rightNoseWing: 327
+      rightNoseWing: 327,
+      cupid: 0,
+      lowerLipBottom: 17,
+      leftNoseMid: 64,
+      rightNoseMid: 294,
+      leftRamus: 132,
+      rightRamus: 361,
+      leftBrowTail: 107,
+      rightBrowTail: 336,
+      chinLeft: 176,
+      chinRight: 400,
+      leftIris: 468,
+      rightIris: 473
     };
 
     const PAIR_SYMMETRY = [
@@ -4218,9 +4230,67 @@
           (g("rightEyeInner").y - g("rightEyeOuter").y)) /
         2;
       const chinProj = (g("noseTip").z || 0) - (chin.z || 0);
-
+      const intercanthal = dist(g("leftEyeInner"), g("rightEyeInner"));
+      const subnasale = g("subnasale");
+      const upperLipPt = g("upperLip");
+      const lowerLipPt = g("lowerLip");
+      const philH = dist(subnasale, upperLipPt);
+      const chinH = dist(lowerLipPt, chin);
+      const upperLipH = dist(g("cupid"), upperLipPt);
+      const lowerLipH = dist(lowerLipPt, g("lowerLipBottom"));
+      const fifth = bizyg / 5;
+      const leftAperture = dist(g("leftEyeUpper"), g("leftEyeLower"));
+      const rightAperture = dist(g("rightEyeUpper"), g("rightEyeLower"));
+      const noseMidW = dist(g("leftNoseMid"), g("rightNoseMid"));
+      const ramus =
+        (dist(g("leftRamus"), g("leftJaw")) + dist(g("rightRamus"), g("rightJaw"))) / 2;
+      const mandible =
+        (dist(g("leftJaw"), chin) + dist(g("rightJaw"), chin)) / 2;
+      function angleAt(a, vertex, c) {
+        const aspect = measureAspect || 1;
+        const v1x = (a.x - vertex.x) * aspect;
+        const v1y = a.y - vertex.y;
+        const v2x = (c.x - vertex.x) * aspect;
+        const v2y = c.y - vertex.y;
+        const d1 = Math.hypot(v1x, v1y) || 1e-6;
+        const d2 = Math.hypot(v2x, v2y) || 1e-6;
+        const cos = clamp((v1x * v2x + v1y * v2y) / (d1 * d2), -1, 1);
+        return (Math.acos(cos) * 180) / Math.PI;
+      }
+      function tiltDeg(inner, outer) {
+        const aspect = measureAspect || 1;
+        const dx = Math.abs((outer.x - inner.x) * aspect);
+        const dy = inner.y - outer.y;
+        return (Math.atan2(dy, dx || 1e-6) * 180) / Math.PI;
+      }
+      const leftTilt = tiltDeg(g("leftEyeInner"), g("leftEyeOuter"));
+      const rightTilt = tiltDeg(g("rightEyeInner"), g("rightEyeOuter"));
       const midlineX = (forehead.x + chin.x) / 2;
       const cheekSpanX = Math.abs(rightCheek.x - leftCheek.x) || 1e-6;
+      const browMid = mid(g("leftBrowPeak"), g("rightBrowPeak"));
+      const pupils = mid(eyeL, eyeR);
+      const fwhrH = dist(browMid, upperLipPt);
+      const midH = dist(pupils, upperLipPt);
+      const lowerThird = dist(subnasale, chin);
+      const alarErr =
+        (Math.abs(g("leftNoseWing").x - g("leftEyeInner").x) +
+          Math.abs(g("rightNoseWing").x - g("rightEyeInner").x)) /
+        cheekSpanX;
+      const commissure =
+        (Math.abs(g("leftMouth").x - eyeL.x) + Math.abs(g("rightMouth").x - eyeR.x)) /
+        cheekSpanX;
+      const browTailErr =
+        (Math.abs(g("leftBrowTail").x - g("leftEyeOuter").x) +
+          Math.abs(g("rightBrowTail").x - g("rightEyeOuter").x)) /
+        cheekSpanX;
+      const eyeZ =
+        ((g("leftEyeUpper").z || 0) + (g("rightEyeUpper").z || 0)) / 2;
+      const browZ =
+        ((g("leftBrowPeak").z || 0) + (g("rightBrowPeak").z || 0)) / 2;
+      const irisL = lm[L.leftIris];
+      const irisR = lm[L.rightIris];
+      const irisSpan = irisL && irisR ? dist(irisL, irisR) : eyeSpan;
+
       const yaw = (g("noseTip").x - midlineX) / cheekSpanX;
       let symErr = 0;
       let symN = 0;
@@ -4256,9 +4326,46 @@
         philtrum: philtrum / faceH,
         midLower: midface / (lowerFace || 1e-6),
         chinProj,
-        lipFullness: dist(g("upperLip"), g("lowerLip")) / (mouthW || 1e-6),
+        lipFullness: dist(upperLipPt, lowerLipPt) / (mouthW || 1e-6),
         yaw,
-        symmetry: clamp(1 - (symErr / Math.max(symN, 1)) * 1.1, 0, 1)
+        symmetry: clamp(1 - (symErr / Math.max(symN, 1)) * 1.1, 0, 1),
+        fwhr: bizyg / (fwhrH || 1e-6),
+        midfaceRatio: eyeSpan / (midH || 1e-6),
+        esr: eyeSpan / bizyg,
+        eyeGapRule: intercanthal / (eyeW || 1e-6),
+        noseIntercanthal: noseW / (intercanthal || 1e-6),
+        chinPhiltrum: chinH / (philH || 1e-6),
+        lipRatio: lowerLipH / (upperLipH || 1e-6),
+        fifthEye: eyeW / (fifth || 1e-6),
+        fifthGap: intercanthal / (fifth || 1e-6),
+        alarAlign: alarErr,
+        noseTaper: noseMidW / (noseW || 1e-6),
+        ramusRatio: ramus / (mandible || 1e-6),
+        gonialDeg:
+          (angleAt(g("leftTemple"), g("leftJaw"), chin) +
+            angleAt(g("rightTemple"), g("rightJaw"), chin)) /
+          2,
+        canthalDeg: (leftTilt + rightTilt) / 2,
+        canthalSym: Math.abs(leftTilt - rightTilt),
+        mouthLevel: Math.abs(g("leftMouth").y - g("rightMouth").y) / faceH,
+        noseMidline: Math.abs(g("noseTip").x - midlineX) / cheekSpanX,
+        browSym:
+          Math.abs(g("leftBrowPeak").y - g("rightBrowPeak").y) / faceH,
+        eyeSizeSym: Math.abs(leftAperture - rightAperture) / (eyeW || 1e-6),
+        commissure,
+        browTailAlign: browTailErr,
+        lowerPhiltrumShare: philH / (lowerThird || 1e-6),
+        trueUpper: dist(forehead, g("glabella")) / faceH,
+        trueMid: dist(g("glabella"), subnasale) / faceH,
+        trueLower: lowerThird / faceH,
+        chinWidth: dist(g("chinLeft"), g("chinRight")) / (bigonial || 1e-6),
+        mouthToJaw: mouthW / (bigonial || 1e-6),
+        upperLipNose: philH / (noseLen || 1e-6),
+        orbitalZ: browZ - eyeZ,
+        convexity:
+          (g("noseTip").z || 0) -
+          (((forehead.z || 0) + (chin.z || 0)) / 2),
+        irisSpan: irisSpan / (eyeSpan || 1e-6)
       };
     }
 
@@ -4394,6 +4501,7 @@
         tierLabel: tierInfo.label,
         match,
         samples: sampleCount,
+        ratioCount: own && own.cues ? Object.keys(own.cues).length : 0,
         metrics: samples,
         skin,
         factors,
@@ -4481,7 +4589,8 @@
           "PSL " +
           Settings.formatScore(display.score, userSettings.scoreDecimals) +
           " / 8 · " +
-          (ready || holdScore ? "true Adam is 8" : "keep still")
+          (ready || holdScore ? "true Adam is 8" : "keep still") +
+          (result.ratioCount ? " · " + result.ratioCount + " ratios" : "")
         : "PSL hidden — sign up or log in";
       scorePanel.hidden = false;
       applyTierClass(scoreValue, loggedIn ? tier : null);
