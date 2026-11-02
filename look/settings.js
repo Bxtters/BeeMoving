@@ -16,9 +16,11 @@ export const DEFAULTS = {
   autoSaveAccount: false,
   scoreDecimals: 1, // 0 | 1
   compactPlan: false,
-  showFoundation: true,
+  showFoundation: false,
   showGraph: true,
-  planTone: "coach" // coach | clinical
+  planTone: "coach", // coach | clinical
+  aiApiKey: "", // optional Gemini key — tips/schedule rewrite
+  aiEnhance: false
 };
 
 export function loadSettings() {
@@ -57,6 +59,8 @@ function normalize(s) {
   s.showFoundation = !!s.showFoundation;
   s.showGraph = !!s.showGraph;
   s.planTone = s.planTone === "clinical" ? "clinical" : "coach";
+  s.aiApiKey = typeof s.aiApiKey === "string" ? s.aiApiKey.trim() : "";
+  s.aiEnhance = !!s.aiEnhance && !!s.aiApiKey;
   return s;
 }
 

@@ -179,11 +179,28 @@
     }
 
     /* Example reads rail */
+    .reveal {
+      opacity: 0;
+      transform: translateY(42px);
+      filter: blur(6px);
+      transition:
+        opacity 0.75s var(--ease),
+        transform 0.75s var(--ease),
+        filter 0.75s var(--ease);
+    }
+
+    .reveal.is-in {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+
+    .home-hero.reveal { animation: none; }
+
     .examples {
-      margin-top: 8px;
-      padding-top: 32px;
+      margin-top: 4vh;
+      padding: 8vh 0 6vh;
       border-top: 1px solid var(--line);
-      animation: brandIn 0.9s var(--ease) 0.1s both;
     }
 
     .examples-head {
@@ -206,6 +223,57 @@
       color: rgba(232, 245, 239, 0.62);
       line-height: 1.45;
       max-width: 34rem;
+    }
+
+    .celeb-list {
+      max-width: 56rem;
+      margin: 8vh auto 0;
+      padding: 0 calc(18px + var(--safe-r)) 0 calc(18px + var(--safe-l));
+      display: grid;
+      gap: 22vh;
+    }
+
+    .celeb {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+      gap: 32px;
+      align-items: end;
+      min-height: 58vh;
+    }
+
+    .celeb:nth-child(even) .celeb-copy { order: -1; }
+
+    .celeb img {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      object-fit: cover;
+      object-position: center 20%;
+      display: block;
+      background: #111;
+    }
+
+    .celeb-copy .psl {
+      display: block;
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: clamp(3.2rem, 9vw, 5.4rem);
+      letter-spacing: -0.05em;
+      line-height: 0.85;
+      color: var(--mint);
+    }
+
+    .celeb-copy h3 {
+      margin: 12px 0 6px;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      letter-spacing: -0.03em;
+    }
+
+    .celeb-copy p {
+      margin: 0;
+      color: rgba(232, 245, 239, 0.62);
+      font-size: 1rem;
     }
 
     .examples-rail {
@@ -1689,6 +1757,110 @@
 
     .gate-copy .actions { justify-content: center; }
 
+    .photo-tools {
+      margin-top: 18px;
+      display: grid;
+      gap: 10px;
+      width: min(100%, 22rem);
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .photo-file {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      box-shadow: inset 0 0 0 1px var(--line);
+      cursor: pointer;
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--foam);
+    }
+
+    .photo-file:hover { filter: brightness(1.08); }
+
+    .photo-url-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .photo-url-row input {
+      flex: 1;
+      min-width: 0;
+      appearance: none;
+      border: 0;
+      background: rgba(7, 17, 15, 0.65);
+      color: var(--foam);
+      box-shadow: inset 0 0 0 1px var(--line);
+      padding: 10px 12px;
+      font-family: Figtree, sans-serif;
+      font-size: 0.9rem;
+    }
+
+    .photo-url-row button {
+      flex-shrink: 0;
+      min-height: 44px;
+      padding: 8px 12px;
+      font-size: 0.82rem;
+    }
+
+    .setting-stack {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .setting-stack input[type="password"],
+    .setting-stack input[type="text"] {
+      width: 100%;
+      appearance: none;
+      border: 0;
+      background: rgba(7, 17, 15, 0.65);
+      color: var(--foam);
+      box-shadow: inset 0 0 0 1px var(--line);
+      padding: 10px 12px;
+      font-family: Figtree, sans-serif;
+      font-size: 0.9rem;
+    }
+
+    /* Cleaner home density */
+    .home-hero {
+      min-height: min(62dvh, 480px);
+      gap: 14px;
+      padding: 18px 0 28px;
+    }
+
+    .home-headline { max-width: 16ch; }
+
+    .examples { padding-top: 24px; }
+    .examples-head p { max-width: 28rem; }
+    .example-read { flex: 0 0 min(58vw, 9.5rem); gap: 8px; }
+    .example-meta .psl { font-size: 1.2rem; }
+
+    .how { margin-top: 32px; padding-top: 22px; }
+    .how-step { padding: 14px 0; }
+
+    #home .section { margin-top: 32px; padding-top: 22px; }
+
+    body.hide-foundation #foundation { display: none; }
+
+    .factor-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin: 10px 0 0;
+      font-size: 0.78rem;
+      color: rgba(232, 245, 239, 0.55);
+    }
+
+    .factor-strip strong {
+      color: var(--mint);
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+    }
+
     @keyframes brandIn {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
@@ -1714,6 +1886,13 @@
       .home-cta button { flex: 1; min-width: 8rem; }
       .home-hero { min-height: min(78dvh, 620px); }
       .example-read { flex-basis: min(68vw, 10.5rem); }
+      .celeb {
+        grid-template-columns: 1fr;
+        min-height: 0;
+        gap: 14px;
+      }
+      .celeb:nth-child(even) .celeb-copy { order: 0; }
+      .celeb-list { gap: 12vh; }
 
       .results-bar {
         grid-template-columns: 1fr auto;
@@ -1750,6 +1929,11 @@
         animation: none !important;
         transition: none !important;
       }
+      .reveal {
+        opacity: 1;
+        transform: none;
+        filter: none;
+      }
     }
   </style>
 </head>
@@ -1770,97 +1954,97 @@
           </button>
         </div>
       </div>
-      <div class="home-hero">
+      <div class="home-hero reveal">
         <h1 class="brand">LOOK</h1>
-        <p class="home-headline">See your PSL. Know what moves it.</p>
-        <p class="home-lead">On-device face mocap rates you on the 1–8 scale, then builds a day-by-day plan from your read — nothing leaves your phone.</p>
+        <p class="home-headline">Your face. A real PSL.</p>
+        <p class="home-lead">On-device mocap scores bone, eyes, skin, and hair — then builds tips only for your gaps.</p>
         <div class="home-cta">
           <button type="button" id="goScanBtn">Scan my face</button>
           <button type="button" class="ghost" id="goTipsBtn">Last results</button>
         </div>
-        <p class="build-stamp" id="buildStamp">On-device account · no face uploads</p>
+        <p class="build-stamp" id="buildStamp">Camera remembered · no face uploads</p>
         <p id="accountStatus" class="build-stamp" style="text-transform:none;letter-spacing:0.02em"></p>
       </div>
     </div>
 
     <section class="examples" aria-labelledby="examples-title">
-      <div class="examples-head">
+      <div class="examples-head reveal">
         <h2 id="examples-title">Example reads</h2>
-        <p>Anonymized sample scores from the same on-device landmark pipeline — so you know what a LOOK result looks like before you scan.</p>
+        <p>The PSL is the average of every measured ratio: thirds, fifths, FWHR, midface, eyes, canthal tilt, nose, lips, jaw, chin-to-philtrum, gonial angle, and symmetry.</p>
       </div>
-      <div class="examples-rail" role="list">
-        <article class="example-read" data-tone="fair" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">6.1</span>
-            <span class="tier">Chad lite</span>
-            <span class="who">Sample · high midface</span>
+      <div class="celeb-list">
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-cavill.jpg" alt="Henry Cavill">
+          <div class="celeb-copy">
+            <span class="psl">5.3</span>
+            <h3>Henry Cavill</h3>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
-        <article class="example-read" data-tone="olive" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">4.4</span>
-            <span class="tier">High tier</span>
-            <span class="who">Sample · balanced thirds</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-sweeney.jpg" alt="Sydney Sweeney">
+          <div class="celeb-copy">
+            <span class="psl">5.2</span>
+            <h3>Sydney Sweeney</h3>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
-        <article class="example-read" data-tone="cool" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">3.2</span>
-            <span class="tier">Low tier</span>
-            <span class="who">Sample · soft jaw</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-pascal.jpg" alt="Pedro Pascal">
+          <div class="celeb-copy">
+            <span class="psl">5.2</span>
+            <h3>Pedro Pascal</h3>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
-        <article class="example-read" data-tone="deep" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">5.4</span>
-            <span class="tier">Chad lite</span>
-            <span class="who">Sample · strong canthal tilt</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-robbie.jpg" alt="Margot Robbie">
+          <div class="celeb-copy">
+            <span class="psl">5.2</span>
+            <h3>Margot Robbie</h3>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
-        <article class="example-read" data-tone="ash" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">2.1</span>
-            <span class="tier">Subhuman</span>
-            <span class="who">Sample · severe asymmetry</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-zendaya.jpg" alt="Zendaya">
+          <div class="celeb-copy">
+            <span class="psl">4.9</span>
+            <h3>Zendaya</h3>
+            <p>High tier · average of 52 ratios</p>
           </div>
         </article>
-        <article class="example-read" data-tone="warm" role="listitem">
-          <div class="example-face" aria-hidden="true"></div>
-          <div class="example-meta">
-            <span class="psl">7.2</span>
-            <span class="tier">Chad</span>
-            <span class="who">Sample · elite harmony</span>
+        <article class="celeb reveal">
+          <img src="samples/celebs/celeb-chalamet.jpg" alt="Timothée Chalamet">
+          <div class="celeb-copy">
+            <span class="psl">5.1</span>
+            <h3>Timothée Chalamet</h3>
+            <p>Chad lite · average of 53 ratios</p>
           </div>
         </article>
       </div>
     </section>
 
     <div class="home-shell">
-      <section class="how" aria-labelledby="how-title">
+      <section class="how reveal" aria-labelledby="how-title">
         <h2 id="how-title">What LOOK does</h2>
-        <p>Same loop every time: capture landmarks, place you on the PSL ladder, then personalize levers you can actually move.</p>
+        <p>Camera or photo in. Personalized plan out — unique to your measured deficits.</p>
         <div class="how-steps">
-          <div class="how-step">
+          <div class="how-step reveal">
             <div>
-              <h3>Scan on-device</h3>
-              <p>MediaPipe tracks 478 face points in your browser. Frames stay local — LOOK never uploads your face.</p>
+              <h3>Scan or load a photo</h3>
+              <p>Live camera, upload, or image URL. 478 landmarks + skin ROIs stay on-device.</p>
             </div>
           </div>
-          <div class="how-step">
+          <div class="how-step reveal">
             <div>
-              <h3>Lock a PSL 1–8</h3>
-              <p>Multi-sample ratios score symmetry, proportion, and harmony against a calibrated ladder. True Adam (8) stays unreachable by design.</p>
+              <h3>Multi-factor PSL 1–8</h3>
+              <p>Bone structure, eyes, skin clarity, hair framing, and symmetry — not a single “everyone is high tier” curve.</p>
             </div>
           </div>
-          <div class="how-step">
+          <div class="how-step reveal">
             <div>
-              <h3>Get a plan that fits</h3>
-              <p>Your graph, 7-day AM/PM routine, and product guide map to the gaps in your read — sleep, skin, grooming, expression.</p>
+              <h3>AI schedule from this scan</h3>
+              <p>The week is written from your bone, eye, skin, and hair numbers — not a shared template. On-device AI when the browser has it; Gemini in Settings if you want a cloud rewrite.</p>
             </div>
           </div>
         </div>
@@ -1875,7 +2059,7 @@
         <ul class="history-list" id="historyList"></ul>
       </section>
 
-      <section class="section" id="tips" aria-labelledby="tips-title">
+      <section class="section reveal" id="tips" hidden aria-labelledby="tips-title">
         <h2 id="tips-title">Your plan</h2>
         <div id="personalBanner" class="personal-banner">
           <p class="empty-plan" id="planEmpty">No scan yet. Sign in, hit <strong>Scan my face</strong>, then <strong>Lock PSL</strong> for your graph, daily plan, and product guide.</p>
@@ -1884,14 +2068,14 @@
         <div id="personalTips"></div>
       </section>
 
-      <section class="section" id="routines" aria-labelledby="routines-title">
+      <section class="section reveal" id="routines" hidden aria-labelledby="routines-title">
         <h2 id="routines-title">Your 7-day plan</h2>
         <p id="routineLead">After a scan, each day expands with AM/PM steps, products, and ingredients.</p>
         <div id="personalRoutine"></div>
         <p class="disclaimer">LOOK personalizes from on-device landmark geometry (symmetry / proportion / harmony / smile). It is not a medical or beauty diagnosis. Research citations describe general evidence; adapt care to your skin and clinician advice.</p>
       </section>
 
-      <section class="section" id="foundation" aria-labelledby="foundation-title">
+      <section class="section" id="foundation" hidden aria-labelledby="foundation-title">
         <h2 id="foundation-title">Why these levers</h2>
         <p>Bone structure is mostly fixed. Ratings still move with sleep, skin, grooming, expression, and body composition.</p>
         <article class="tip">
@@ -1951,11 +2135,21 @@
 
       <div class="gate" id="gate">
         <div class="gate-copy">
-          <h2>Turn on your face</h2>
-          <p>MediaPipe Face Landmarker tracks 478 points and scores classic proportions — nothing is uploaded.</p>
+          <h2>Rate a face</h2>
+          <p>Camera, a photo from your library, or an image URL — landmarks stay on this device.</p>
           <div class="actions">
             <button type="button" id="startBtn">Allow camera</button>
-            <button type="button" class="ghost" id="demoBtn">Try sample face</button>
+            <button type="button" class="ghost" id="demoBtn">Sample face</button>
+          </div>
+          <div class="photo-tools">
+            <label class="photo-file">
+              <input type="file" id="photoFile" accept="image/*" hidden>
+              <span>Upload photo</span>
+            </label>
+            <div class="photo-url-row">
+              <input type="url" id="photoUrl" placeholder="https://… image URL" autocomplete="off" inputmode="url">
+              <button type="button" class="ghost" id="photoUrlBtn">Rate URL</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2147,7 +2341,15 @@
   <div class="modal-backdrop" id="settingsModal" hidden>
     <div class="modal modal-wide" role="dialog" aria-labelledby="settingsModalTitle" aria-modal="true">
       <h2 id="settingsModalTitle">Settings</h2>
-      <p class="privacy">Customize how LOOK presents scores, plans, and the scan. Preferences stay on this device — they are not uploaded.</p>
+      <p class="privacy">Scores, plans, and account details stay on this device.</p>
+
+      <div class="setting-row" id="settingsAccountRow">
+        <div class="setting-copy">
+          <strong>Account</strong>
+          <span id="settingsAccountHint">Sign in from the home screen. Name, photo, and accent are edited here — not during sign-in.</span>
+        </div>
+        <button type="button" class="ghost" id="settingsEditProfile">Edit profile</button>
+      </div>
 
       <div class="setting-row">
         <div class="setting-copy">
@@ -2266,6 +2468,21 @@
         <label class="switch"><input type="checkbox" id="setAutoSave"><i></i></label>
       </div>
 
+      <div class="setting-row">
+        <div class="setting-copy">
+          <strong>Cloud AI schedule (Gemini)</strong>
+          <span>On lock, LOOK writes a 7-day schedule from your ratios. If this browser has on-device AI it uses that. A Gemini key here rewrites the week in the cloud. Leave the key blank to stay fully on-device.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="setAiEnhance"><i></i></label>
+      </div>
+      <div class="setting-row setting-stack">
+        <div class="setting-copy">
+          <strong>Gemini API key</strong>
+          <span>Stored only in this browser. Used solely when AI tip rewrite is on.</span>
+        </div>
+        <input type="password" id="setAiApiKey" placeholder="AIza…" autocomplete="off" spellcheck="false">
+      </div>
+
       <div class="modal-actions">
         <button type="button" id="settingsSave">Done</button>
         <button type="button" class="ghost" id="settingsReset">Reset defaults</button>
@@ -2281,6 +2498,7 @@
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/+esm";
     import * as Vault from "./vault.js";
     import * as Settings from "./settings.js";
+    import * as Advisor from "./advisor.js";
     import { GOOGLE_CLIENT_ID as CONFIG_GOOGLE_CLIENT_ID } from "./config.js";
 
     const MP_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm";
@@ -2332,7 +2550,19 @@
       leftBrowPeak: 105,
       rightBrowPeak: 334,
       leftNoseWing: 98,
-      rightNoseWing: 327
+      rightNoseWing: 327,
+      cupid: 0,
+      lowerLipBottom: 17,
+      leftNoseMid: 64,
+      rightNoseMid: 294,
+      leftRamus: 132,
+      rightRamus: 361,
+      leftBrowTail: 107,
+      rightBrowTail: 336,
+      chinLeft: 176,
+      chinRight: 400,
+      leftIris: 468,
+      rightIris: 473
     };
 
     const PAIR_SYMMETRY = [
@@ -2478,161 +2708,6 @@
     let chartWeeks = userSettings.chartWeeks || 4;
     let activePlan = null;
 
-    const TIP_BANK = {
-      sleep: {
-        id: "sleep",
-        title: "Rebuild symmetry cues with sleep debt payoff",
-        body: "Your symmetry bar is underperforming relative to the rest of your read. Short sleep drives uneven under-eye fluid, dull tone, and micro-asymmetry that both humans and landmark models punish. A fixed wake time for 7 nights is the highest-ROI move before you chase products.",
-        cite: "Axelsson et al. — sleep & facial attractiveness",
-        products: [
-          {
-            name: "Blue-light dimmer / night mode after sunset",
-            why: "Helps melatonin onset so sleep is easier to hit.",
-            ingredients: "Habit tool — not topical; pair with cool dark room"
-          },
-          {
-            name: "Magnesium glycinate (if your clinician okays it)",
-            why: "Some people find evening magnesium supports wind-down; not a beauty drug.",
-            ingredients: "Magnesium glycinate (avoid oxide if it upsets your stomach)"
-          }
-        ]
-      },
-      lighting: {
-        id: "lighting",
-        title: "Standardize light so your score is about you",
-        body: "Side lighting exaggerates landmark asymmetry. For every re-scan, use the same front window or ring light at eye level. That way week-to-week changes reflect habits, not lamp position.",
-        cite: "Imaging / pose bias in face tracking",
-        products: [
-          {
-            name: "Ring light or clamp LED (3000–4000K)",
-            why: "Even fill reduces false asymmetry in mocap and selfies.",
-            ingredients: "Hardware — look for CRI 90+ if listed"
-          }
-        ]
-      },
-      smile: {
-        id: "smile",
-        title: "Unlock harmony with a genuine eye-smile",
-        body: "Your harmony / smile signal is the fastest controllable lever. Neutral faces under-rate even when bone ratios are fine. Practice a soft Duchenne smile (cheeks lift, eyes soften) before locking a score or taking photos.",
-        cite: "Social perception — positive expression & attractiveness",
-        products: [
-          {
-            name: "Lip balm with humectants",
-            why: "Comfortable lips make a natural smile easier on camera.",
-            ingredients: "Hyaluronic acid, glycerin, shea / squalane; avoid heavy fragrance if sensitive"
-          },
-          {
-            name: "Gentle whitening toothpaste (peroxide-based, enamel-safe)",
-            why: "Dental aesthetics strongly affect smile ratings.",
-            ingredients: "Hydrated silica + low-dose hydrogen peroxide; skip abrasive charcoal pastes"
-          }
-        ]
-      },
-      grooming: {
-        id: "grooming",
-        title: "Reframe proportion with a silhouette reset",
-        body: "Hair length, brow density, and facial-hair edges change how wide/long the face reads — without changing bone. A barber who understands your face shape plus tidy brows usually moves perceived proportion more than a new serum this month.",
-        cite: "Grooming & dental aesthetics literature",
-        products: [
-          {
-            name: "Brow gel or clear mascara",
-            why: "Lifts and sets brows so the upper third looks intentional.",
-            ingredients: "Film-formers + panthenol; fragrance-free preferred"
-          },
-          {
-            name: "Beard / edge trimmer + balm",
-            why: "Clean cheek and neck lines sharpen jaw framing.",
-            ingredients: "Plant oils + vitamin E balm after trimming"
-          }
-        ]
-      },
-      fitness: {
-        id: "fitness",
-        title: "Sharpen facial definition via body composition",
-        body: "Softer cheek/jaw balance in your proportion read often tracks facial adiposity. Progressive strength training and a slight calorie deficit (if appropriate for you) outperform viral “face yoga” for lasting contour changes.",
-        cite: "Body composition & facial adiposity",
-        products: [
-          {
-            name: "Protein-forward meals or powder",
-            why: "Supports training recovery while in a mild deficit.",
-            ingredients: "Whey or pea protein isolate; creatine monohydrate 3–5g if you train"
-          }
-        ]
-      },
-      skin: {
-        id: "skin",
-        title: "Raise clarity — the cue people rate as “healthy”",
-        body: "Even tone and low inflammation punch above raw geometry. Daily broad-spectrum SPF plus a short evening routine (barrier first, then one active) protects the traits both raters and cameras reward.",
-        cite: "Dermatology; skin homogeneity studies",
-        products: [
-          {
-            name: "Mineral or hybrid SPF 30–50",
-            why: "UV is the main preventable driver of uneven tone and aging.",
-            ingredients: "Zinc oxide and/or avobenzone + octocrylene; Tinosorb filters where available"
-          },
-          {
-            name: "Niacinamide serum 5%",
-            why: "Supports barrier and more even-looking tone with low irritation for most.",
-            ingredients: "Niacinamide (vitamin B3) 4–5%, glycerin"
-          },
-          {
-            name: "Night retinoid (start slow)",
-            why: "Evidence-backed for texture and photoaging — introduce 2–3 nights/week.",
-            ingredients: "Adapalene 0.1% (OTC) or retinol 0.2–0.3%; buffer with moisturizer"
-          }
-        ]
-      },
-      posture: {
-        id: "posture",
-        title: "Neutral head pose for honest proportions",
-        body: "Chin-down phone posture shortens the midface in captures. For scans and photos: camera at eye height, ears over shoulders, soft chin.",
-        cite: "Pose effects on facial metrics",
-        products: [
-          {
-            name: "Laptop riser or phone tripod",
-            why: "Keeps daily camera angle at eye level so you do not train a downward tilt.",
-            ingredients: "—"
-          }
-        ]
-      },
-      hydration: {
-        id: "hydration",
-        title: "Reduce overnight puff that blurs symmetry",
-        body: "Late alcohol and salty meals amplify asymmetric morning puff. Front-load water earlier, ease late drinks, and sleep slightly elevated if you are prone to under-eye fluid.",
-        cite: "Lifestyle / dermatologic aging",
-        products: [
-          {
-            name: "Caffeine eye gel (optional AM)",
-            why: "Temporary de-puff for scans/photos — cosmetic, not structural.",
-            ingredients: "Caffeine + glycerin or hyaluronic acid"
-          },
-          {
-            name: "Humectant moisturizer",
-            why: "Keeps barrier happy so skin does not look tight or dull.",
-            ingredients: "Hyaluronic acid, ceramides (NP/AP), cholesterol, glycerin"
-          }
-        ]
-      },
-      maintain: {
-        id: "maintain",
-        title: "Protect a strong baseline",
-        body: "Your geometry is already working. Consistency beats novelty: SPF, sleep schedule, and a monthly grooming appointment keep scores stable across lighting and days.",
-        cite: "Maintenance of appearance cues",
-        products: [
-          {
-            name: "Daily SPF you will actually reapply",
-            why: "The best sunscreen is the one that fits your texture preference.",
-            ingredients: "Zinc oxide and/or modern organic UV filters; PA+++ or equivalent"
-          },
-          {
-            name: "Azelaic acid 10% (optional)",
-            why: "Helps redness / uneven tone for many without heavy irritation.",
-            ingredients: "Azelaic acid 10%"
-          }
-        ]
-      }
-    };
-
     const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
     function setStatus(text, tone) {
@@ -2653,282 +2728,41 @@
       localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
     }
 
-    function buildPersonalPlan(result) {
-      const score = result.score;
-      const sym = result.sym;
-      const prop = result.prop;
-      const harm = result.harm;
-      const smile = result.smile || 0;
-      const tierInfo = pslTierFromScore(score);
-      const tier = result.tier || tierInfo.tier;
-      const tierLabel = result.tierLabel || tierInfo.label;
-      const focuses = [];
-      const tipIds = [];
-
-      const pushFocus = (label, tipId, weak) => {
-        focuses.push({ label, weak: !!weak });
-        if (tipId && tipIds.indexOf(tipId) === -1) tipIds.push(tipId);
+    function buildPersonalPlan(result, extras) {
+      const metrics = (extras && extras.metrics) || (result && result.metrics) || null;
+      const skin = (extras && extras.skin) || (result && result.skin) || null;
+      const hair = metrics ? Advisor.analyzeHair(metrics) : null;
+      const eyes = metrics ? Advisor.analyzeEyes(metrics) : null;
+      const bone = metrics ? Advisor.analyzeBone(metrics) : null;
+      const factors = {
+        bone: (result && result.factors && result.factors.bone) || (bone && bone.structure) || result.prop || 0.5,
+        eyes: (result && result.factors && result.factors.eyes) || (eyes && eyes.quality) || 0.5,
+        skin: (result && result.factors && result.factors.skin) || (skin && skin.clarity) || 0.55,
+        hair: (result && result.factors && result.factors.hair) || (hair && hair.framing) || 0.55,
+        symmetry: result.sym || 0.5,
+        expression: clamp(0.55 + (result.smile || 0) * 0.25, 0, 1),
+        ideal: (result && result.match) || 0.5
       };
-
-      if (sym < 0.62) pushFocus("Symmetry", "sleep", true);
-      else pushFocus("Symmetry", null, false);
-      if (prop < 0.58) pushFocus("Proportion", "fitness", true);
-      else pushFocus("Proportion", null, false);
-      if (harm < 0.58 || smile < 0.25) pushFocus("Harmony", "smile", true);
-      else pushFocus("Harmony", null, false);
-
-      if (sym < 0.62) tipIds.push("lighting", "hydration");
-      if (prop < 0.58) tipIds.push("grooming", "posture");
-      if (harm < 0.58 || smile < 0.25) tipIds.push("smile", "grooming");
-      if (score < 5.2) tipIds.push("skin", "sleep");
-      if (score >= 6 && tipIds.length < 2) tipIds.push("maintain", "skin");
-
-      const seen = {};
-      const ordered = [];
-      tipIds.forEach((id) => {
-        if (TIP_BANK[id] && !seen[id]) {
-          seen[id] = true;
-          ordered.push(id);
-        }
-      });
-      while (ordered.length < 3) {
-        ["skin", "sleep", "grooming"].forEach((id) => {
-          if (ordered.length < 4 && !seen[id]) {
-            seen[id] = true;
-            ordered.push(id);
-          }
+      const profile =
+        (extras && extras.profile) ||
+        Advisor.buildFaceProfile(metrics || {}, factors, {
+          skin: skin || { clarity: factors.skin },
+          hair: hair || { framing: factors.hair },
+          eyes: eyes || { quality: factors.eyes },
+          bone: bone || { structure: factors.bone },
+          smile: result.smile || 0
         });
-      }
-
-      const tips = ordered.slice(0, 4).map((id) => TIP_BANK[id]);
-      const routine = [];
-      const weakSym = sym < 0.62;
-      const weakProp = prop < 0.58;
-      const weakHarm = harm < 0.58 || smile < 0.25;
-
-      routine.push({
-        title: "Morning — protect",
-        detail: weakSym
-          ? "Cool splash, caffeine sparingly, SPF 30+. Extra sleep last night pays off most in the symmetry bar."
-          : "Gentle cleanse → moisturizer → SPF 30+ every day, clouds included."
-      });
-      routine.push({
-        title: "Day — posture & light",
-        detail: weakProp
-          ? "Phone/camera at eye level; walk 8–10k steps. Framing and lower facial adiposity move proportion."
-          : "Two short outdoor walks; keep screens at eye height to avoid a constant downward tilt."
-      });
-      routine.push({
-        title: "Expression reps",
-        detail: weakHarm
-          ? "Before photos or a re-scan: one genuine smile in a mirror (eyes soft). Warmth is your fastest harmony lift."
-          : "Keep a natural smile in first-meet photos — don’t force a wide grin."
-      });
-      routine.push({
-        title: "Night — repair",
-        detail: score < 5.4
-          ? "Cleanse → simple treatment → moisturizer. Skip late alcohol; aim for 7–9 hours with a fixed wake time."
-          : "Cleanse → treatment if you use one → moisturizer. Protect the baseline with sleep."
-      });
-      routine.push({
-        title: weakProp ? "Train — 3× this week" : "Groom — this week",
-        detail: weakProp
-          ? "Full-body strength 3× and protein-forward meals. Recheck LOOK in 14 days for proportion drift."
-          : "Haircut/trim, brows, facial hair lines, clean glasses. Re-scan after the reset."
-      });
-      routine.push({
-        title: "Sunday — re-scan",
-        detail:
-          "Same room light, eye-level camera, soft smile. Compare symmetry / proportion / harmony bars — not just the headline number."
-      });
-
-      const tone = userSettings.planTone === "clinical" ? "clinical" : "coach";
-      let summary =
-        tone === "clinical"
-          ? "PSL tier <strong>" +
-            tierLabel +
-            "</strong>. Prioritized interventions map to your lowest landmark-derived bars."
-          : "You’re on the PSL 1–8 scale as <strong>" +
-            tierLabel +
-            "</strong>. True Adam is 8 and unreachable. We ranked habits by your weakest bars — climb with the plan below.";
-      if (tier === "chad") {
-        summary =
-          tone === "clinical"
-            ? "PSL tier Chad (6.5–8) — maintenance emphasis on sleep, photoprotection, and grooming. True Adam (8) is unreachable."
-            : "PSL tier <strong>Chad</strong> — protect the baseline with sleep, SPF, and sharp grooming. Nobody hits true Adam (8).";
-      } else if (tier === "chadlite") {
-        summary =
-          tone === "clinical"
-            ? "PSL tier Chad lite (5–6.5) — polish and consistency are the nearest rung to Chad."
-            : "PSL tier <strong>Chad lite</strong> — expression, skin, and grooming can push you toward Chad.";
-      } else if (tier === "high-normie") {
-        summary =
-          tone === "clinical"
-            ? "PSL tier High tier normie (4.25–5) — framing, skin, and expression close the gap to Chad lite."
-            : "PSL tier <strong>High tier normie</strong> — polish, smile, and consistency can push you into Chad lite.";
-      } else if (tier === "mid-normie") {
-        summary =
-          tone === "clinical"
-            ? "PSL tier Mid tier normie (3.5–4.25) — recovery, framing, and body-composition levers dominate near-term mobility."
-            : "PSL tier <strong>Mid tier normie</strong> — sleep, silhouette, and smile are your fastest climb levers.";
-      } else if (tier === "low-normie") {
-        summary =
-          tone === "clinical"
-            ? "PSL tier Low tier normie (2.5–3.5) — sleep debt, lighting, and basic grooming before advanced maxes."
-            : "PSL tier <strong>Low tier normie</strong> — lock sleep, light, and grooming before chasing higher rungs.";
-      } else {
-        summary =
-          tone === "clinical"
-            ? "PSL tier Subhuman (1–2.5) — prioritize sleep debt payoff, even lighting, and barrier-first skin."
-            : "PSL tier <strong>Subhuman</strong> — start with sleep, light, and basic grooming before chasing maxes.";
-      }
-
-      const scoreTxt = Settings.formatScore(score, userSettings.scoreDecimals);
-      const narrative =
-        (tone === "clinical" ? "Locked PSL: <strong>" : "Locked PSL: <strong>") +
-        tierLabel +
-        "</strong> (PSL " +
-        scoreTxt +
-        "). Symmetry <strong>" +
-        Math.round(sym * 100) +
-        "%</strong>, proportion <strong>" +
-        Math.round(prop * 100) +
-        "%</strong>, harmony <strong>" +
-        Math.round(harm * 100) +
-        "%</strong>" +
-        (smile < 0.25
-          ? tone === "clinical"
-            ? "; smile / expression signal is low."
-            : ", with a low smile signal — meaning warmth is underused."
-          : smile > 0.45
-            ? tone === "clinical"
-              ? "; smile signal supports harmony."
-              : ", and your smile is already helping harmony."
-            : ".") +
-        " " +
-        (weakSym
-          ? tone === "clinical"
-            ? "Asymmetry-sensitive covariates (sleep debt, fluid retention, uneven illumination) dominate. "
-            : "Asymmetry-sensitive cues (sleep, puff, uneven light) are your first constraint. "
-          : tone === "clinical"
-            ? "Symmetry is stable relative to peers in this capture. "
-            : "Symmetry is relatively stable, so we will not over-rotate on “fixing bone.” ") +
-        (weakProp
-          ? tone === "clinical"
-            ? "Proportion index suggests silhouette and body-composition levers over contour devices. "
-            : "Proportion has room: silhouette grooming and body-composition habits matter more than new contour gadgets. "
-          : tone === "clinical"
-            ? "Proportion is within a favorable band — hold framing constant on retest. "
-            : "Proportion is holding — keep framing consistent when you re-scan. ") +
-        (weakHarm
-          ? tone === "clinical"
-            ? "Harmony remains the most plastic short-horizon domain (expression, lip condition, polish)."
-            : "Harmony is the open door: expression, lips, and polish can move the number this week without changing structure."
-          : tone === "clinical"
-            ? "Harmony is adequate — maintain photoprotection and natural expression at lock-in."
-            : "Harmony is solid — protect it with SPF and a natural smile on lock-in.");
-
-      // Controllable headroom (honest caps — not surgery/filters)
-      const fast =
-        (weakHarm || smile < 0.3 ? 0.45 : 0.15) +
-        (weakSym ? 0.25 : 0.08) +
-        0.15;
-      const mid = (score < 5.6 ? 0.35 : 0.18) + (weakSym ? 0.12 : 0.05);
-      const slow = weakProp ? 0.55 : 0.2;
-      const totalLift = Math.min(1.6, Math.max(0.28, fast + mid + slow) * (score >= 6.8 ? 0.55 : 1));
-      const target = clamp(score + totalLift, score, PSL_MAX);
-
-      const primary = tips[0] || TIP_BANK.skin;
-      const secondary = tips[1] || TIP_BANK.sleep;
-      const days = DAY_NAMES.map(function (name, idx) {
-        const focusTip = idx % 2 === 0 ? primary : secondary;
-        const products = (focusTip.products || []).slice(0, 2);
-        let am = "Cleanse gently → moisturizer → SPF 30+ (zinc oxide and/or avobenzone).";
-        let pm = "Cleanse → one active max → moisturizer with ceramides.";
-        let habit = "7–9 hours sleep; water earlier in the evening.";
-        if (idx === 0) {
-          habit = weakSym
-            ? "Set a fixed wake alarm for the next 7 days; cool dark room tonight."
-            : "Photo/scan baseline in even front light at eye level.";
-        } else if (idx === 1) {
-          am = weakHarm
-            ? "SPF, then lip balm (glycerin / HA). Practice one soft eye-smile in the mirror."
-            : am;
-          products.push({
-            name: "Niacinamide 5% (AM after water-based serum)",
-            why: "Tone evenness supports “healthy” ratings.",
-            ingredients: "Niacinamide 4–5%"
-          });
-        } else if (idx === 2) {
-          habit = weakProp
-            ? "Strength session (full body) + 8k steps. Protein at each meal."
-            : "Walk after lunch; check posture when on your phone.";
-          pm = "Skip new actives if you trained hard — barrier cream only (ceramides + cholesterol).";
-        } else if (idx === 3) {
-          habit = "Grooming pass: brows, hairline, facial hair edges, clean glasses.";
-          products.push({
-            name: "Brow gel + trimmer",
-            why: "Silhouette cleanup for proportion.",
-            ingredients: "Panthenol gel; wipe edges with fragrance-free balm"
-          });
-        } else if (idx === 4) {
-          pm = weakHarm || score < 7
-            ? "Introduce adapalene 0.1% or retinol on two pea-size dots (buffer with moisturizer). Not on broken skin."
-            : pm;
-          products.push({
-            name: "Adapalene 0.1% gel (OTC) — 2–3 nights/week",
-            why: "Texture / photoaging evidence; go slow.",
-            ingredients: "Adapalene 0.1%"
-          });
-        } else if (idx === 5) {
-          habit = "Social day: natural smile in photos; even window light. Optional caffeine eye gel if puffy.";
-          am = "SPF reapply if outdoors; mineral stick for easy touch-ups (zinc oxide).";
-        } else {
-          habit = "Re-scan LOOK in the same room light. Compare bars, not just the headline score.";
-          pm = "Recovery: no new acids. Ceramide moisturizer + early night.";
-        }
-        // dedupe products by name
-        const seenP = {};
-        const uniq = [];
-        products.forEach((p) => {
-          if (p && p.name && !seenP[p.name]) {
-            seenP[p.name] = true;
-            uniq.push(p);
-          }
-        });
-        return {
-          name,
-          title: name + " — " + focusTip.title.split(" ").slice(0, 4).join(" "),
-          focus: focusTip.title,
-          am,
-          pm,
-          habit,
-          products: uniq.slice(0, 3),
-          why: focusTip.body
-        };
-      });
-
-      return {
-        score,
-        sym,
-        prop,
-        harm,
-        smile,
-        label: tierLabel,
-        tier,
-        tierLabel,
-        focuses,
-        tips,
-        routine,
-        days,
-        narrative,
-        summary,
-        lift: { fast, mid, slow, total: totalLift, target },
-        at: Date.now()
+      const tierInfo = pslTierFromScore(result.score);
+      const enriched = {
+        ...result,
+        tier: result.tier || tierInfo.tier,
+        tierLabel: result.tierLabel || result.label || tierInfo.label,
+        factors
       };
+      return Advisor.buildPersonalPlan(enriched, profile, userSettings);
     }
 
-    /** Series of weekly scores for baseline + with-plan curves */
+        /** Series of weekly scores for baseline + with-plan curves */
     function projectionSeries(plan, weeks) {
       const start = plan.score;
       const target = plan.lift.target;
@@ -3144,7 +2978,23 @@
         .join("");
     }
 
+    function withFreshWeek(plan) {
+      if (!plan || plan.scheduleVersion === "v30") return plan;
+      const profile = plan.profile || {};
+      plan.days = Advisor.writeMetricSchedule(
+        profile.issues || [],
+        profile.metrics || {},
+        plan.factors || profile.factors || {},
+        plan.smile || 0,
+        plan.tips || []
+      );
+      plan.scheduleVersion = "v30";
+      try { savePlan(plan); } catch (_) {}
+      return plan;
+    }
+
     function renderPlan(plan) {
+      plan = plan ? withFreshWeek(plan) : plan;
       if (!plan) {
         personalBanner.innerHTML =
           '<p class="empty-plan">No scan yet. Tap <strong>Scan my face</strong>, lock your score, then see your graph and plan.</p>';
@@ -3180,13 +3030,34 @@
         })
         .join("");
 
+      const f = plan.factors || {};
+      if (f.bone != null) {
+        personalBanner.innerHTML +=
+          '<div class="factor-strip">' +
+          "<span>Bone <strong>" +
+          Math.round((f.bone || 0) * 100) +
+          "%</strong></span>" +
+          "<span>Eyes <strong>" +
+          Math.round((f.eyes || 0) * 100) +
+          "%</strong></span>" +
+          "<span>Skin <strong>" +
+          Math.round((f.skin || 0) * 100) +
+          "%</strong></span>" +
+          "<span>Hair <strong>" +
+          Math.round((f.hair || 0) * 100) +
+          "%</strong></span>" +
+          "</div>";
+      }
+
       renderTipsInto(personalTips, plan);
       routineLead.textContent =
-        "Symmetry " +
+        "Advisor · " +
+        (plan.advisor || "local") +
+        " · Sym " +
         Math.round(plan.sym * 100) +
-        "% · Proportion " +
+        "% · Prop " +
         Math.round(plan.prop * 100) +
-        "% · Harmony " +
+        "% · Harm " +
         Math.round(plan.harm * 100) +
         "%";
       renderRoutineInto(personalRoutine, plan);
@@ -3196,6 +3067,7 @@
     }
 
     function fillResults(plan) {
+      plan = withFreshWeek(plan);
       activePlan = plan;
       chartWeeks = userSettings.chartWeeks || chartWeeks;
       const tierInfo = pslTierFromScore(plan.score);
@@ -3205,13 +3077,27 @@
       resultsMeta.textContent =
         "PSL " +
         Settings.formatScore(plan.score, userSettings.scoreDecimals) +
-        " / 8 · true Adam is 8 · locked";
+        " / 8 · true Adam is 8 · " +
+        (plan.advisor || "local advisor");
       applyTierClass(resultsScore, tier);
       paintPslScale(document.getElementById("pslScaleResults"), tier);
       const narr = document.getElementById("resultsNarrative");
       if (narr) {
-        narr.hidden = !plan.narrative;
-        narr.innerHTML = plan.narrative || "";
+        const f = plan.factors || {};
+        const factorHtml =
+          f.bone != null
+            ? '<div class="factor-strip"><span>Bone <strong>' +
+              Math.round((f.bone || 0) * 100) +
+              "%</strong></span><span>Eyes <strong>" +
+              Math.round((f.eyes || 0) * 100) +
+              "%</strong></span><span>Skin <strong>" +
+              Math.round((f.skin || 0) * 100) +
+              "%</strong></span><span>Hair <strong>" +
+              Math.round((f.hair || 0) * 100) +
+              "%</strong></span></div>"
+            : "";
+        narr.hidden = false;
+        narr.innerHTML = (plan.narrative || "") + factorHtml;
       }
       paintResBars(plan.sym, plan.prop, plan.harm);
       renderTipsInto(resultsTipList, plan);
@@ -3257,7 +3143,20 @@
       }
     }
 
-    function showScan() {
+    async function cameraPermissionGranted() {
+      try {
+        if (!navigator.permissions || !navigator.permissions.query) {
+          return localStorage.getItem("look.cameraOk") === "1";
+        }
+        const status = await navigator.permissions.query({ name: "camera" });
+        return status.state === "granted" || localStorage.getItem("look.cameraOk") === "1";
+      } catch (_) {
+        return localStorage.getItem("look.cameraOk") === "1";
+      }
+    }
+
+    function showScan(opts) {
+      const options = opts || {};
       view = "scan";
       home.hidden = true;
       scan.hidden = false;
@@ -3265,11 +3164,32 @@
       document.body.classList.remove("mode-home", "mode-results");
       document.body.classList.add("mode-scan");
       history.replaceState({ view: "scan" }, "", "#scan");
+      const resumeHint = localStorage.getItem("look.cameraOk") === "1";
       setStatus(
         accountSession
-          ? "Allow the camera, center your face, then Lock PSL."
-          : "Allow the camera — sign up or log in to reveal and lock your PSL."
+          ? resumeHint
+            ? "Resuming camera — center your face, then Lock PSL."
+            : "Allow the camera, center your face, then Lock PSL."
+          : resumeHint
+            ? "Resuming camera — sign up or log in to reveal and lock your PSL."
+            : "Allow the camera — sign up or log in to reveal and lock your PSL."
       );
+      if (options.skipAutoCamera) return;
+      // Auto-restart when the browser already granted camera (no re-tap / refresh).
+      cameraPermissionGranted().then((ok) => {
+        if (view !== "scan" || mode === "demo") return;
+        if (!scorePanel.hidden && !stream) return; // photo/demo already rated
+        if (stream && video.srcObject) {
+          gate.hidden = true;
+          return;
+        }
+        if (ok) {
+          gate.hidden = true;
+          boot().catch(() => {
+            if (view === "scan" && mode !== "demo") gate.hidden = false;
+          });
+        }
+      });
     }
 
     function showResults(plan) {
@@ -3339,7 +3259,27 @@
       }
       holdScore = true;
       held = { ...src };
-      const plan = buildPersonalPlan(src);
+      setStatus("AI is writing a schedule from this scan…");
+      let plan = buildPersonalPlan(src, {
+        metrics: src.metrics,
+        skin: src.skin,
+        profile: null
+      });
+      try {
+        const aiPlan = await Advisor.personalizeScheduleWithAI(
+          plan,
+          userSettings.aiEnhance ? userSettings.aiApiKey : ""
+        );
+        if (aiPlan && aiPlan.advisor && aiPlan.advisor !== plan.advisor) {
+          plan = aiPlan;
+          setStatus("Schedule written · " + plan.advisor);
+        } else {
+          setStatus("Schedule written from your measured ratios.");
+        }
+      } catch (e) {
+        console.warn(e);
+        setStatus((e && e.message) || "Cloud AI skipped — schedule uses your measured ratios.", "warn");
+      }
       savePlan(plan);
       showResults(plan);
       if (userSettings.autoSaveAccount && accountSession) {
@@ -3436,6 +3376,20 @@
       [profileBtn, profileBtnResults].forEach((el) => {
         if (el) el.hidden = !loggedIn;
       });
+
+      const homePlan = document.getElementById("tips");
+      const homeRoutine = document.getElementById("routines");
+      const homeFoundation = document.getElementById("foundation");
+      [homePlan, homeRoutine, homeFoundation].forEach((el) => {
+        if (el) el.hidden = !loggedIn;
+      });
+      if (loggedIn) {
+        requestAnimationFrame(() => {
+          [homePlan, homeRoutine, homeFoundation].forEach((el) => {
+            if (el && !el.hidden) el.classList.add("is-in");
+          });
+        });
+      }
 
       if (loggedIn) {
         const name = accountSession.profile.displayName || accountSession.displayName;
@@ -3736,9 +3690,10 @@
 
     async function finishGoogleIdentity(identity) {
       accountSession = await Vault.loginWithGoogleIdentity(identity);
+      await Vault.persistSession(accountSession);
       authModal.hidden = true;
       await refreshAccountChrome();
-      openProfileModal();
+      setStatus("Signed in.");
     }
 
     async function ensureGoogle(opts) {
@@ -3885,6 +3840,8 @@
       document.getElementById("setReduceMotion").checked = userSettings.reduceMotion;
       document.getElementById("setShowFoundation").checked = userSettings.showFoundation;
       document.getElementById("setAutoSave").checked = userSettings.autoSaveAccount;
+      document.getElementById("setAiEnhance").checked = !!userSettings.aiEnhance;
+      document.getElementById("setAiApiKey").value = userSettings.aiApiKey || "";
     }
 
     function readSettingsForm() {
@@ -3901,7 +3858,9 @@
         showMesh: document.getElementById("setShowMesh").checked,
         reduceMotion: document.getElementById("setReduceMotion").checked,
         showFoundation: document.getElementById("setShowFoundation").checked,
-        autoSaveAccount: document.getElementById("setAutoSave").checked
+        autoSaveAccount: document.getElementById("setAutoSave").checked,
+        aiEnhance: document.getElementById("setAiEnhance").checked,
+        aiApiKey: document.getElementById("setAiApiKey").value || ""
       };
     }
 
@@ -3910,15 +3869,34 @@
       chartWeeks = userSettings.chartWeeks;
       const plan = loadPlan();
       if (plan) {
-        const rebuilt = buildPersonalPlan({
-          score: plan.score,
-          sym: plan.sym,
-          prop: plan.prop,
-          harm: plan.harm,
-          smile: plan.smile || 0,
-          label: plan.label
-        });
+        const rebuilt = buildPersonalPlan(
+          {
+            score: plan.score,
+            sym: plan.sym,
+            prop: plan.prop,
+            harm: plan.harm,
+            smile: plan.smile || 0,
+            label: plan.label,
+            tier: plan.tier,
+            tierLabel: plan.tierLabel || plan.label,
+            factors: plan.factors,
+            metrics: plan.profile && plan.profile.metrics,
+            match: plan.factors && plan.factors.ideal
+          },
+          {
+            metrics: plan.profile && plan.profile.metrics,
+            skin: plan.profile && plan.profile.metrics
+              ? { clarity: plan.profile.metrics.skinClarity }
+              : null,
+            profile: plan.profile
+          }
+        );
         rebuilt.at = plan.at || rebuilt.at;
+        if (plan.advisor && plan.advisor !== "look-metrics-v2" && plan.days && plan.days.length) {
+          rebuilt.days = plan.days;
+          rebuilt.advisor = plan.advisor;
+          if (plan.summary) rebuilt.summary = plan.summary;
+        }
         savePlan(rebuilt);
         if (view === "results") fillResults(rebuilt);
         else renderPlan(rebuilt);
@@ -3932,8 +3910,26 @@
       authModal.hidden = true;
       profileModal.hidden = true;
       syncSettingsForm();
+      const hint = document.getElementById("settingsAccountHint");
+      if (hint) {
+        hint.textContent = accountSession
+          ? "Signed in as " +
+            (accountSession.displayName || "your account") +
+            ". Edit name, photo, and accent here."
+          : "Sign in from the home screen. Name, photo, and accent are edited here — not during sign-in.";
+      }
       settingsModal.hidden = false;
     }
+
+    document.getElementById("settingsEditProfile").addEventListener("click", () => {
+      if (!accountSession) {
+        settingsModal.hidden = true;
+        openLogin();
+        return;
+      }
+      settingsModal.hidden = true;
+      openProfileModal();
+    });
 
     loginBtn.addEventListener("click", openLogin);
     signupBtn.addEventListener("click", openSignup);
@@ -3972,13 +3968,35 @@
           const p = document.getElementById("accUnlock").value;
           accountSession = await Vault.unlockVault(p, meta.id);
         }
+        await Vault.persistSession(accountSession);
         authModal.hidden = true;
         await refreshAccountChrome();
-        openProfileModal();
+        setStatus("Signed in.");
       } catch (e) {
         showAuthErr((e && e.message) || "Could not sign in");
       }
     });
+
+    function bindScrollReveal() {
+      const nodes = document.querySelectorAll("#home .reveal");
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        nodes.forEach((n) => n.classList.add("is-in"));
+        return;
+      }
+      if (!("IntersectionObserver" in window)) {
+        nodes.forEach((n) => n.classList.add("is-in"));
+        return;
+      }
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            entry.target.classList.toggle("is-in", entry.isIntersecting && entry.intersectionRatio >= 0.22);
+          });
+        },
+        { threshold: [0, 0.22, 0.45, 0.7], rootMargin: "-6% 0px -10% 0px" }
+      );
+      nodes.forEach((n) => io.observe(n));
+    }
 
     document.getElementById("profileCancel").addEventListener("click", () => {
       profileModal.hidden = true;
@@ -3987,11 +4005,13 @@
     document.getElementById("profileSwitchAccount").addEventListener("click", () => {
       profileModal.hidden = true;
       accountSession = null;
+      Vault.clearSession();
       document.documentElement.style.setProperty("--mint", "#5ef0a8");
       refreshAccountChrome().then(() => openLogin());
     });
     document.getElementById("profileSignOut").addEventListener("click", () => {
       accountSession = null;
+      Vault.clearSession();
       profileModal.hidden = true;
       document.documentElement.style.setProperty("--mint", "#5ef0a8");
       refreshAccountChrome();
@@ -4007,6 +4027,7 @@
         await Vault.deleteAccount(id);
         accountSession = null;
         selectedAccountId = null;
+        Vault.clearSession();
         profileModal.hidden = true;
         document.documentElement.style.setProperty("--mint", "#5ef0a8");
         await refreshAccountChrome();
@@ -4067,6 +4088,7 @@
         );
         accountSession.displayName = accountSession.profile.displayName;
         applyProfileAccent(accountSession.profile);
+        await Vault.persistSession(accountSession);
         await refreshAccountChrome();
         profileModal.hidden = true;
       } catch (e) {
@@ -4143,8 +4165,12 @@
       else showHome();
     });
 
+    let measureAspect = 1;
     function dist(a, b) {
-      return Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
+      const dx = (a.x - b.x) * measureAspect;
+      const dy = a.y - b.y;
+      const dz = ((a.z || 0) - (b.z || 0)) * measureAspect;
+      return Math.hypot(dx, dy, dz);
     }
     function mid(a, b) {
       return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: ((a.z || 0) + (b.z || 0)) / 2 };
@@ -4204,8 +4230,68 @@
           (g("rightEyeInner").y - g("rightEyeOuter").y)) /
         2;
       const chinProj = (g("noseTip").z || 0) - (chin.z || 0);
-
+      const intercanthal = dist(g("leftEyeInner"), g("rightEyeInner"));
+      const subnasale = g("subnasale");
+      const upperLipPt = g("upperLip");
+      const lowerLipPt = g("lowerLip");
+      const philH = dist(subnasale, upperLipPt);
+      const chinH = dist(lowerLipPt, chin);
+      const upperLipH = dist(g("cupid"), upperLipPt);
+      const lowerLipH = dist(lowerLipPt, g("lowerLipBottom"));
+      const fifth = bizyg / 5;
+      const leftAperture = dist(g("leftEyeUpper"), g("leftEyeLower"));
+      const rightAperture = dist(g("rightEyeUpper"), g("rightEyeLower"));
+      const noseMidW = dist(g("leftNoseMid"), g("rightNoseMid"));
+      const ramus =
+        (dist(g("leftRamus"), g("leftJaw")) + dist(g("rightRamus"), g("rightJaw"))) / 2;
+      const mandible =
+        (dist(g("leftJaw"), chin) + dist(g("rightJaw"), chin)) / 2;
+      function angleAt(a, vertex, c) {
+        const aspect = measureAspect || 1;
+        const v1x = (a.x - vertex.x) * aspect;
+        const v1y = a.y - vertex.y;
+        const v2x = (c.x - vertex.x) * aspect;
+        const v2y = c.y - vertex.y;
+        const d1 = Math.hypot(v1x, v1y) || 1e-6;
+        const d2 = Math.hypot(v2x, v2y) || 1e-6;
+        const cos = clamp((v1x * v2x + v1y * v2y) / (d1 * d2), -1, 1);
+        return (Math.acos(cos) * 180) / Math.PI;
+      }
+      function tiltDeg(inner, outer) {
+        const aspect = measureAspect || 1;
+        const dx = Math.abs((outer.x - inner.x) * aspect);
+        const dy = inner.y - outer.y;
+        return (Math.atan2(dy, dx || 1e-6) * 180) / Math.PI;
+      }
+      const leftTilt = tiltDeg(g("leftEyeInner"), g("leftEyeOuter"));
+      const rightTilt = tiltDeg(g("rightEyeInner"), g("rightEyeOuter"));
       const midlineX = (forehead.x + chin.x) / 2;
+      const cheekSpanX = Math.abs(rightCheek.x - leftCheek.x) || 1e-6;
+      const browMid = mid(g("leftBrowPeak"), g("rightBrowPeak"));
+      const pupils = mid(eyeL, eyeR);
+      const fwhrH = dist(browMid, upperLipPt);
+      const midH = dist(pupils, upperLipPt);
+      const lowerThird = dist(subnasale, chin);
+      const alarErr =
+        (Math.abs(g("leftNoseWing").x - g("leftEyeInner").x) +
+          Math.abs(g("rightNoseWing").x - g("rightEyeInner").x)) /
+        cheekSpanX;
+      const commissure =
+        (Math.abs(g("leftMouth").x - eyeL.x) + Math.abs(g("rightMouth").x - eyeR.x)) /
+        cheekSpanX;
+      const browTailErr =
+        (Math.abs(g("leftBrowTail").x - g("leftEyeOuter").x) +
+          Math.abs(g("rightBrowTail").x - g("rightEyeOuter").x)) /
+        cheekSpanX;
+      const eyeZ =
+        ((g("leftEyeUpper").z || 0) + (g("rightEyeUpper").z || 0)) / 2;
+      const browZ =
+        ((g("leftBrowPeak").z || 0) + (g("rightBrowPeak").z || 0)) / 2;
+      const irisL = lm[L.leftIris];
+      const irisR = lm[L.rightIris];
+      const irisSpan = irisL && irisR ? dist(irisL, irisR) : eyeSpan;
+
+      const yaw = (g("noseTip").x - midlineX) / cheekSpanX;
       let symErr = 0;
       let symN = 0;
       for (let i = 0; i < PAIR_SYMMETRY.length; i++) {
@@ -4240,15 +4326,55 @@
         philtrum: philtrum / faceH,
         midLower: midface / (lowerFace || 1e-6),
         chinProj,
-        symmetry: clamp(1 - (symErr / Math.max(symN, 1)) * 1.1, 0, 1)
+        lipFullness: dist(upperLipPt, lowerLipPt) / (mouthW || 1e-6),
+        yaw,
+        symmetry: clamp(1 - (symErr / Math.max(symN, 1)) * 1.1, 0, 1),
+        fwhr: bizyg / (fwhrH || 1e-6),
+        midfaceRatio: eyeSpan / (midH || 1e-6),
+        esr: eyeSpan / bizyg,
+        eyeGapRule: intercanthal / (eyeW || 1e-6),
+        noseIntercanthal: noseW / (intercanthal || 1e-6),
+        chinPhiltrum: chinH / (philH || 1e-6),
+        lipRatio: lowerLipH / (upperLipH || 1e-6),
+        fifthEye: eyeW / (fifth || 1e-6),
+        fifthGap: intercanthal / (fifth || 1e-6),
+        alarAlign: alarErr,
+        noseTaper: noseMidW / (noseW || 1e-6),
+        ramusRatio: ramus / (mandible || 1e-6),
+        gonialDeg:
+          (angleAt(g("leftTemple"), g("leftJaw"), chin) +
+            angleAt(g("rightTemple"), g("rightJaw"), chin)) /
+          2,
+        canthalDeg: (leftTilt + rightTilt) / 2,
+        canthalSym: Math.abs(leftTilt - rightTilt),
+        mouthLevel: Math.abs(g("leftMouth").y - g("rightMouth").y) / faceH,
+        noseMidline: Math.abs(g("noseTip").x - midlineX) / cheekSpanX,
+        browSym:
+          Math.abs(g("leftBrowPeak").y - g("rightBrowPeak").y) / faceH,
+        eyeSizeSym: Math.abs(leftAperture - rightAperture) / (eyeW || 1e-6),
+        commissure,
+        browTailAlign: browTailErr,
+        lowerPhiltrumShare: philH / (lowerThird || 1e-6),
+        trueUpper: dist(forehead, g("glabella")) / faceH,
+        trueMid: dist(g("glabella"), subnasale) / faceH,
+        trueLower: lowerThird / faceH,
+        chinWidth: dist(g("chinLeft"), g("chinRight")) / (bigonial || 1e-6),
+        mouthToJaw: mouthW / (bigonial || 1e-6),
+        upperLipNose: philH / (noseLen || 1e-6),
+        orbitalZ: browZ - eyeZ,
+        convexity:
+          (g("noseTip").z || 0) -
+          (((forehead.z || 0) + (chin.z || 0)) / 2),
+        irisSpan: irisSpan / (eyeSpan || 1e-6)
       };
     }
 
     function averageMetrics(samples) {
       if (!samples || !samples.length) return null;
+      const keys = Object.keys(samples[0]);
       const out = {};
-      for (let i = 0; i < METRIC_KEYS.length; i++) {
-        const k = METRIC_KEYS[i];
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
         let s = 0;
         let n = 0;
         for (let j = 0; j < samples.length; j++) {
@@ -4258,7 +4384,8 @@
             n++;
           }
         }
-        out[k] = n ? s / n : REF_PSL[k];
+        if (n) out[k] = s / n;
+        else if (typeof REF_PSL[k] === "number") out[k] = REF_PSL[k];
       }
       return out;
     }
@@ -4275,83 +4402,36 @@
 
     function matchMetricsToRef(metrics) {
       if (!metrics) return { match: 0, proportion: 0, harmony: 0, symmetry: 0 };
-      // Heavier weights on cues that separate the anchor from average faces.
-      const weights = {
-        heightWidth: 0.04,
-        thirdsTop: 0.04,
-        thirdsMid: 0.06,
-        thirdsLow: 0.06,
-        eyeSpacing: 0.08,
-        interocularFW: 0.05,
-        mouthToEyes: 0.1,
-        noseToFace: 0.04,
-        noseToMouth: 0.03,
-        jawDominance: 0.05,
-        jawToCheek: 0.06,
-        templeToCheek: 0.03,
-        browRatio: 0.04,
-        browEye: 0.05,
-        eyeAperture: 0.06,
-        cheekBalance: 0.07,
-        canthalLift: 0.05,
-        philtrum: 0.05,
-        midLower: 0.03,
-        chinProj: 0.08,
-        symmetry: 0.07
-      };
-      let sum = 0;
-      let wSum = 0;
+      const ideal = Advisor.idealMatch(metrics);
+      const bone = Advisor.analyzeBone(metrics);
+      const eyes = Advisor.analyzeEyes(metrics);
+      const hair = Advisor.analyzeHair(metrics);
+      // Keep a soft REF similarity term so the calibrated anchor still matters.
+      let refSum = 0;
+      let refN = 0;
       for (let i = 0; i < METRIC_KEYS.length; i++) {
         const k = METRIC_KEYS[i];
-        const w = weights[k] || 0.03;
-        const m = near(metrics[k], REF_PSL[k], REF_TOL[k]);
-        sum += m * w;
-        wSum += w;
+        if (typeof metrics[k] !== "number") continue;
+        refSum += near(metrics[k], REF_PSL[k], REF_TOL[k] * 0.85);
+        refN++;
       }
-      const match = clamp(sum / (wSum || 1), 0, 1);
-      const proportion = clamp(
-        (near(metrics.mouthToEyes, REF_PSL.mouthToEyes, REF_TOL.mouthToEyes) +
-          near(metrics.jawToCheek, REF_PSL.jawToCheek, REF_TOL.jawToCheek) +
-          near(metrics.eyeSpacing, REF_PSL.eyeSpacing, REF_TOL.eyeSpacing) +
-          near(metrics.chinProj, REF_PSL.chinProj, REF_TOL.chinProj) +
-          near(metrics.thirdsMid, REF_PSL.thirdsMid, REF_TOL.thirdsMid) +
-          near(metrics.eyeAperture, REF_PSL.eyeAperture, REF_TOL.eyeAperture)) /
-          6,
-        0,
-        1
-      );
-      const harmony = clamp(
-        (near(metrics.cheekBalance, REF_PSL.cheekBalance, REF_TOL.cheekBalance) +
-          near(metrics.canthalLift, REF_PSL.canthalLift, REF_TOL.canthalLift) +
-          near(metrics.browEye, REF_PSL.browEye, REF_TOL.browEye) +
-          near(metrics.philtrum, REF_PSL.philtrum, REF_TOL.philtrum)) /
-          4,
-        0,
-        1
-      );
-      return { match, proportion, harmony, symmetry: metrics.symmetry };
+      const refMatch = refN ? refSum / refN : 0;
+      const match = clamp(ideal * 0.62 + refMatch * 0.38, 0, 1);
+      return {
+        match,
+        proportion: clamp(bone.structure * 0.7 + hair.framing * 0.3, 0, 1),
+        harmony: clamp(eyes.quality * 0.65 + (metrics.cheekBalance ? near(metrics.cheekBalance, REF_PSL.cheekBalance, REF_TOL.cheekBalance) : 0.5) * 0.35, 0, 1),
+        symmetry: metrics.symmetry,
+        bone,
+        eyes,
+        hair,
+        ideal,
+        refMatch
+      };
     }
 
-    function scoreFromMatch(match) {
-      const m = clamp(match, 0, 1);
-      const anchor = REF_PSL.score;
-      const self = REF_PSL.selfMatch;
-      // Piecewise ladder — stops everything clustering in Chad lite.
-      //  ~0.35 subhuman/low · ~0.55 mid normie · ~0.70 high normie · ~self high Chad lite
-      let score;
-      if (m < 0.4) {
-        score = 1.2 + (m / 0.4) * (2.6 - 1.2);
-      } else if (m < 0.55) {
-        score = 2.6 + ((m - 0.4) / 0.15) * (3.7 - 2.6);
-      } else if (m < 0.68) {
-        score = 3.7 + ((m - 0.55) / 0.13) * (4.7 - 3.7);
-      } else if (m < self) {
-        score = 4.7 + ((m - 0.68) / Math.max(1e-6, self - 0.68)) * (anchor - 4.7);
-      } else {
-        score = anchor + ((m - self) / Math.max(1e-6, 1 - self)) * (6.9 - anchor);
-      }
-      return clamp(score, 1, PSL_MAX);
-    }
+    let lastSkinSample = { clarity: 0.55, evenness: 0.55, brightness: 0.5, redness: 0.5 };
+    let lastRatedFrame = null;
 
     function rateFace(landmarks, blendshapes, opts) {
       const options = opts || {};
@@ -4366,18 +4446,43 @@
       const samples =
         options.forceMetrics ||
         (metricSamples.length ? averageMetrics(metricSamples) : measured);
-      const { match, proportion, harmony, symmetry } = matchMetricsToRef(samples);
+      const matched = matchMetricsToRef(samples);
+      const { match, proportion, harmony, symmetry } = matched;
       const smile =
         (blend(blendshapes, "mouthSmileLeft") + blend(blendshapes, "mouthSmileRight")) / 2;
       const openJaw = blend(blendshapes, "jawOpen");
-      // Expression is a small polish term — structure dominates PSL.
       const expression = clamp(0.55 + smile * 0.25 - openJaw * 0.35, 0, 1);
-      const harm = clamp(harmony * 0.82 + expression * 0.18, 0, 1);
 
-      let score = scoreFromMatch(match);
-      // Tiny smile polish that cannot jump a tier by itself.
-      if (smile > 0.45) score = clamp(score + 0.08, 1, PSL_MAX);
+      const frame = options.frame || lastRatedFrame;
+      if (frame && landmarks && (options.skin || metricSamples.length % 3 === 0)) {
+        lastSkinSample = options.skin || Advisor.analyzeSkin(frame, landmarks, L);
+      } else if (options.skin) {
+        lastSkinSample = options.skin;
+      }
+      const skin = lastSkinSample;
+      const hairPx = frame ? Advisor.analyzeHairPixels(frame, landmarks, L) : 0.6;
+      const judged = Advisor.judgeLook(samples, { skin, hairPx });
+      const bone = judged.bone;
+      const eyes = judged.eyes;
+      const hair = judged.hair;
+      const nose = judged.nose;
+      const mouth = judged.mouth;
 
+      const factors = {
+        ...judged.parts,
+        expression,
+        ideal: match,
+        raw: judged.raw
+      };
+      if (options.aspect) measureAspect = options.aspect;
+      const own = Advisor.rateOwnModel(samples);
+      let score = own.score;
+
+      const harm = clamp(
+        eyes.quality * 0.34 + nose.quality * 0.22 + mouth.quality * 0.22 + expression * 0.12 + skin.clarity * 0.1,
+        0,
+        1
+      );
       const tierInfo = pslTierFromScore(score);
       let label = tierInfo.label;
       if (smile > 0.45 && tierInfo.tier !== "chad") {
@@ -4385,7 +4490,7 @@
       }
 
       const sampleCount = metricSamples.length;
-      return {
+      const ratedOut = {
         score,
         sym: symmetry,
         prop: proportion,
@@ -4395,8 +4500,18 @@
         tier: tierInfo.tier,
         tierLabel: tierInfo.label,
         match,
-        samples: sampleCount
+        samples: sampleCount,
+        ratioCount: own && own.cues ? Object.keys(own.cues).length : 0,
+        metrics: samples,
+        skin,
+        factors,
+        bone,
+        eyes,
+        hair,
+        nose,
+        mouth
       };
+      return ratedOut;
     }
 
     /**
@@ -4474,7 +4589,8 @@
           "PSL " +
           Settings.formatScore(display.score, userSettings.scoreDecimals) +
           " / 8 · " +
-          (ready || holdScore ? "true Adam is 8" : "keep still")
+          (ready || holdScore ? "true Adam is 8" : "keep still") +
+          (result.ratioCount ? " · " + result.ratioCount + " ratios" : "")
         : "PSL hidden — sign up or log in";
       scorePanel.hidden = false;
       applyTierClass(scoreValue, loggedIn ? tier : null);
@@ -4576,7 +4692,19 @@
       }
       zoomCtx.drawImage(source, sx, sy, crop, crop, 0, 0, out, out);
       zoomCtx.restore();
+      zoomCanvas._lookCrop = { sx, sy, crop, vw, vh, mirror: mirrorFront };
       return zoomCanvas;
+    }
+
+    function mapLandmarksToView(landmarks, frame) {
+      const crop = frame && frame._lookCrop;
+      if (!crop || !landmarks) return landmarks;
+      return landmarks.map((p) => {
+        let x = (p.x * crop.vw - crop.sx) / crop.crop;
+        const y = (p.y * crop.vh - crop.sy) / crop.crop;
+        if (crop.mirror) x = 1 - x;
+        return { x, y, z: p.z };
+      });
     }
 
     function drawFrame(landmarks, frameW, frameH, sourceFrame) {
@@ -4611,7 +4739,7 @@
         runningMode: modeName,
         numFaces: 1,
         outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: false
+        outputFacialTransformationMatrixes: true
       });
     }
 
@@ -4689,8 +4817,10 @@
               ? "No camera found on this device."
               : (lastErr && lastErr.message) || "Camera permission denied.";
         setStatus(hint, "warn");
+        try { localStorage.removeItem("look.cameraOk"); } catch (_) {}
         throw lastErr || new Error(hint);
       }
+      try { localStorage.setItem("look.cameraOk", "1"); } catch (_) {}
       video.hidden = false;
       demoImg.hidden = true;
       video.style.opacity = "0";
@@ -4718,10 +4848,8 @@
       if (video.currentTime === lastVideoTime) return;
       lastVideoTime = video.currentTime;
 
-      // Unmirrored face-centered crop — tighter FOV cuts front-camera barrel distortion.
-      const zoomed = renderZoomedFrame(video, lastLandmarks);
-      if (!zoomed) return;
-      const result = faceLandmarker.detectForVideo(zoomed, performance.now());
+      // Track on the full frame so landmarks stay in camera space.
+      const result = faceLandmarker.detectForVideo(video, performance.now());
       const faces = result.faceLandmarks || [];
       if (!faces.length) {
         faceZoom.scale = lerp(faceZoom.scale, 1.2, 0.2);
@@ -4737,12 +4865,24 @@
         return;
       }
       lastLandmarks = faces[0];
-      updateFaceZoomFromLandmarks(faces[0]);
-      drawFrame(faces[0], zoomed.width, zoomed.height, zoomed);
-      const rated = rateFace(faces[0], result.faceBlendshapes);
+      const zoomed = renderZoomedFrame(video, lastLandmarks);
+      if (!zoomed) return;
+      const yaw = Math.abs(lastLandmarks[1] && lastLandmarks[234] && lastLandmarks[454]
+        ? ((lastLandmarks[1].x - (lastLandmarks[234].x + lastLandmarks[454].x) / 2) /
+            (Math.abs(lastLandmarks[454].x - lastLandmarks[234].x) || 1))
+        : 0);
+      drawFrame(mapLandmarksToView(lastLandmarks, zoomed), zoomed.width, zoomed.height, zoomed);
+      lastRatedFrame = zoomed;
+      const rated = rateFace(lastLandmarks, result.faceBlendshapes, {
+        frame: zoomed,
+        aspect: (video.videoWidth || 1) / (video.videoHeight || 1),
+        record: yaw < 0.14
+      });
       if (!holdScore) held = { ...rated };
       showScore(rated);
-      if (rated.samples < SAMPLE_TARGET) {
+      if (yaw >= 0.14) {
+        setStatus("Face the camera straight — a side angle is not scored.");
+      } else if (rated.samples < SAMPLE_TARGET) {
         setStatus(
           "Sampling face ratios " + rated.samples + "/" + SAMPLE_TARGET + " — keep still"
         );
@@ -4816,9 +4956,10 @@
           const f = r.faceLandmarks && r.faceLandmarks[0];
           if (!f) continue;
           framed = crop;
+          lastRatedFrame = crop;
           faces = [f];
           lastShapes = r.faceBlendshapes || lastShapes;
-          rateFace(f, lastShapes, { record: true });
+          rateFace(f, lastShapes, { record: true, frame: crop });
         }
         if (!framed) {
           framed = renderZoomedFrame(demoImg, faces[0], { forceZoom: true });
@@ -4833,7 +4974,15 @@
         } catch (drawErr) {
           console.warn("Mesh draw skipped", drawErr);
         }
-        const rated = rateFace(faces[0], lastShapes, { record: true });
+        if (framed) lastRatedFrame = framed;
+        const skinOnce = framed
+          ? Advisor.analyzeSkin(framed, faces[0], L)
+          : lastSkinSample;
+        const rated = rateFace(faces[0], lastShapes, {
+          record: true,
+          frame: framed,
+          skin: skinOnce
+        });
         held = { ...rated };
         smooth = {
           score: rated.score,
@@ -4845,10 +4994,23 @@
           tierLabel: rated.tierLabel
         };
         showScore(rated);
+        gate.hidden = true;
         setStatus(
-          "Sample face · " +
+          "Photo read · " +
             metricSamples.length +
-            " ratio samples · MediaPipe IMAGE"
+            " samples · bone " +
+            Math.round((rated.factors.bone || 0) * 100) +
+            "% · eyes " +
+            Math.round((rated.factors.eyes || 0) * 100) +
+            "% · nose " +
+            Math.round((rated.factors.nose || 0) * 100) +
+            "% · mouth " +
+            Math.round((rated.factors.mouth || 0) * 100) +
+            "% · skin " +
+            Math.round((rated.factors.skin || 0) * 100) +
+            "% · hair " +
+            Math.round((rated.factors.hair || 0) * 100) +
+            "%"
         );
       } catch (err) {
         console.error(err);
@@ -4885,6 +5047,174 @@
 
     startBtn.addEventListener("click", boot);
     demoBtn.addEventListener("click", runDemo);
+
+    async function rateStillImageElement(img, label) {
+      cancelAnimationFrame(raf);
+      stopCamera();
+      mode = "demo";
+      startBtn.disabled = true;
+      demoBtn.disabled = true;
+      try {
+        await ensureLandmarker("IMAGE");
+        video.hidden = true;
+        demoImg.hidden = true;
+        canvas.style.transform = "none";
+        resetMetricSamples();
+        faceZoom = { cx: 0.5, cy: 0.42, scale: 1.45 };
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        let result = faceLandmarker.detect(img);
+        let faces = result.faceLandmarks || [];
+        gate.hidden = true;
+        flipBtn.disabled = true;
+        if (!faces.length) {
+          setStatus("No face found in that image.", "warn");
+          gate.hidden = false;
+          return;
+        }
+        const seedFace = faces[0];
+        const jitters = [
+          { s: 0, cx: 0, cy: 0 },
+          { s: 0.06, cx: 0.01, cy: -0.01 },
+          { s: -0.05, cx: -0.01, cy: 0.01 },
+          { s: 0.08, cx: 0, cy: 0.015 },
+          { s: -0.07, cx: 0.015, cy: 0 },
+          { s: 0.04, cx: -0.012, cy: -0.008 },
+          { s: -0.04, cx: 0.008, cy: 0.012 },
+          { s: 0.1, cx: 0, cy: 0 },
+          { s: -0.08, cx: -0.01, cy: -0.01 },
+          { s: 0.05, cx: 0.01, cy: 0.01 },
+          { s: -0.03, cx: 0, cy: -0.015 },
+          { s: 0.07, cx: -0.008, cy: 0.008 }
+        ];
+        let framed = null;
+        let lastShapes = result.faceBlendshapes;
+        for (let i = 0; i < jitters.length; i++) {
+          const j = jitters[i];
+          faceZoom.scale = clamp(1.45 + j.s, 1.2, 1.85);
+          faceZoom.cx = clamp(0.5 + j.cx, 0.35, 0.65);
+          faceZoom.cy = clamp(0.42 + j.cy, 0.3, 0.55);
+          const crop = renderZoomedFrame(img, seedFace, { forceZoom: true });
+          if (!crop) continue;
+          const r = faceLandmarker.detect(crop);
+          const f = r.faceLandmarks && r.faceLandmarks[0];
+          if (!f) continue;
+          framed = crop;
+          lastRatedFrame = crop;
+          faces = [f];
+          lastShapes = r.faceBlendshapes || lastShapes;
+          rateFace(f, lastShapes, { record: true, frame: crop });
+        }
+        if (!framed) {
+          framed = renderZoomedFrame(img, faces[0], { forceZoom: true });
+        }
+        if (framed) {
+          lastRatedFrame = framed;
+          try {
+            drawFrame(faces[0], framed.width, framed.height, framed);
+          } catch (_) {}
+        }
+        const skinOnce = framed
+          ? Advisor.analyzeSkin(framed, faces[0], L)
+          : lastSkinSample;
+        const rated = rateFace(faces[0], lastShapes, {
+          record: true,
+          frame: framed,
+          skin: skinOnce
+        });
+        held = { ...rated };
+        smooth = {
+          score: rated.score,
+          sym: rated.sym,
+          prop: rated.prop,
+          harm: rated.harm,
+          smile: rated.smile,
+          tier: rated.tier,
+          tierLabel: rated.tierLabel
+        };
+        showScore(rated);
+        gate.hidden = true;
+        setStatus(
+          (label || "Photo") +
+            " · bone " +
+            Math.round((rated.factors.bone || 0) * 100) +
+            "% · eyes " +
+            Math.round((rated.factors.eyes || 0) * 100) +
+            "% · nose " +
+            Math.round((rated.factors.nose || 0) * 100) +
+            "% · mouth " +
+            Math.round((rated.factors.mouth || 0) * 100) +
+            "% · skin " +
+            Math.round((rated.factors.skin || 0) * 100) +
+            "% · hair " +
+            Math.round((rated.factors.hair || 0) * 100) +
+            "%"
+        );
+      } catch (err) {
+        console.error(err);
+        setStatus((err && err.message) || "Could not rate that image.", "warn");
+        gate.hidden = false;
+      } finally {
+        startBtn.disabled = false;
+        demoBtn.disabled = false;
+      }
+    }
+
+    document.getElementById("photoFile").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      showScan({ skipAutoCamera: true });
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          await rateStillImageElement(img, "Upload");
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        setStatus("Could not read that photo.", "warn");
+      };
+      img.src = url;
+    });
+
+    document.getElementById("photoUrlBtn").addEventListener("click", async () => {
+      const raw = (document.getElementById("photoUrl").value || "").trim();
+      if (!raw) {
+        setStatus("Paste an image URL first.", "warn");
+        return;
+      }
+      showScan({ skipAutoCamera: true });
+      setStatus("Loading image…");
+      try {
+        const res = await fetch(raw, { mode: "cors" });
+        if (!res.ok) throw new Error("Could not fetch image (" + res.status + ").");
+        const blob = await res.blob();
+        if (!blob.type || !blob.type.startsWith("image/")) {
+          throw new Error("URL did not return an image.");
+        }
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error("Image decode failed."));
+          img.src = url;
+        });
+        await rateStillImageElement(img, "URL");
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error(err);
+        setStatus(
+          ((err && err.message) || "URL rate failed") +
+            " — try Upload if the host blocks CORS.",
+          "warn"
+        );
+        gate.hidden = false;
+      }
+    });
+
     flipBtn.addEventListener("click", async () => {
       facingMode = facingMode === "user" ? "environment" : "user";
       try { await startCamera(); } catch (_) { facingMode = "user"; }
@@ -4905,17 +5235,26 @@
         regs.forEach((r) => r.update().catch(() => {}));
       });
       navigator.serviceWorker
-        .register("./sw.js?v=13")
+        .register("./sw.js?v=21")
         .then((reg) => reg.update().catch(() => {}))
         .catch(() => {});
     }
 
     userSettings = Settings.applyDocumentSettings(userSettings);
-    refreshAccountChrome();
-    renderPlan(loadPlan());
-    if (location.hash === "#scan") showScan();
-    else if (location.hash === "#results") showResults(loadPlan());
-    else showHome();
+    (async function bootSession() {
+      try {
+        const restored = await Vault.restoreSession();
+        if (restored) {
+          accountSession = restored;
+        }
+      } catch (_) {}
+      await refreshAccountChrome();
+      renderPlan(loadPlan());
+      bindScrollReveal();
+      if (location.hash === "#scan") showScan();
+      else if (location.hash === "#results") showResults(loadPlan());
+      else showHome();
+    })();
   </script>
 </body>
 </html>

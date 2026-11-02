@@ -1,10 +1,11 @@
 /* LOOK — network-first; bump CACHE to force clients off stale shells. */
-const CACHE = "look-v20-home-melius";
+const CACHE = "look-v33-all-ratios";
 const SHELL = [
   "./",
   "./index.html",
   "./vault.js",
   "./settings.js",
+  "./advisor.js",
   "./config.js",
   "./manifest.webmanifest",
   "./icon.svg",
