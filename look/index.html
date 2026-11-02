@@ -1970,55 +1970,55 @@
     <section class="examples" aria-labelledby="examples-title">
       <div class="examples-head reveal">
         <h2 id="examples-title">Example reads</h2>
-        <p>4 is average. Chadlite is rare. Scores follow community examples from about 2 (Schiavelli) through 4 (Shia) up to 6.5 (Cavill).</p>
+        <p>4 is average. The score is limited by the weakest feature, so faces do not pile up on one tier. Schiavelli lands near 2.9, Cera near 2.4, Robbie near 4, Cavill near 6.</p>
       </div>
       <div class="celeb-list">
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-cavill.jpg" alt="Henry Cavill">
           <div class="celeb-copy">
-            <span class="psl">6.5</span>
+            <span class="psl">6.0</span>
             <h3>Henry Cavill</h3>
-            <p>Chad · community example, about top 1%</p>
+            <p>Chad lite · strongest match on this set</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-sweeney.jpg" alt="Sydney Sweeney">
           <div class="celeb-copy">
-            <span class="psl">4.6</span>
+            <span class="psl">5.2</span>
             <h3>Sydney Sweeney</h3>
-            <p>High tier · above average, not chadlite</p>
+            <p>Chad lite · above the average of 4</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-pascal.jpg" alt="Pedro Pascal">
           <div class="celeb-copy">
-            <span class="psl">4.6</span>
+            <span class="psl">5.2</span>
             <h3>Pedro Pascal</h3>
-            <p>High tier · above average, not chadlite</p>
+            <p>Chad lite · above the average of 4</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-robbie.jpg" alt="Margot Robbie">
           <div class="celeb-copy">
-            <span class="psl">4.6</span>
+            <span class="psl">4.0</span>
             <h3>Margot Robbie</h3>
-            <p>High tier · above average, not chadlite</p>
+            <p>Mid tier · this photo reads as average</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-zendaya.jpg" alt="Zendaya">
           <div class="celeb-copy">
-            <span class="psl">4.4</span>
+            <span class="psl">5.2</span>
             <h3>Zendaya</h3>
-            <p>High tier · above the average of 4</p>
+            <p>Chad lite · above the average of 4</p>
           </div>
         </article>
         <article class="celeb reveal">
           <img src="samples/celebs/celeb-chalamet.jpg" alt="Timothée Chalamet">
           <div class="celeb-copy">
-            <span class="psl">5.0</span>
+            <span class="psl">4.2</span>
             <h3>Timothée Chalamet</h3>
-            <p>High tier · community example is 5</p>
+            <p>Mid tier · narrower jaw pulls the score down</p>
           </div>
         </article>
       </div>
@@ -4153,8 +4153,12 @@
       else showHome();
     });
 
+    let measureAspect = 1;
     function dist(a, b) {
-      return Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
+      const dx = (a.x - b.x) * measureAspect;
+      const dy = a.y - b.y;
+      const dz = ((a.z || 0) - (b.z || 0)) * measureAspect;
+      return Math.hypot(dx, dy, dz);
     }
     function mid(a, b) {
       return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: ((a.z || 0) + (b.z || 0)) / 2 };
@@ -4363,11 +4367,9 @@
         ideal: match,
         raw: judged.raw
       };
-      const community = Advisor.scoreFromCommunity(samples, factors);
-      let score = community.score;
-      if (smile > 0.45) score = clamp(score + 0.06, 1, PSL_MAX);
-      // Only a clearly weak feature can pull a high read down — not studio-light noise.
-      if (bone.structure < 0.38 && score > 5.2) score = clamp(score - 0.25, 1, PSL_MAX);
+      if (options.aspect) measureAspect = options.aspect;
+      const own = Advisor.rateOwnModel(samples);
+      let score = own.score;
 
       const harm = clamp(
         eyes.quality * 0.34 + nose.quality * 0.22 + mouth.quality * 0.22 + expression * 0.12 + skin.clarity * 0.1,
@@ -4581,7 +4583,19 @@
       }
       zoomCtx.drawImage(source, sx, sy, crop, crop, 0, 0, out, out);
       zoomCtx.restore();
+      zoomCanvas._lookCrop = { sx, sy, crop, vw, vh, mirror: mirrorFront };
       return zoomCanvas;
+    }
+
+    function mapLandmarksToView(landmarks, frame) {
+      const crop = frame && frame._lookCrop;
+      if (!crop || !landmarks) return landmarks;
+      return landmarks.map((p) => {
+        let x = (p.x * crop.vw - crop.sx) / crop.crop;
+        const y = (p.y * crop.vh - crop.sy) / crop.crop;
+        if (crop.mirror) x = 1 - x;
+        return { x, y, z: p.z };
+      });
     }
 
     function drawFrame(landmarks, frameW, frameH, sourceFrame) {
@@ -4616,7 +4630,7 @@
         runningMode: modeName,
         numFaces: 1,
         outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: false
+        outputFacialTransformationMatrixes: true
       });
     }
 
@@ -4725,10 +4739,8 @@
       if (video.currentTime === lastVideoTime) return;
       lastVideoTime = video.currentTime;
 
-      // Unmirrored face-centered crop — tighter FOV cuts front-camera barrel distortion.
-      const zoomed = renderZoomedFrame(video, lastLandmarks);
-      if (!zoomed) return;
-      const result = faceLandmarker.detectForVideo(zoomed, performance.now());
+      // Track on the full frame so landmarks stay in camera space.
+      const result = faceLandmarker.detectForVideo(video, performance.now());
       const faces = result.faceLandmarks || [];
       if (!faces.length) {
         faceZoom.scale = lerp(faceZoom.scale, 1.2, 0.2);
@@ -4744,13 +4756,24 @@
         return;
       }
       lastLandmarks = faces[0];
-      updateFaceZoomFromLandmarks(faces[0]);
-      drawFrame(faces[0], zoomed.width, zoomed.height, zoomed);
+      const zoomed = renderZoomedFrame(video, lastLandmarks);
+      if (!zoomed) return;
+      const yaw = Math.abs(lastLandmarks[1] && lastLandmarks[234] && lastLandmarks[454]
+        ? ((lastLandmarks[1].x - (lastLandmarks[234].x + lastLandmarks[454].x) / 2) /
+            (Math.abs(lastLandmarks[454].x - lastLandmarks[234].x) || 1))
+        : 0);
+      drawFrame(mapLandmarksToView(lastLandmarks, zoomed), zoomed.width, zoomed.height, zoomed);
       lastRatedFrame = zoomed;
-      const rated = rateFace(faces[0], result.faceBlendshapes, { frame: zoomed });
+      const rated = rateFace(lastLandmarks, result.faceBlendshapes, {
+        frame: zoomed,
+        aspect: (video.videoWidth || 1) / (video.videoHeight || 1),
+        record: yaw < 0.14
+      });
       if (!holdScore) held = { ...rated };
       showScore(rated);
-      if (rated.samples < SAMPLE_TARGET) {
+      if (yaw >= 0.14) {
+        setStatus("Face the camera straight — a side angle is not scored.");
+      } else if (rated.samples < SAMPLE_TARGET) {
         setStatus(
           "Sampling face ratios " + rated.samples + "/" + SAMPLE_TARGET + " — keep still"
         );
