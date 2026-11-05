@@ -42,6 +42,14 @@ python3 -m http.server 8741
 
 Open http://localhost:8741/skeleton.html and allow the camera. On a Chromebook, turn on Linux under Settings → Advanced → Developers if `python3` is not there yet, copy the file into the Linux files folder, and run that command in the Terminal app.
 
+## PolyTrack on a Chromebook
+
+`play.html` is an unofficial local copy of PolyTrack 0.6.3 by [Kodub](https://www.kodub.com). It is not affiliated with, endorsed by, or sponsored by Kodub, CrazyGames, Poki, or itch.io. The official game is on [CrazyGames](https://www.crazygames.com/game/polytrack).
+
+Download `play.html` and open it in Chrome. On a Chromebook, save the file and open it from the Files app with Chrome. No Linux install and no local server. WASD or the arrow keys drive. R restarts the track. The credit bar has a Hide button if it covers the view.
+
+Leaderboards and Track of the Week stay on the official site. Kodub's PolyTrack terms allow this kind of offline copy when the credit and the in-game notice stay in place.
+
 ## The game
 
 A three-lane runner controlled by a camera. MoveNet Lightning (TensorFlow Lite) reads the person in frame, and their hands become the controls: jump, sprint, slide, and lane changes.
